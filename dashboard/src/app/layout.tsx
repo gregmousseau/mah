@@ -5,6 +5,9 @@ import Sidebar from "@/components/Sidebar";
 export const metadata: Metadata = {
   title: "MAH Dashboard",
   description: "Multi-Agent Harness — Sprint Monitor",
+  icons: {
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>",
+  },
 };
 
 export default function RootLayout({
@@ -14,6 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
       <body>
         <div className="flex min-h-screen">
           <Sidebar />

@@ -59,9 +59,31 @@ export default function DashboardPage() {
   const { data: sprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
   const { data: config } = usePolling<MahConfig>("/api/config", 60000);
 
-  const recentSprints = (sprints || []).slice(-5).reverse();
+  const recentSprints = (sprints || []).slice().reverse();
   const priorities = config?.priorities ? priorityOrder(config.priorities) : [];
   const s = stats || { totalSprints: 0, passRate: 0, avgIterations: 0, totalCost: 0, costPerSprint: [] };
+
+  const isLoading = !stats && !sprints;
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: "32px", maxWidth: "1100px" }}>
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{ height: "28px", width: "200px", background: "#141420", borderRadius: "6px", marginBottom: "8px" }} className="skeleton" />
+          <div style={{ height: "14px", width: "300px", background: "#141420", borderRadius: "4px" }} className="skeleton" />
+        </div>
+        <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px" }}>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px", height: "88px" }} className="skeleton" />
+          ))}
+        </div>
+        <div className="two-col-layout" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+          <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", height: "240px" }} className="skeleton" />
+          <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", height: "240px" }} className="skeleton" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "32px", maxWidth: "1100px" }}>
@@ -98,7 +120,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "16px", marginBottom: "32px" }}>
+      <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px" }}>
         <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
           <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Total Sprints</div>
           <AnimatedNumber value={s.totalSprints} style={{ fontSize: "32px", fontWeight: 700, color: "#e0e0e8" }} />
@@ -118,7 +140,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Two-column layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+      <div className="two-col-layout" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
         {/* Recent Sprints */}
         <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
@@ -127,7 +149,11 @@ export default function DashboardPage() {
           </div>
 
           {recentSprints.length === 0 ? (
-            <div style={{ color: "#888898", fontSize: "14px" }}>No sprints yet.</div>
+            <div style={{ color: "#888898", fontSize: "14px", padding: "16px 0" }}>
+              <div style={{ fontSize: "24px", marginBottom: "8px" }}>⚡</div>
+              <div style={{ fontWeight: 500, color: "#e0e0e8", marginBottom: "4px" }}>No sprints yet</div>
+              <div style={{ fontSize: "12px" }}>Run your first sprint with <code style={{ background: "#0d0d18", padding: "1px 5px", borderRadius: "4px" }}>mah run</code></div>
+            </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {recentSprints.map((sprint) => (

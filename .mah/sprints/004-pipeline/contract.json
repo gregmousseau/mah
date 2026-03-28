@@ -1,0 +1,40 @@
+{
+  "id": "004",
+  "name": "Pipeline Executor",
+  "task": "Core pipeline engine: adapter layer, contract generator, output parser, metrics collector, event emitter, and end-to-end sprint runner",
+  "status": "passed",
+  "devBrief": {
+    "repo": "~/clawd/projects/mah",
+    "constraints": ["TypeScript strict mode", "Event-driven architecture", "JSONL event log format", "No external dependencies beyond existing"],
+    "definitionOfDone": ["mah run executes a real sprint", "Events logged to .mah/events.jsonl", "Contract and metrics written on completion", "Dev and QA agents invoked via Claude Code"]
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "",
+    "testFocus": ["mah run executes without crash", "Contract file written", "Metrics file written", "Event log populated"],
+    "passCriteria": ["Sprint completes or fails gracefully", "All output files created", "No unhandled exceptions"],
+    "knownLimitations": ["QA tier enforcement not yet wired", "No retry on network error"]
+  },
+  "iterations": [{
+    "round": 1,
+    "dev": {
+      "output": "18 files created. ClaudeAdapter, ContractGenerator, OutputParser, MetricsCollector, EventEmitter, Pipeline orchestrator. mah run now executes dev → qa loop.",
+      "startTime": "2026-03-28T19:58:00Z",
+      "endTime": "2026-03-28T20:02:00Z",
+      "durationMs": 240000,
+      "model": "sonnet",
+      "costEstimate": 0.20
+    },
+    "qa": {
+      "output": "Smoke test: mah run completes end-to-end. contract.json and metrics.json written to .mah/sprints/. events.jsonl populated with 12 events. PASS.",
+      "startTime": "2026-03-28T20:02:30Z",
+      "endTime": "2026-03-28T20:04:00Z",
+      "durationMs": 90000,
+      "model": "sonnet",
+      "costEstimate": 0.06
+    },
+    "defects": []
+  }],
+  "createdAt": "2026-03-28T19:58:00Z",
+  "completedAt": "2026-03-28T20:04:00Z"
+}

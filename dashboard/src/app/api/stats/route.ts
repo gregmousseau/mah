@@ -5,6 +5,16 @@ import { join } from "path";
 const MAH_ROOT = join(process.cwd(), "..");
 const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
 
+function isRealSprint(dirName: string, contract: Record<string, unknown> | null): boolean {
+  if (!contract) return false;
+  // A "real" sprint has a short numeric ID (001, 002, etc.)
+  const id = contract.id as string || "";
+  if (/^\d{3}$/.test(id)) return true;
+  // Or a dir that starts with a 3-digit number
+  if (/^\d{3}-/.test(dirName)) return true;
+  return false;
+}
+
 export async function GET() {
   try {
     if (!existsSync(SPRINTS_DIR)) {
@@ -13,9 +23,11 @@ export async function GET() {
 
     const dirs = readdirSync(SPRINTS_DIR, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => d.name);
+      .map((d) => d.name)
+      .sort();
 
     let totalSprints = 0;
+    let completedSprints = 0;
     let passed = 0;
     let totalIterations = 0;
     let totalCost = 0;
@@ -25,14 +37,25 @@ export async function GET() {
       const metricsPath = join(SPRINTS_DIR, dir, "metrics.json");
       const contractPath = join(SPRINTS_DIR, dir, "contract.json");
 
-      if (!existsSync(metricsPath)) continue;
-
-      const metrics = JSON.parse(readFileSync(metricsPath, "utf-8"));
       const contract = existsSync(contractPath)
         ? JSON.parse(readFileSync(contractPath, "utf-8"))
         : null;
 
+      // Skip placeholder/test sprints
+      if (!isRealSprint(dir, contract)) continue;
+
+      if (!existsSync(metricsPath)) {
+        // Running sprint with no metrics yet — count it but don't affect pass rate
+        if (contract?.status === "running" || contract?.status === "dev" || contract?.status === "qa") {
+          totalSprints++;
+        }
+        continue;
+      }
+
+      const metrics = JSON.parse(readFileSync(metricsPath, "utf-8"));
+
       totalSprints++;
+      completedSprints++;
       if (metrics.verdict === "pass" || metrics.verdict === "conditional") passed++;
       totalIterations += metrics.totals?.iterations || 0;
       totalCost += metrics.totals?.estimatedCost || 0;
@@ -47,8 +70,8 @@ export async function GET() {
 
     return NextResponse.json({
       totalSprints,
-      passRate: totalSprints > 0 ? Math.round((passed / totalSprints) * 100) : 0,
-      avgIterations: totalSprints > 0 ? Math.round((totalIterations / totalSprints) * 10) / 10 : 0,
+      passRate: completedSprints > 0 ? Math.round((passed / completedSprints) * 100) : 0,
+      avgIterations: completedSprints > 0 ? Math.round((totalIterations / completedSprints) * 10) / 10 : 0,
       totalCost: Math.round(totalCost * 100) / 100,
       costPerSprint: costPerSprint.sort((a, b) => a.id.localeCompare(b.id)),
     });

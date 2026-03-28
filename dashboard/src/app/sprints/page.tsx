@@ -41,11 +41,16 @@ export default async function SprintsPage() {
           background: "#141420",
           border: "1px solid #2a2a3a",
           borderRadius: "12px",
-          padding: "40px",
+          padding: "48px",
           textAlign: "center",
           color: "#888898",
         }}>
-          No sprints found. Run your first sprint to get started.
+          <div style={{ fontSize: "32px", marginBottom: "12px" }}>⚡</div>
+          <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>No sprints yet</div>
+          <div style={{ fontSize: "13px", marginBottom: "16px" }}>Run your first sprint to get started.</div>
+          <code style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "6px 12px", fontSize: "13px", color: "#a855f7" }}>
+            mah run
+          </code>
         </div>
       ) : (
         <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", overflow: "hidden" }}>
@@ -92,7 +97,22 @@ export default async function SprintsPage() {
                 #{sprint.id}
               </div>
               <div>
-                <div style={{ fontSize: "14px", color: "#e0e0e8", fontWeight: 500 }}>{sprint.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "14px", color: "#e0e0e8", fontWeight: 500 }}>{sprint.name}</span>
+                  {sprint.iterations > 0 && (
+                    <span style={{
+                      fontSize: "10px",
+                      color: sprint.iterations > 1 ? "#f59e0b" : "#22c55e",
+                      background: sprint.iterations > 1 ? "rgba(245,158,11,0.1)" : "rgba(34,197,94,0.1)",
+                      border: `1px solid ${sprint.iterations > 1 ? "rgba(245,158,11,0.25)" : "rgba(34,197,94,0.25)"}`,
+                      borderRadius: "4px",
+                      padding: "1px 6px",
+                      fontWeight: 600,
+                    }}>
+                      {sprint.iterations} iter
+                    </span>
+                  )}
+                </div>
               </div>
               <div style={{ fontSize: "12px", color: "#888898" }}>
                 {sprint.createdAt ? formatDate(sprint.createdAt) : "—"}

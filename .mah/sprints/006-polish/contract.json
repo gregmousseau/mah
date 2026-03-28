@@ -1,0 +1,20 @@
+{
+  "id": "006",
+  "name": "Polish + Demo",
+  "task": "Dashboard polish: demo sprint data for all 6 sprints, loading/empty states, sidebar total cost, mobile responsiveness, sprint detail showpiece, page titles",
+  "status": "running",
+  "devBrief": {
+    "repo": "~/clawd/projects/mah/dashboard",
+    "constraints": ["No breaking changes", "Dark theme consistent", "Must work without running pipeline", "Mobile responsive"],
+    "definitionOfDone": ["All 6 sprints visible", "Stats show correct aggregates", "Sprint 001 detail is demo showpiece", "Mobile responsive", "Loading/empty states handled", "No console errors"]
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "http://localhost:3333",
+    "testFocus": ["6 sprints visible in list", "Stats: 6 sprints, 100% pass rate, ~$2.25 total cost", "Sprint 001 detail: timeline, defects, cost breakdown", "Mobile sidebar collapses"],
+    "passCriteria": ["All 6 sprints display", "Correct aggregate stats", "No console errors", "Mobile layout works"],
+    "knownLimitations": ["Sprint 006 metrics pending completion"]
+  },
+  "iterations": [],
+  "createdAt": "2026-03-28T20:18:00Z"
+}

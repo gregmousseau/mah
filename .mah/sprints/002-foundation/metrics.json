@@ -1,0 +1,25 @@
+{
+  "sprintId": "002",
+  "projectName": "MAH",
+  "task": "Foundation + Types",
+  "startTime": "2026-03-28T19:40:00Z",
+  "endTime": "2026-03-28T19:45:30Z",
+  "phases": [
+    { "phase": "plan", "round": 0, "durationMs": 30000, "model": "sonnet", "costEstimate": 0.02 },
+    { "phase": "dev", "round": 1, "durationMs": 240000, "model": "sonnet", "costEstimate": 0.18 },
+    { "phase": "qa", "round": 1, "durationMs": 60000, "model": "sonnet", "costEstimate": 0.05 }
+  ],
+  "totals": {
+    "durationMs": 330000,
+    "estimatedCost": 0.25,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
+    "defectsFixed": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
+    "defectsRemaining": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 }
+  },
+  "verdict": "pass",
+  "bottleneck": "Dev R1 (4 min) - project scaffold and type definitions"
+}

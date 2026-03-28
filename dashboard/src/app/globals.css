@@ -105,6 +105,71 @@ body {
   animation: phasePulse 2s ease-in-out infinite;
 }
 
+/* ── Skeleton loading ─────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #141420 25%, #1e1e30 50%, #141420 75%) !important;
+  background-size: 200% 100% !important;
+  animation: shimmer 1.5s infinite !important;
+}
+
+/* ── Mobile Responsive ─────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar-hamburger {
+    display: flex !important;
+  }
+
+  .sidebar-root {
+    position: fixed !important;
+    top: 0;
+    left: -240px;
+    height: 100vh;
+    z-index: 50;
+    transition: left 0.25s ease;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-root.sidebar-open {
+    left: 0;
+  }
+
+  main {
+    padding-top: 56px; /* space for hamburger button */
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .sprint-table-row,
+  .sprint-table-header {
+    grid-template-columns: 50px 1fr 80px 70px !important;
+  }
+
+  .sprint-table-col-date-sub,
+  .sprint-table-col-verdict-label {
+    display: none;
+  }
+
+  .two-col-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .timeline-meta {
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+
+  h1 {
+    font-size: 20px !important;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

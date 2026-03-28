@@ -1,0 +1,40 @@
+{
+  "id": "003",
+  "name": "Dashboard UI",
+  "task": "Next.js dashboard with timeline view, defects table, metrics cards, sidebar navigation, and sprint detail pages",
+  "status": "passed",
+  "devBrief": {
+    "repo": "~/clawd/projects/mah/dashboard",
+    "constraints": ["Next.js 15 App Router", "Dark theme (#0d0d18 bg)", "No external UI libraries", "Inline styles only"],
+    "definitionOfDone": ["Dashboard loads at localhost:3333", "Sprint list shows Sprint 001", "Sprint detail shows timeline and defects", "Sidebar navigation works"]
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "http://localhost:3333",
+    "testFocus": ["Dashboard loads", "Sprint list renders", "Sprint detail page renders", "API routes return data"],
+    "passCriteria": ["No console errors", "All pages load", "Sprint 001 data visible"],
+    "knownLimitations": ["Static data only — no live pipeline connection yet"]
+  },
+  "iterations": [{
+    "round": 1,
+    "dev": {
+      "output": "34 files created. Next.js app scaffolded with App Router. SprintTimeline, DefectTable, MetricsCard, VerdictBadge, Sidebar, ActiveSprint, AnimatedNumber components. API routes for sprints, stats, config, events, heartbeat.",
+      "startTime": "2026-03-28T19:46:00Z",
+      "endTime": "2026-03-28T19:54:00Z",
+      "durationMs": 480000,
+      "model": "sonnet",
+      "costEstimate": 0.35
+    },
+    "qa": {
+      "output": "Smoke test: Dashboard loads at localhost:3333. Sprint 001 visible in list. Detail page shows 2-iteration timeline with defects. All API routes respond. PASS.",
+      "startTime": "2026-03-28T19:54:30Z",
+      "endTime": "2026-03-28T19:57:30Z",
+      "durationMs": 180000,
+      "model": "sonnet",
+      "costEstimate": 0.08
+    },
+    "defects": []
+  }],
+  "createdAt": "2026-03-28T19:46:00Z",
+  "completedAt": "2026-03-28T19:57:30Z"
+}

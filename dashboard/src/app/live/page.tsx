@@ -238,8 +238,13 @@ export default function LivePage() {
         </div>
 
         {sortedEvents.length === 0 ? (
-          <div style={{ padding: "32px", textAlign: "center", color: "#555565", fontSize: "13px", fontFamily: "monospace" }}>
-            _ no events yet
+          <div style={{ padding: "40px", textAlign: "center" }}>
+            <div style={{ fontSize: "28px", marginBottom: "10px" }}>📡</div>
+            <div style={{ fontSize: "14px", color: "#888898", marginBottom: "6px" }}>Waiting for events...</div>
+            <div style={{ fontSize: "12px", color: "#555565" }}>
+              Start a sprint with{" "}
+              <code style={{ background: "#0d0d18", padding: "1px 5px", borderRadius: "4px", color: "#a855f7" }}>mah run</code>
+            </div>
           </div>
         ) : (
           <div ref={containerRef} style={{ maxHeight: "640px", overflowY: "auto" }}>

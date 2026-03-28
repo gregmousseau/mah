@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEffect } from "react";
 import SprintTimeline from "@/components/SprintTimeline";
 import DefectTable from "@/components/DefectTable";
 import VerdictBadge from "@/components/VerdictBadge";
@@ -46,10 +47,28 @@ export default function SprintDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, loading, error } = usePolling<SprintData>(`/api/sprints/${id}`, 5000);
 
+  // Dynamic page title
+  useEffect(() => {
+    if (data?.contract) {
+      document.title = `Sprint #${data.contract.id} — ${data.contract.name} | MAH`;
+    } else {
+      document.title = "Sprint | MAH Dashboard";
+    }
+    return () => { document.title = "MAH Dashboard"; };
+  }, [data]);
+
   if (loading && !data) {
     return (
-      <div style={{ padding: "32px", color: "#888898", fontSize: "14px" }}>
-        Loading sprint...
+      <div style={{ padding: "32px", maxWidth: "900px" }}>
+        <div style={{ height: "14px", width: "160px", background: "#141420", borderRadius: "4px", marginBottom: "24px" }} className="skeleton" />
+        <div style={{ height: "32px", width: "340px", background: "#141420", borderRadius: "6px", marginBottom: "16px" }} className="skeleton" />
+        <div style={{ height: "8px", width: "100%", background: "#141420", borderRadius: "4px", marginBottom: "32px" }} className="skeleton" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "28px" }}>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{ height: "76px", background: "#141420", borderRadius: "10px" }} className="skeleton" />
+          ))}
+        </div>
+        <div style={{ height: "320px", background: "#141420", borderRadius: "12px" }} className="skeleton" />
       </div>
     );
   }
@@ -132,8 +151,47 @@ export default function SprintDetailPage() {
               fontSize: "13px",
               color: "#888898",
             }}>
-              <span style={{ color: "#f59e0b", fontWeight: 600 }}>Bottleneck: </span>
+              <span style={{ color: "#f59e0b", fontWeight: 600 }}>⚡ Bottleneck: </span>
               {metrics.bottleneck}
+            </div>
+          )}
+
+          {/* Cost breakdown per phase */}
+          {metrics.phases && metrics.phases.length > 0 && (
+            <div style={{ marginTop: "16px" }}>
+              <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Cost breakdown by phase
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {metrics.phases.map((phase, i) => {
+                  const pct = metrics.totals.estimatedCost > 0
+                    ? (phase.costEstimate / metrics.totals.estimatedCost) * 100
+                    : 0;
+                  const phaseColor = phase.phase === "dev" ? "#3b82f6" : phase.phase === "qa" ? "#a855f7" : "#7c3aed";
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div style={{ width: "60px", fontSize: "11px", color: phaseColor, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        {phase.phase}{phase.round > 0 ? ` R${phase.round}` : ""}
+                      </div>
+                      <div style={{ flex: 1, height: "6px", background: "#1e1e2e", borderRadius: "3px", overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%",
+                          width: `${pct}%`,
+                          background: phaseColor,
+                          borderRadius: "3px",
+                          transition: "width 0.4s ease",
+                        }} />
+                      </div>
+                      <div style={{ width: "44px", fontSize: "11px", color: "#888898", textAlign: "right" }}>
+                        ${phase.costEstimate.toFixed(2)}
+                      </div>
+                      <div style={{ width: "32px", fontSize: "10px", color: "#555565", textAlign: "right" }}>
+                        {Math.round(pct)}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </Section>

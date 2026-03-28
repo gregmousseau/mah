@@ -1,0 +1,40 @@
+{
+  "id": "002",
+  "name": "Foundation + Types",
+  "task": "Project structure, TypeScript types, config schema, CLI scaffold, Sprint 001 seed data",
+  "status": "passed",
+  "devBrief": {
+    "repo": "~/clawd/projects/mah",
+    "constraints": ["TypeScript strict mode", "Commander CLI", "js-yaml config"],
+    "definitionOfDone": ["TypeScript compiles clean", "mah status displays config", "Sprint 001 seed data loads"]
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "",
+    "testFocus": ["TypeScript compiles", "CLI commands work", "Config round-trips"],
+    "passCriteria": ["Zero compile errors", "mah status shows Sprint 001 data"],
+    "knownLimitations": ["mah run is placeholder only"]
+  },
+  "iterations": [{
+    "round": 1,
+    "dev": {
+      "output": "16 files created. npm init, TypeScript, commander, js-yaml, chalk installed. Types, config loader, CLI scaffold, seed data.",
+      "startTime": "2026-03-28T19:40:00Z",
+      "endTime": "2026-03-28T19:44:00Z",
+      "durationMs": 240000,
+      "model": "sonnet",
+      "costEstimate": 0.18
+    },
+    "qa": {
+      "output": "Smoke test: TypeScript compiles clean. mah status displays W Construction config with Sprint 001 data ($1.07). PASS.",
+      "startTime": "2026-03-28T19:44:30Z",
+      "endTime": "2026-03-28T19:45:30Z",
+      "durationMs": 60000,
+      "model": "sonnet",
+      "costEstimate": 0.05
+    },
+    "defects": []
+  }],
+  "createdAt": "2026-03-28T19:40:00Z",
+  "completedAt": "2026-03-28T19:45:30Z"
+}
