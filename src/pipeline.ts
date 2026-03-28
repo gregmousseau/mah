@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { existsSync } from 'node:fs'
 import chalk from 'chalk'
 import { OpenClawAdapter } from './adapters/openclaw.js'
 import {
@@ -19,6 +20,54 @@ import type {
   SprintIteration,
   PhaseResult,
 } from './types.js'
+
+function writeNotification(contract: SprintContract, metrics: SprintMetrics): void {
+  try {
+    const notification = {
+      type: 'sprint_complete',
+      sprintId: contract.id,
+      name: contract.name,
+      verdict: contract.status,
+      iterations: contract.iterations.length,
+      cost: metrics.totals.estimatedCost,
+      duration: metrics.totals.durationMs,
+      timestamp: new Date().toISOString(),
+    }
+    const notifPath = join(resolve(process.cwd(), '.mah'), 'notifications', 'latest.json')
+    mkdirSync(join(resolve(process.cwd(), '.mah'), 'notifications'), { recursive: true })
+    writeFileSync(notifPath, JSON.stringify(notification, null, 2), 'utf-8')
+  } catch (err) {
+    console.error('Failed to write notification:', err)
+  }
+}
+
+function writeHeartbeat(phase: string, round: number, startTime: number): void {
+  try {
+    const heartbeat = {
+      alive: true,
+      phase,
+      round,
+      elapsed: Date.now() - startTime,
+      lastUpdate: new Date().toISOString(),
+    }
+    const hbPath = join(resolve(process.cwd(), '.mah'), 'heartbeat.json')
+    mkdirSync(resolve(process.cwd(), '.mah'), { recursive: true })
+    writeFileSync(hbPath, JSON.stringify(heartbeat, null, 2), 'utf-8')
+  } catch {
+    // Silently fail — heartbeat is best-effort
+  }
+}
+
+function clearHeartbeat(): void {
+  try {
+    const hbPath = join(resolve(process.cwd(), '.mah'), 'heartbeat.json')
+    if (existsSync(hbPath)) {
+      writeFileSync(hbPath, JSON.stringify({ alive: false, lastUpdate: new Date().toISOString() }, null, 2), 'utf-8')
+    }
+  } catch {
+    // ignore
+  }
+}
 
 function saveContract(contract: SprintContract, sprintDir: string): void {
   const dir = join(sprintDir, contract.id)
@@ -75,6 +124,15 @@ export async function runSprint(
   const adapter = new OpenClawAdapter()
   let lastDevOutput = ''
   let lastQAOutput = ''
+  let currentPhase = 'contract'
+  let currentRound = 0
+  const sprintStartTime = Date.now()
+
+  // Start heartbeat interval
+  writeHeartbeat(currentPhase, currentRound, sprintStartTime)
+  const heartbeatInterval = setInterval(() => {
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime)
+  }, 30_000)
 
   // 3. Dev/QA loop
   for (let round = 1; round <= config.qa.maxIterations; round++) {
@@ -83,6 +141,9 @@ export async function runSprint(
 
     // 3a. Dev phase
     contract.status = 'dev'
+    currentPhase = 'dev'
+    currentRound = round
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime)
     events.log('moe', 'spawn', 'dev', `Spawned dev agent R${round}`)
 
     const devPrompt = round === 1
@@ -102,6 +163,8 @@ export async function runSprint(
 
     // 3b. QA phase
     contract.status = 'qa'
+    currentPhase = 'qa'
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime)
     events.log('moe', 'spawn', 'qa', `Spawned Quinn for QA R${round}`)
 
     const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
@@ -187,6 +250,11 @@ export async function runSprint(
 
   // Also save metrics to the configured metrics directory
   saveMetrics(metrics, metricsDir)
+
+  // 6. Write notification + clear heartbeat
+  clearInterval(heartbeatInterval)
+  clearHeartbeat()
+  writeNotification(contract, metrics)
 
   return { contract, metrics }
 }

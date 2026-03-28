@@ -1,24 +1,19 @@
+"use client";
+
 import Link from "next/link";
 import MetricsCard from "@/components/MetricsCard";
 import VerdictBadge from "@/components/VerdictBadge";
+import ActiveSprint from "@/components/ActiveSprint";
+import AnimatedNumber from "@/components/AnimatedNumber";
+import { usePolling } from "@/hooks/usePolling";
 import type { SprintSummary, MahConfig } from "@/types/mah";
 
-async function getStats() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3333";
-  const res = await fetch(`${base}/api/stats`, { cache: "no-store" });
-  return res.json();
-}
-
-async function getSprints(): Promise<SprintSummary[]> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3333";
-  const res = await fetch(`${base}/api/sprints`, { cache: "no-store" });
-  return res.json();
-}
-
-async function getConfig(): Promise<MahConfig> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3333";
-  const res = await fetch(`${base}/api/config`, { cache: "no-store" });
-  return res.json();
+interface Stats {
+  totalSprints: number;
+  passRate: number;
+  avgIterations: number;
+  totalCost: number;
+  costPerSprint: { id: string; name: string; cost: number; date: string }[];
 }
 
 function priorityOrder(p: Record<string, number>) {
@@ -48,7 +43,7 @@ function CostChart({ data }: { data: { id: string; name: string; cost: number }[
                 height: `${Math.max((sprint.cost / maxCost) * 56, 4)}px`,
                 background: "linear-gradient(180deg, #7c3aed, #a855f7)",
                 borderRadius: "4px 4px 2px 2px",
-                transition: "opacity 0.15s",
+                transition: "height 0.4s ease",
               }}
             />
             <div style={{ fontSize: "10px", color: "#888898" }}>#{sprint.id}</div>
@@ -59,15 +54,19 @@ function CostChart({ data }: { data: { id: string; name: string; cost: number }[
   );
 }
 
-export default async function DashboardPage() {
-  const [stats, sprints, config] = await Promise.all([getStats(), getSprints(), getConfig()]);
+export default function DashboardPage() {
+  const { data: stats } = usePolling<Stats>("/api/stats", 10000);
+  const { data: sprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
+  const { data: config } = usePolling<MahConfig>("/api/config", 60000);
+
   const recentSprints = (sprints || []).slice(-5).reverse();
   const priorities = config?.priorities ? priorityOrder(config.priorities) : [];
+  const s = stats || { totalSprints: 0, passRate: 0, avgIterations: 0, totalCost: 0, costPerSprint: [] };
 
   return (
     <div style={{ padding: "32px", maxWidth: "1100px" }}>
       {/* Header */}
-      <div style={{ marginBottom: "32px" }}>
+      <div style={{ marginBottom: "24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
           <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#e0e0e8" }}>
             {config?.project?.name || "MAH Project"}
@@ -93,12 +92,29 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Active sprint indicator */}
+      <div style={{ marginBottom: "28px" }}>
+        <ActiveSprint />
+      </div>
+
       {/* Stats grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "16px", marginBottom: "32px" }}>
-        <MetricsCard label="Total Sprints" value={stats.totalSprints ?? 0} />
-        <MetricsCard label="Pass Rate" value={`${stats.passRate ?? 0}%`} accent="#22c55e" />
-        <MetricsCard label="Avg Iterations" value={stats.avgIterations ?? 0} />
-        <MetricsCard label="Total Cost" value={`$${(stats.totalCost ?? 0).toFixed(2)}`} accent="#7c3aed" />
+        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Total Sprints</div>
+          <AnimatedNumber value={s.totalSprints} style={{ fontSize: "32px", fontWeight: 700, color: "#e0e0e8" }} />
+        </div>
+        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Pass Rate</div>
+          <AnimatedNumber value={s.passRate} format={(n) => `${Math.round(n)}%`} style={{ fontSize: "32px", fontWeight: 700, color: "#22c55e" }} />
+        </div>
+        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Avg Iterations</div>
+          <AnimatedNumber value={s.avgIterations} format={(n) => n.toFixed(1)} style={{ fontSize: "32px", fontWeight: 700, color: "#e0e0e8" }} />
+        </div>
+        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Total Cost</div>
+          <AnimatedNumber value={s.totalCost} format={(n) => `$${n.toFixed(2)}`} style={{ fontSize: "32px", fontWeight: 700, color: "#7c3aed" }} />
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -152,8 +168,8 @@ export default async function DashboardPage() {
         <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
           <h2 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Cost per Sprint</h2>
           <div style={{ fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Estimated API cost</div>
-          {stats.costPerSprint && stats.costPerSprint.length > 0 ? (
-            <CostChart data={stats.costPerSprint} />
+          {s.costPerSprint && s.costPerSprint.length > 0 ? (
+            <CostChart data={s.costPerSprint} />
           ) : (
             <div style={{ color: "#888898", fontSize: "14px", padding: "24px 0" }}>No data yet.</div>
           )}

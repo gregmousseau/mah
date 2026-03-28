@@ -7,3 +7,5 @@
 {"ts":"2026-03-28T19:56:35.898Z","local":"15:56:35","actor":"moe","type":"milestone","phase":"dev","summary":"Sprint 003 PASSED. Dashboard UI built and running on :3333. APIs verified: stats, sprints, events all returning correct data.","detail":null}
 {"ts":"2026-03-28T19:56:42.347Z","local":"15:56:42","actor":"moe","type":"spawn","phase":"dev","summary":"Sprint 004: Pipeline Executor + Metrics — the core engine. Automates dev->QA->feedback loop.","detail":null}
 {"ts":"2026-03-28T20:02:48.321Z","local":"16:02:48","actor":"moe","type":"milestone","phase":"dev","summary":"Sprint 004 PASSED. Pipeline executor works end-to-end. Dry-run generates contracts, mock pipeline completes full loop. Fixed ~ path expansion.","detail":null}
+{"ts":"2026-03-28T20:02:52.837Z","local":"16:02:52","actor":"moe","type":"spawn","phase":"dev","summary":"Sprint 005: Real-time updates + Telegram notifications.","detail":null}
+{"ts":"2026-03-28T20:14:29.742Z","local":"16:14:29","actor":"moe","type":"milestone","phase":"dev","summary":"Sprint 005 PASSED. Real-time polling, active sprint indicator, heartbeat system, animated stats, progress bar, notifications. Build clean.","detail":null}

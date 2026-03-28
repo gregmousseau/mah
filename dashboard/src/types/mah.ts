@@ -34,7 +34,7 @@ export interface SprintContract {
   id: string;
   name: string;
   task: string;
-  status: "passed" | "failed" | "running";
+  status: "planned" | "dev" | "qa" | "passed" | "failed" | "escalated" | "running";
   devBrief: {
     repo: string;
     constraints: string[];

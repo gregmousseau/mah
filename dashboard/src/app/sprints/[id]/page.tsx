@@ -1,15 +1,17 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
 import SprintTimeline from "@/components/SprintTimeline";
 import DefectTable from "@/components/DefectTable";
 import VerdictBadge from "@/components/VerdictBadge";
+import SprintProgressBar from "@/components/SprintProgressBar";
+import { usePolling } from "@/hooks/usePolling";
 import type { SprintContract, SprintMetrics, Defect } from "@/types/mah";
 
-async function getSprintData(id: string): Promise<{ contract: SprintContract; metrics: SprintMetrics } | null> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3333";
-  const res = await fetch(`${base}/api/sprints/${id}`, { cache: "no-store" });
-  if (!res.ok) return null;
-  return res.json();
+interface SprintData {
+  contract: SprintContract;
+  metrics: SprintMetrics;
 }
 
 function formatDuration(ms: number): string {
@@ -29,34 +31,42 @@ function formatDateTime(iso: string) {
   });
 }
 
-function Section({ title, children, collapsible = false }: { title: string; children: React.ReactNode; collapsible?: boolean }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: "28px" }}>
-      <h2 style={{ margin: "0 0 16px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8", display: "flex", alignItems: "center", gap: "8px" }}>
+      <h2 style={{ margin: "0 0 16px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>
         {title}
-        {collapsible && <span style={{ fontSize: "11px", color: "#555565" }}>(collapsible)</span>}
       </h2>
       {children}
     </div>
   );
 }
 
-export default async function SprintDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const data = await getSprintData(id);
+export default function SprintDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { data, loading, error } = usePolling<SprintData>(`/api/sprints/${id}`, 5000);
 
-  if (!data || !data.contract) {
-    notFound();
+  if (loading && !data) {
+    return (
+      <div style={{ padding: "32px", color: "#888898", fontSize: "14px" }}>
+        Loading sprint...
+      </div>
+    );
+  }
+
+  if (error || !data || !data.contract) {
+    return (
+      <div style={{ padding: "32px" }}>
+        <Link href="/sprints" style={{ color: "#7c3aed", textDecoration: "none", fontSize: "13px" }}>← Back to Sprints</Link>
+        <div style={{ marginTop: "24px", color: "#ef4444", fontSize: "14px" }}>Sprint not found.</div>
+      </div>
+    );
   }
 
   const { contract, metrics } = data;
-
-  // Collect all defects
   const allDefects: Defect[] = contract.iterations.flatMap((iter) => iter.defects || []);
+
+  const isActive = contract.status === "dev" || contract.status === "qa" || contract.status === "running";
 
   return (
     <div style={{ padding: "32px", maxWidth: "900px" }}>
@@ -68,7 +78,7 @@ export default async function SprintDetailPage({
       </div>
 
       {/* Header */}
-      <div style={{ marginBottom: "32px" }}>
+      <div style={{ marginBottom: "24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", marginBottom: "10px" }}>
           <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>
             #{contract.id} {contract.name}
@@ -80,6 +90,13 @@ export default async function SprintDetailPage({
           {contract.completedAt && <span>Completed: {formatDateTime(contract.completedAt)}</span>}
         </div>
       </div>
+
+      {/* Progress bar */}
+      <SprintProgressBar
+        status={contract.status}
+        iterations={contract.iterations}
+        isActive={isActive}
+      />
 
       {/* Metrics summary */}
       {metrics && (

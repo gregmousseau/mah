@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, List, Radio, Zap } from "lucide-react";
+import ActiveSprint from "@/components/ActiveSprint";
 
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -85,8 +86,13 @@ export default function Sidebar() {
         })}
       </nav>
 
+      {/* Active sprint indicator */}
+      <div style={{ borderTop: "1px solid #2a2a3a", paddingTop: "8px", paddingBottom: "8px" }}>
+        <ActiveSprint compact />
+      </div>
+
       {/* Footer */}
-      <div style={{ padding: "16px 20px", borderTop: "1px solid #2a2a3a" }}>
+      <div style={{ padding: "12px 20px", borderTop: "1px solid #2a2a3a" }}>
         <div style={{ fontSize: "11px", color: "#555565" }}>v0.1.0 — local dev</div>
       </div>
     </aside>

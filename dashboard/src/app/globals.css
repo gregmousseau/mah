@@ -45,6 +45,66 @@ body {
   background: rgba(255, 255, 255, 0.02) !important;
 }
 
+/* ── Animations ───────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+  50% { opacity: 0.4; box-shadow: 0 0 12px currentColor; }
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); }
+  50% { opacity: 0.7; transform: scale(1.15); box-shadow: 0 0 0 4px rgba(168, 85, 247, 0); }
+}
+
+@keyframes hbGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 0 3px rgba(34, 197, 94, 0); }
+}
+
+@keyframes hbYellow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0); }
+}
+
+@keyframes hbRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes phasePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(168, 85, 247, 0); }
+}
+
+.dot-pulse {
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+.hb-green {
+  animation: hbGreen 2s ease-in-out infinite;
+}
+
+.hb-yellow {
+  animation: hbYellow 1.5s ease-in-out infinite;
+}
+
+.hb-red {
+  animation: hbRed 1s ease-in-out infinite;
+}
+
+.event-new {
+  animation: fadeSlideIn 0.25s ease-out forwards;
+}
+
+.phase-pulse {
+  animation: phasePulse 2s ease-in-out infinite;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
