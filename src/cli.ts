@@ -173,10 +173,36 @@ program
   .command('run')
   .description('Run a sprint pipeline for a task')
   .argument('<task>', 'Task description for the sprint')
-  .action((task: string) => {
-    console.log(chalk.yellow(`\nTask: "${task}"`))
-    console.log(chalk.dim('Pipeline executor not yet implemented.'))
-    console.log(chalk.dim('This will be built in Sprint 003.\n'))
+  .option('--dry-run', 'Generate and print the sprint contract without executing agents')
+  .action(async (task: string, opts: { dryRun?: boolean }) => {
+    const { runSprint, printSprintSummary } = await import('./pipeline.js')
+    const { EventLogger } = await import('./events.js')
+    const { resolve } = await import('node:path')
+
+    try {
+      const config = loadConfig()
+      const eventsDir = resolve(process.cwd(), '.mah/events')
+      const events = new EventLogger(eventsDir)
+
+      console.log()
+      if (opts.dryRun) {
+        console.log(chalk.bold.cyan('  MAH — Dry Run'))
+      } else {
+        console.log(chalk.bold.cyan('  MAH — Sprint Starting'))
+      }
+      console.log(chalk.dim(`  Task: "${task}"\n`))
+
+      const { contract, metrics } = await runSprint(task, config, events, {
+        dryRun: opts.dryRun,
+      })
+
+      if (!opts.dryRun) {
+        printSprintSummary(contract, metrics)
+      }
+    } catch (err) {
+      console.error(chalk.red(`\nError: ${(err as Error).message}`))
+      process.exit(1)
+    }
   })
 
 // ─── mah events ───

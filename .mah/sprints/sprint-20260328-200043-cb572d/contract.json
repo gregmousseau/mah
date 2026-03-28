@@ -1,0 +1,37 @@
+{
+  "id": "sprint-20260328-200043-cb572d",
+  "name": "Add a login page with email/password authentication",
+  "task": "Add a login page with email/password authentication",
+  "status": "planned",
+  "devBrief": {
+    "repo": "~/pro/w",
+    "constraints": [
+      "Maintain backward compatibility",
+      "Follow existing code style and conventions",
+      "Keep changes minimal and focused on the task"
+    ],
+    "definitionOfDone": [
+      "Feature is implemented and working",
+      "Existing tests still pass",
+      "Code is clean and readable",
+      "Changes are committed to the repo"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "http://localhost:3099",
+    "testFocus": [
+      "Core functionality works as specified",
+      "No regressions in existing behavior",
+      "Edge cases are handled"
+    ],
+    "passCriteria": [
+      "No P0 or P1 defects",
+      "Application runs without errors",
+      "Task requirements are met"
+    ],
+    "knownLimitations": []
+  },
+  "iterations": [],
+  "createdAt": "2026-03-28T20:00:43.924Z"
+}

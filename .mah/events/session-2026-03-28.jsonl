@@ -1,0 +1,21 @@
+{"ts":"2026-03-28T20:00:43.924Z","local":"16:00:43","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Add a login page with email/password authentication"}
+{"ts":"2026-03-28T20:00:44.019Z","local":"16:00:44","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260328-200043-cb572d"}
+{"ts":"2026-03-28T20:00:49.852Z","local":"16:00:49","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Add error handling to the API endpoints"}
+{"ts":"2026-03-28T20:00:49.970Z","local":"16:00:49","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260328-200049-5cdb2a"}
+{"ts":"2026-03-28T20:00:49.999Z","local":"16:00:49","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-28T20:01:13.825Z","local":"16:01:13","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Add error handling to the API endpoints"}
+{"ts":"2026-03-28T20:01:13.856Z","local":"16:01:13","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260328-200113-79a009"}
+{"ts":"2026-03-28T20:01:13.868Z","local":"16:01:13","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-28T20:01:14.088Z","local":"16:01:14","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (201ms / $0.0035)"}
+{"ts":"2026-03-28T20:01:14.089Z","local":"16:01:14","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn for QA R1"}
+{"ts":"2026-03-28T20:01:14.291Z","local":"16:01:14","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (201ms / $0.0038)"}
+{"ts":"2026-03-28T20:01:14.294Z","local":"16:01:14","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 1 iteration(s)"}
+{"ts":"2026-03-28T20:02:11.434Z","local":"16:02:11","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Add a contact form validation"}
+{"ts":"2026-03-28T20:02:11.469Z","local":"16:02:11","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260328-200211-c4996d"}
+{"ts":"2026-03-28T20:02:17.872Z","local":"16:02:17","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Test the mock pipeline with a simple task"}
+{"ts":"2026-03-28T20:02:17.902Z","local":"16:02:17","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260328-200217-008595"}
+{"ts":"2026-03-28T20:02:17.912Z","local":"16:02:17","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-28T20:02:18.132Z","local":"16:02:18","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (201ms / $0.0035)"}
+{"ts":"2026-03-28T20:02:18.132Z","local":"16:02:18","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn for QA R1"}
+{"ts":"2026-03-28T20:02:18.334Z","local":"16:02:18","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (201ms / $0.0038)"}
+{"ts":"2026-03-28T20:02:18.337Z","local":"16:02:18","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 1 iteration(s)"}

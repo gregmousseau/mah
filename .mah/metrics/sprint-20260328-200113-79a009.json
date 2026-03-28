@@ -1,0 +1,51 @@
+{
+  "sprintId": "sprint-20260328-200113-79a009",
+  "projectName": "W Construction",
+  "task": "Add error handling to the API endpoints",
+  "startTime": "2026-03-28T20:01:13.825Z",
+  "endTime": "2026-03-28T20:01:14.294Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 201,
+      "model": "sonnet",
+      "costEstimate": 0.0034980000000000002
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 201,
+      "model": "sonnet",
+      "costEstimate": 0.003777
+    }
+  ],
+  "totals": {
+    "durationMs": 469,
+    "estimatedCost": 0.007275,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}
