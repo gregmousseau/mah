@@ -1,0 +1,27 @@
+{
+  "sprintId": "001",
+  "projectName": "W Construction",
+  "task": "Dark Mode Switcher",
+  "startTime": "2026-03-28T09:55:00Z",
+  "endTime": "2026-03-28T10:52:00Z",
+  "phases": [
+    { "phase": "plan", "round": 0, "durationMs": 300000, "model": "sonnet", "costEstimate": 0.02 },
+    { "phase": "dev", "round": 1, "durationMs": 840000, "model": "sonnet", "costEstimate": 0.25 },
+    { "phase": "qa", "round": 1, "durationMs": 1200000, "model": "sonnet", "costEstimate": 0.35 },
+    { "phase": "dev", "round": 2, "durationMs": 300000, "model": "sonnet", "costEstimate": 0.15 },
+    { "phase": "qa", "round": 2, "durationMs": 600000, "model": "sonnet", "costEstimate": 0.30 }
+  ],
+  "totals": {
+    "durationMs": 3240000,
+    "estimatedCost": 1.07,
+    "iterations": 2,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": { "p0": 0, "p1": 4, "p2": 3, "p3": 0 },
+    "defectsFixed": { "p0": 0, "p1": 4, "p2": 3, "p3": 0 },
+    "defectsRemaining": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 }
+  },
+  "verdict": "pass",
+  "bottleneck": "QA R1 (20 min) - full Playwright test suite across 5 viewports"
+}

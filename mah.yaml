@@ -1,0 +1,23 @@
+project:
+  name: "W Construction"
+  repo: ~/pro/w
+
+priorities:
+  speed: 1
+  quality: 2
+  cost: 3
+
+agents:
+  generator:
+    type: openclaw
+    model: sonnet
+    cwd: ~/pro/w
+  evaluator:
+    type: openclaw
+    model: sonnet
+    workspace: ~/.openclaw/workspace-qa
+    testUrl: http://localhost:3099
+
+qa:
+  defaultTier: targeted
+  maxIterations: 3

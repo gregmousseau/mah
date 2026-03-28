@@ -71,7 +71,7 @@
 
 ## Estimated Total
 - **Time:** ~5-6 hours (fits the window)
-- **Cost:** ~$5-10 (5 dev runs + 5 QA runs, mostly targeted tier)
+- **Cost:** Budget $40 max (5 dev runs + 5 QA runs + orchestration + fallback retries)
 - **Output:** Working dashboard showing sprint history, metrics, and live progress
 
 ---

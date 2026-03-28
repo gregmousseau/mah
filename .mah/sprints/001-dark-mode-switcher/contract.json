@@ -1,0 +1,96 @@
+{
+  "id": "001",
+  "name": "Dark Mode Switcher",
+  "task": "Implement a dark mode toggle for the W Construction website with persistent preference, system preference detection, and smooth transitions across all pages.",
+  "status": "passed",
+  "devBrief": {
+    "repo": "~/pro/w",
+    "constraints": [
+      "Use Tailwind dark mode with class strategy",
+      "Persist preference in localStorage",
+      "Detect system preference as default",
+      "Smooth color transitions (no flash)",
+      "All pages must be fully themed"
+    ],
+    "definitionOfDone": [
+      "Toggle component in header/nav",
+      "All pages render correctly in both modes",
+      "Preference persists across page loads",
+      "No flash of wrong theme on load",
+      "Mobile responsive"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "http://localhost:3099",
+    "testFocus": [
+      "Toggle functionality",
+      "Visual consistency across all pages",
+      "localStorage persistence",
+      "System preference detection",
+      "Mobile responsiveness"
+    ],
+    "passCriteria": [
+      "Zero P0 defects",
+      "Zero P1 defects",
+      "P2 defects documented but acceptable",
+      "All pages visually verified in both modes"
+    ],
+    "knownLimitations": [
+      "Third-party embeds may not respect dark mode",
+      "PDF viewer unlikely to theme"
+    ]
+  },
+  "iterations": [
+    {
+      "round": 1,
+      "dev": {
+        "output": "13 files changed. Dark mode toggle added to all pages. Tailwind darkMode: 'class' configured in tailwind.config.ts.",
+        "startTime": "2026-03-28T10:00:00Z",
+        "endTime": "2026-03-28T10:14:00Z",
+        "durationMs": 840000,
+        "model": "sonnet",
+        "costEstimate": 0.25
+      },
+      "qa": {
+        "output": "100 Playwright tests across 5 device viewports. FAIL - 4 P1 defects, 3 P2 defects. Root cause: duplicate Tailwind config files (tailwind.config.js overriding tailwind.config.ts).",
+        "startTime": "2026-03-28T10:15:00Z",
+        "endTime": "2026-03-28T10:35:00Z",
+        "durationMs": 1200000,
+        "model": "sonnet",
+        "costEstimate": 0.35
+      },
+      "defects": [
+        { "id": "P1-01", "severity": "p1", "description": "Services dropdown: white background in dark mode", "fixed": true },
+        { "id": "P1-02", "severity": "p1", "description": "Contact form inputs: white background, invisible text (~1.3:1 contrast)", "fixed": true },
+        { "id": "P1-03", "severity": "p1", "description": "Logo swap: dark:hidden/dark:block not applying (root cause: dual config)", "fixed": true },
+        { "id": "P1-04", "severity": "p1", "description": "Service card headings: near-invisible text on dark backgrounds", "fixed": true },
+        { "id": "P2-01", "severity": "p2", "description": "Contact form labels: low contrast in dark mode", "fixed": true },
+        { "id": "P2-02", "severity": "p2", "description": "Contact info card: light background in dark mode", "fixed": true },
+        { "id": "P2-03", "severity": "p2", "description": "Mobile theme switcher: cut off on iPhone SE below social icons", "fixed": true }
+      ]
+    },
+    {
+      "round": 2,
+      "dev": {
+        "output": "Root cause fix: removed duplicate tailwind.config.js. Fixed all P1 and P2 defects.",
+        "startTime": "2026-03-28T10:36:00Z",
+        "endTime": "2026-03-28T10:41:00Z",
+        "durationMs": 300000,
+        "model": "sonnet",
+        "costEstimate": 0.15
+      },
+      "qa": {
+        "output": "Full re-verification. All previously failing tests now pass. No new defects found. PASS.",
+        "startTime": "2026-03-28T10:42:00Z",
+        "endTime": "2026-03-28T10:52:00Z",
+        "durationMs": 600000,
+        "model": "sonnet",
+        "costEstimate": 0.30
+      },
+      "defects": []
+    }
+  ],
+  "createdAt": "2026-03-28T09:55:00Z",
+  "completedAt": "2026-03-28T10:52:00Z"
+}
