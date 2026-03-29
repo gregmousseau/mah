@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { readdirSync, readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 
 const MAH_ROOT = join(process.cwd(), "..");
+const PROJECTS_DIR = join(MAH_ROOT, ".mah", "projects");
 const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
 
 function isRealSprint(dirName: string, contract: Record<string, unknown> | null): boolean {
@@ -13,19 +14,26 @@ function isRealSprint(dirName: string, contract: Record<string, unknown> | null)
   return false;
 }
 
-export async function GET(request: Request) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(request.url);
-    const projectFilter = searchParams.get("project");
+    const { id } = await params;
+    const projectFile = join(PROJECTS_DIR, `${id}.json`);
 
-    if (!existsSync(SPRINTS_DIR)) {
-      return NextResponse.json([]);
+    if (!existsSync(projectFile)) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const sprintDirs = readdirSync(SPRINTS_DIR, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name)
-      .sort();
+    const project = JSON.parse(readFileSync(projectFile, "utf-8"));
+
+    // Load sprints for this project
+    const sprintDirs = existsSync(SPRINTS_DIR)
+      ? readdirSync(SPRINTS_DIR, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name)
+      : [];
 
     const sprints = sprintDirs
       .map((dir) => {
@@ -44,8 +52,8 @@ export async function GET(request: Request) {
 
         return { dir, contract, metrics };
       })
-      // Skip placeholder/test sprints
       .filter(({ dir, contract }) => isRealSprint(dir, contract))
+      .filter(({ contract }) => contract?.projectId === id)
       .map(({ contract, metrics }) => ({
         id: contract?.id || "",
         name: contract?.name || "",
@@ -57,18 +65,35 @@ export async function GET(request: Request) {
         completedAt: contract?.completedAt || null,
         projectId: contract?.projectId || null,
       }))
-      // Apply project filter if provided
-      .filter((sprint) => !projectFilter || sprint.projectId === projectFilter)
-      // Sort by createdAt ascending
       .sort((a, b) => {
         if (!a.createdAt) return 1;
         if (!b.createdAt) return -1;
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
 
-    return NextResponse.json(sprints);
+    const passedSprints = sprints.filter(
+      (s) => s.verdict === "pass" || s.status === "passed"
+    );
+    const passRate = sprints.length > 0
+      ? Math.round((passedSprints.length / sprints.length) * 100)
+      : 0;
+    const totalCost = sprints.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+    const avgIterations = sprints.length > 0
+      ? sprints.reduce((sum, s) => sum + (s.iterations || 0), 0) / sprints.length
+      : 0;
+
+    return NextResponse.json({
+      ...project,
+      sprints,
+      stats: {
+        sprintCount: sprints.length,
+        passRate,
+        totalCost,
+        avgIterations: Math.round(avgIterations * 10) / 10,
+      },
+    });
   } catch (err) {
-    console.error("Failed to list sprints:", err);
-    return NextResponse.json({ error: "Failed to list sprints" }, { status: 500 });
+    console.error("Failed to load project:", err);
+    return NextResponse.json({ error: "Failed to load project" }, { status: 500 });
   }
 }

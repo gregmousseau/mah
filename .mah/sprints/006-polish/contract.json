@@ -5,36 +5,61 @@
   "status": "passed",
   "devBrief": {
     "repo": "~/clawd/projects/mah/dashboard",
-    "constraints": ["No breaking changes", "Dark theme consistent", "Must work without running pipeline", "Mobile responsive"],
-    "definitionOfDone": ["All 6 sprints visible", "Stats show correct aggregates", "Sprint 001 detail is demo showpiece", "Mobile responsive", "Loading/empty states handled", "No console errors"]
+    "constraints": [
+      "No breaking changes",
+      "Dark theme consistent",
+      "Must work without running pipeline",
+      "Mobile responsive"
+    ],
+    "definitionOfDone": [
+      "All 6 sprints visible",
+      "Stats show correct aggregates",
+      "Sprint 001 detail is demo showpiece",
+      "Mobile responsive",
+      "Loading/empty states handled",
+      "No console errors"
+    ]
   },
   "qaBrief": {
     "tier": "smoke",
     "testUrl": "http://localhost:3333",
-    "testFocus": ["6 sprints visible in list", "Stats: 6 sprints, 100% pass rate, ~$2.54 total cost", "Sprint 001 detail: timeline, defects, cost breakdown", "Mobile sidebar collapses"],
-    "passCriteria": ["All 6 sprints display", "Correct aggregate stats", "No console errors", "Mobile layout works"],
+    "testFocus": [
+      "6 sprints visible in list",
+      "Stats: 6 sprints, 100% pass rate, ~$2.54 total cost",
+      "Sprint 001 detail: timeline, defects, cost breakdown",
+      "Mobile sidebar collapses"
+    ],
+    "passCriteria": [
+      "All 6 sprints display",
+      "Correct aggregate stats",
+      "No console errors",
+      "Mobile layout works"
+    ],
     "knownLimitations": []
   },
-  "iterations": [{
-    "round": 1,
-    "dev": {
-      "output": "20 files changed. All 6 sprint data files created, API routes hardened to filter test sprints, sidebar shows project name + total cost, mobile hamburger menu, loading skeletons, expandable defect rows, Sprint 001 cost breakdown visualization, animated stats, page titles with emoji favicon.",
-      "startTime": "2026-03-28T20:15:00Z",
-      "endTime": "2026-03-28T20:27:00Z",
-      "durationMs": 720000,
-      "model": "sonnet",
-      "costEstimate": 0.45
-    },
-    "qa": {
-      "output": "Smoke test: All 6 sprints visible, stats correct (6 sprints, 100% pass, $2.54 total), Sprint 001 detail renders timeline + defects + cost breakdown, APIs return correct data. PASS.",
-      "startTime": "2026-03-28T20:27:30Z",
-      "endTime": "2026-03-28T20:28:30Z",
-      "durationMs": 60000,
-      "model": "sonnet",
-      "costEstimate": 0.05
-    },
-    "defects": []
-  }],
+  "iterations": [
+    {
+      "round": 1,
+      "dev": {
+        "output": "20 files changed. All 6 sprint data files created, API routes hardened to filter test sprints, sidebar shows project name + total cost, mobile hamburger menu, loading skeletons, expandable defect rows, Sprint 001 cost breakdown visualization, animated stats, page titles with emoji favicon.",
+        "startTime": "2026-03-28T20:15:00Z",
+        "endTime": "2026-03-28T20:27:00Z",
+        "durationMs": 720000,
+        "model": "sonnet",
+        "costEstimate": 0.45
+      },
+      "qa": {
+        "output": "Smoke test: All 6 sprints visible, stats correct (6 sprints, 100% pass, $2.54 total), Sprint 001 detail renders timeline + defects + cost breakdown, APIs return correct data. PASS.",
+        "startTime": "2026-03-28T20:27:30Z",
+        "endTime": "2026-03-28T20:28:30Z",
+        "durationMs": 60000,
+        "model": "sonnet",
+        "costEstimate": 0.05
+      },
+      "defects": []
+    }
+  ],
   "createdAt": "2026-03-28T20:15:00Z",
-  "completedAt": "2026-03-28T20:28:30Z"
+  "completedAt": "2026-03-28T20:28:30Z",
+  "projectId": "mah-build"
 }

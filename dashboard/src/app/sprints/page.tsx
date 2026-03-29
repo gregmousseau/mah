@@ -1,13 +1,10 @@
-import Link from "next/link";
-import VerdictBadge from "@/components/VerdictBadge";
-import type { SprintSummary } from "@/types/mah";
+"use client";
 
-async function getSprints(): Promise<SprintSummary[]> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3333";
-  const res = await fetch(`${base}/api/sprints`, { cache: "no-store" });
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
-}
+import Link from "next/link";
+import { useState } from "react";
+import VerdictBadge from "@/components/VerdictBadge";
+import { usePolling } from "@/hooks/usePolling";
+import type { SprintSummary, Project } from "@/types/mah";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", {
@@ -24,19 +21,121 @@ function formatDuration(start?: string, end?: string) {
   return `${mins}m`;
 }
 
-export default async function SprintsPage() {
-  const sprints = await getSprints();
+function getProjectAccent(projectId?: string | null): { color: string } {
+  if (projectId === "w-construction") return { color: "#f59e0b" };
+  if (projectId === "mah-build") return { color: "#a855f7" };
+  if (!projectId) return { color: "#555565" };
+  const hash = projectId.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return { color: `hsl(${hash % 360}, 70%, 65%)` };
+}
+
+function ProjectBadge({ projectId, projects }: { projectId?: string | null; projects: Project[] }) {
+  if (!projectId) {
+    return (
+      <span style={{
+        fontSize: "10px",
+        color: "#555565",
+        background: "rgba(85,85,101,0.1)",
+        border: "1px solid rgba(85,85,101,0.2)",
+        borderRadius: "4px",
+        padding: "2px 6px",
+        fontWeight: 500,
+      }}>
+        Uncategorized
+      </span>
+    );
+  }
+  const project = projects.find((p) => p.id === projectId);
+  const accent = getProjectAccent(projectId);
+  return (
+    <span style={{
+      fontSize: "10px",
+      color: accent.color,
+      background: `${accent.color}18`,
+      border: `1px solid ${accent.color}40`,
+      borderRadius: "4px",
+      padding: "2px 6px",
+      fontWeight: 500,
+      whiteSpace: "nowrap",
+    }}>
+      {project?.name || projectId}
+    </span>
+  );
+}
+
+export default function SprintsPage() {
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const { data: sprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
+  const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
+
+  const allSprints = sprints || [];
+  const allProjects = projects || [];
+
+  const filtered = projectFilter === "all"
+    ? allSprints
+    : allSprints.filter((s) => (s.projectId || null) === (projectFilter === "none" ? null : projectFilter));
+
+  const displaySprints = [...filtered].reverse();
 
   return (
-    <div style={{ padding: "32px", maxWidth: "900px" }}>
-      <div style={{ marginBottom: "28px" }}>
-        <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>Sprints</h1>
-        <div style={{ fontSize: "13px", color: "#888898" }}>
-          {sprints.length} sprint{sprints.length !== 1 ? "s" : ""} total
+    <div style={{ padding: "32px", maxWidth: "1000px" }}>
+      <div style={{ marginBottom: "28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>Sprints</h1>
+          <div style={{ fontSize: "13px", color: "#888898" }}>
+            {filtered.length} sprint{filtered.length !== 1 ? "s" : ""}
+            {projectFilter !== "all" && " (filtered)"}
+          </div>
         </div>
+
+        {/* Project filter */}
+        {allProjects.length > 0 && (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              onClick={() => setProjectFilter("all")}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid",
+                borderColor: projectFilter === "all" ? "#7c3aed" : "#2a2a3a",
+                background: projectFilter === "all" ? "rgba(124,58,237,0.15)" : "transparent",
+                color: projectFilter === "all" ? "#a855f7" : "#888898",
+                fontSize: "12px",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              All
+            </button>
+            {allProjects.map((project) => {
+              const accent = getProjectAccent(project.id);
+              const active = projectFilter === project.id;
+              return (
+                <button
+                  key={project.id}
+                  onClick={() => setProjectFilter(active ? "all" : project.id)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid",
+                    borderColor: active ? accent.color : "#2a2a3a",
+                    background: active ? `${accent.color}18` : "transparent",
+                    color: active ? accent.color : "#888898",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {project.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {sprints.length === 0 ? (
+      {displaySprints.length === 0 ? (
         <div style={{
           background: "#141420",
           border: "1px solid #2a2a3a",
@@ -46,19 +145,25 @@ export default async function SprintsPage() {
           color: "#888898",
         }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>⚡</div>
-          <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>No sprints yet</div>
-          <div style={{ fontSize: "13px", marginBottom: "16px" }}>Run your first sprint to get started.</div>
-          <code style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "6px 12px", fontSize: "13px", color: "#a855f7" }}>
-            mah run
-          </code>
+          <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>
+            {projectFilter !== "all" ? "No sprints in this project" : "No sprints yet"}
+          </div>
+          <div style={{ fontSize: "13px", marginBottom: "16px" }}>
+            {projectFilter !== "all" ? "Try selecting a different project filter." : "Run your first sprint to get started."}
+          </div>
+          {projectFilter === "all" && (
+            <code style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "6px 12px", fontSize: "13px", color: "#a855f7" }}>
+              mah run
+            </code>
+          )}
         </div>
       ) : (
         <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", overflow: "hidden" }}>
           {/* Header */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "60px 1fr 120px 80px 80px 100px",
-            gap: "16px",
+            gridTemplateColumns: "60px 1fr 140px 120px 80px 80px 100px",
+            gap: "12px",
             padding: "12px 20px",
             borderBottom: "1px solid #2a2a3a",
             fontSize: "11px",
@@ -69,23 +174,24 @@ export default async function SprintsPage() {
           }}>
             <div>ID</div>
             <div>Sprint</div>
+            <div>Project</div>
             <div>Date</div>
-            <div>Iterations</div>
+            <div>Iter</div>
             <div>Cost</div>
             <div>Verdict</div>
           </div>
 
           {/* Rows */}
-          {[...sprints].reverse().map((sprint, i) => (
+          {displaySprints.map((sprint, i) => (
             <Link
               key={sprint.id}
               href={`/sprints/${sprint.id}`}
               style={{
                 display: "grid",
-                gridTemplateColumns: "60px 1fr 120px 80px 80px 100px",
-                gap: "16px",
-                padding: "14px 20px",
-                borderBottom: i < sprints.length - 1 ? "1px solid #1e1e2e" : "none",
+                gridTemplateColumns: "60px 1fr 140px 120px 80px 80px 100px",
+                gap: "12px",
+                padding: "13px 20px",
+                borderBottom: i < displaySprints.length - 1 ? "1px solid #1e1e2e" : "none",
                 textDecoration: "none",
                 color: "inherit",
                 alignItems: "center",
@@ -113,6 +219,9 @@ export default async function SprintsPage() {
                     </span>
                   )}
                 </div>
+              </div>
+              <div>
+                <ProjectBadge projectId={sprint.projectId} projects={allProjects} />
               </div>
               <div style={{ fontSize: "12px", color: "#888898" }}>
                 {sprint.createdAt ? formatDate(sprint.createdAt) : "—"}

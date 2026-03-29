@@ -5,36 +5,61 @@
   "status": "passed",
   "devBrief": {
     "repo": "~/clawd/projects/mah/dashboard",
-    "constraints": ["Polling-based (no WebSockets)", "10s interval for sprints/stats", "5s interval for active sprint", "Smooth number animations"],
-    "definitionOfDone": ["Dashboard auto-refreshes while sprint runs", "ActiveSprint shows current phase and progress", "AnimatedNumber transitions on value change", "Live page streams events from JSONL log"]
+    "constraints": [
+      "Polling-based (no WebSockets)",
+      "10s interval for sprints/stats",
+      "5s interval for active sprint",
+      "Smooth number animations"
+    ],
+    "definitionOfDone": [
+      "Dashboard auto-refreshes while sprint runs",
+      "ActiveSprint shows current phase and progress",
+      "AnimatedNumber transitions on value change",
+      "Live page streams events from JSONL log"
+    ]
   },
   "qaBrief": {
     "tier": "smoke",
     "testUrl": "http://localhost:3333",
-    "testFocus": ["Polling hooks fire on interval", "ActiveSprint reflects pipeline state", "AnimatedNumber animates", "Live page shows event stream"],
-    "passCriteria": ["No memory leaks on unmount", "Dashboard updates without full reload", "Live page renders events"],
-    "knownLimitations": ["Polling adds ~100ms latency vs WebSocket", "Events page requires active sprint to demonstrate"]
+    "testFocus": [
+      "Polling hooks fire on interval",
+      "ActiveSprint reflects pipeline state",
+      "AnimatedNumber animates",
+      "Live page shows event stream"
+    ],
+    "passCriteria": [
+      "No memory leaks on unmount",
+      "Dashboard updates without full reload",
+      "Live page renders events"
+    ],
+    "knownLimitations": [
+      "Polling adds ~100ms latency vs WebSocket",
+      "Events page requires active sprint to demonstrate"
+    ]
   },
-  "iterations": [{
-    "round": 1,
-    "dev": {
-      "output": "13 files created/modified. usePolling hook, ActiveSprint component with phase indicator, AnimatedNumber with easing, heartbeat API route, live events page with JSONL tail reader.",
-      "startTime": "2026-03-28T20:05:00Z",
-      "endTime": "2026-03-28T20:15:00Z",
-      "durationMs": 600000,
-      "model": "sonnet",
-      "costEstimate": 0.40
-    },
-    "qa": {
-      "output": "Smoke test: usePolling fires on interval, no memory leaks on unmount. AnimatedNumber transitions smoothly. ActiveSprint renders. Live page loads and shows empty state. PASS.",
-      "startTime": "2026-03-28T20:15:30Z",
-      "endTime": "2026-03-28T20:17:30Z",
-      "durationMs": 120000,
-      "model": "sonnet",
-      "costEstimate": 0.07
-    },
-    "defects": []
-  }],
+  "iterations": [
+    {
+      "round": 1,
+      "dev": {
+        "output": "13 files created/modified. usePolling hook, ActiveSprint component with phase indicator, AnimatedNumber with easing, heartbeat API route, live events page with JSONL tail reader.",
+        "startTime": "2026-03-28T20:05:00Z",
+        "endTime": "2026-03-28T20:15:00Z",
+        "durationMs": 600000,
+        "model": "sonnet",
+        "costEstimate": 0.4
+      },
+      "qa": {
+        "output": "Smoke test: usePolling fires on interval, no memory leaks on unmount. AnimatedNumber transitions smoothly. ActiveSprint renders. Live page loads and shows empty state. PASS.",
+        "startTime": "2026-03-28T20:15:30Z",
+        "endTime": "2026-03-28T20:17:30Z",
+        "durationMs": 120000,
+        "model": "sonnet",
+        "costEstimate": 0.07
+      },
+      "defects": []
+    }
+  ],
   "createdAt": "2026-03-28T20:05:00Z",
-  "completedAt": "2026-03-28T20:17:30Z"
+  "completedAt": "2026-03-28T20:17:30Z",
+  "projectId": "mah-build"
 }

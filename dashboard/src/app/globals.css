@@ -45,6 +45,15 @@ body {
   background: rgba(255, 255, 255, 0.02) !important;
 }
 
+.project-card:hover {
+  border-color: #3a3a4a !important;
+  transform: translateY(-1px);
+}
+
+.project-mini-card:hover {
+  border-color: #3a3a4a !important;
+}
+
 /* ── Animations ───────────────────────────────── */
 @keyframes pulse {
   0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }

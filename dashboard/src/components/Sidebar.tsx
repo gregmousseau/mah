@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, List, Radio, Zap, Menu, X } from "lucide-react";
+import { LayoutDashboard, List, Radio, Zap, Menu, X, FolderKanban } from "lucide-react";
 import { useState } from "react";
 import ActiveSprint from "@/components/ActiveSprint";
 import { usePolling } from "@/hooks/usePolling";
-import type { MahConfig } from "@/types/mah";
+import type { MahConfig, Project } from "@/types/mah";
 
 interface Stats {
   totalCost: number;
@@ -14,6 +14,7 @@ interface Stats {
 
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/projects", icon: FolderKanban, label: "Projects" },
   { href: "/sprints", icon: List, label: "Sprints" },
   { href: "/live", icon: Radio, label: "Live" },
 ];
@@ -21,6 +22,7 @@ const navItems = [
 function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
   const { data: config } = usePolling<MahConfig>("/api/config", 60000);
   const { data: stats } = usePolling<Stats>("/api/stats", 15000);
+  const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
 
   return (
     <>
@@ -97,6 +99,46 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
           );
         })}
       </nav>
+
+      {/* Project list under nav */}
+      {projects && projects.length > 0 && (
+        <div style={{ padding: "0 10px 8px", borderBottom: "1px solid #2a2a3a" }}>
+          <div style={{ fontSize: "10px", color: "#555565", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "8px 12px 4px" }}>
+            Projects
+          </div>
+          {projects.map((project) => {
+            const accent = project.id === "w-construction" ? "#f59e0b" : "#a855f7";
+            const isActive = pathname === `/projects/${project.id}`;
+            return (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                onClick={onClose}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "7px 12px",
+                  borderRadius: "6px",
+                  marginBottom: "1px",
+                  textDecoration: "none",
+                  background: isActive ? `${accent}18` : "transparent",
+                  transition: "all 0.15s ease",
+                }}
+                className="nav-link"
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: accent, flexShrink: 0 }} />
+                  <span style={{ fontSize: "13px", color: isActive ? "#e0e0e8" : "#888898", fontWeight: isActive ? 500 : 400 }}>
+                    {project.name}
+                  </span>
+                </div>
+                <span style={{ fontSize: "11px", color: "#555565" }}>{project.sprintCount}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* Active sprint indicator */}
       <div style={{ borderTop: "1px solid #2a2a3a", paddingTop: "8px", paddingBottom: "8px" }}>

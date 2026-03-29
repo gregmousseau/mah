@@ -8,7 +8,7 @@ import DefectTable from "@/components/DefectTable";
 import VerdictBadge from "@/components/VerdictBadge";
 import SprintProgressBar from "@/components/SprintProgressBar";
 import { usePolling } from "@/hooks/usePolling";
-import type { SprintContract, SprintMetrics, Defect } from "@/types/mah";
+import type { SprintContract, SprintMetrics, Defect, Project } from "@/types/mah";
 
 interface SprintData {
   contract: SprintContract;
@@ -46,6 +46,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function SprintDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, loading, error } = usePolling<SprintData>(`/api/sprints/${id}`, 5000);
+  const { data: projects } = usePolling<Project[]>("/api/projects", 60000);
 
   // Dynamic page title
   useEffect(() => {
@@ -87,13 +88,38 @@ export default function SprintDetailPage() {
 
   const isActive = contract.status === "dev" || contract.status === "qa" || contract.status === "running";
 
+  const project = projects?.find((p) => p.id === contract.projectId);
+
+  function getAccent(pid?: string) {
+    if (pid === "w-construction") return "#f59e0b";
+    if (pid === "mah-build") return "#a855f7";
+    return "#7c3aed";
+  }
+
   return (
     <div style={{ padding: "32px", maxWidth: "900px" }}>
       {/* Breadcrumb */}
-      <div style={{ marginBottom: "24px", fontSize: "13px", color: "#888898" }}>
-        <Link href="/sprints" style={{ color: "#7c3aed", textDecoration: "none" }}>Sprints</Link>
-        <span style={{ margin: "0 8px" }}>→</span>
-        <span>Sprint #{contract.id}</span>
+      <div style={{ marginBottom: "24px", fontSize: "13px", color: "#888898", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+        {project ? (
+          <>
+            <Link href="/projects" style={{ color: "#7c3aed", textDecoration: "none" }}>Projects</Link>
+            <span>→</span>
+            <Link
+              href={`/projects/${project.id}`}
+              style={{ color: getAccent(project.id), textDecoration: "none" }}
+            >
+              {project.name}
+            </Link>
+            <span>→</span>
+            <span>Sprint #{contract.id}</span>
+          </>
+        ) : (
+          <>
+            <Link href="/sprints" style={{ color: "#7c3aed", textDecoration: "none" }}>Sprints</Link>
+            <span>→</span>
+            <span>Sprint #{contract.id}</span>
+          </>
+        )}
       </div>
 
       {/* Header */}

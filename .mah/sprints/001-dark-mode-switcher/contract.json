@@ -61,13 +61,48 @@
         "costEstimate": 0.35
       },
       "defects": [
-        { "id": "P1-01", "severity": "p1", "description": "Services dropdown: white background in dark mode", "fixed": true },
-        { "id": "P1-02", "severity": "p1", "description": "Contact form inputs: white background, invisible text (~1.3:1 contrast)", "fixed": true },
-        { "id": "P1-03", "severity": "p1", "description": "Logo swap: dark:hidden/dark:block not applying (root cause: dual config)", "fixed": true },
-        { "id": "P1-04", "severity": "p1", "description": "Service card headings: near-invisible text on dark backgrounds", "fixed": true },
-        { "id": "P2-01", "severity": "p2", "description": "Contact form labels: low contrast in dark mode", "fixed": true },
-        { "id": "P2-02", "severity": "p2", "description": "Contact info card: light background in dark mode", "fixed": true },
-        { "id": "P2-03", "severity": "p2", "description": "Mobile theme switcher: cut off on iPhone SE below social icons", "fixed": true }
+        {
+          "id": "P1-01",
+          "severity": "p1",
+          "description": "Services dropdown: white background in dark mode",
+          "fixed": true
+        },
+        {
+          "id": "P1-02",
+          "severity": "p1",
+          "description": "Contact form inputs: white background, invisible text (~1.3:1 contrast)",
+          "fixed": true
+        },
+        {
+          "id": "P1-03",
+          "severity": "p1",
+          "description": "Logo swap: dark:hidden/dark:block not applying (root cause: dual config)",
+          "fixed": true
+        },
+        {
+          "id": "P1-04",
+          "severity": "p1",
+          "description": "Service card headings: near-invisible text on dark backgrounds",
+          "fixed": true
+        },
+        {
+          "id": "P2-01",
+          "severity": "p2",
+          "description": "Contact form labels: low contrast in dark mode",
+          "fixed": true
+        },
+        {
+          "id": "P2-02",
+          "severity": "p2",
+          "description": "Contact info card: light background in dark mode",
+          "fixed": true
+        },
+        {
+          "id": "P2-03",
+          "severity": "p2",
+          "description": "Mobile theme switcher: cut off on iPhone SE below social icons",
+          "fixed": true
+        }
       ]
     },
     {
@@ -86,11 +121,12 @@
         "endTime": "2026-03-28T10:52:00Z",
         "durationMs": 600000,
         "model": "sonnet",
-        "costEstimate": 0.30
+        "costEstimate": 0.3
       },
       "defects": []
     }
   ],
   "createdAt": "2026-03-28T09:55:00Z",
-  "completedAt": "2026-03-28T10:52:00Z"
+  "completedAt": "2026-03-28T10:52:00Z",
+  "projectId": "w-construction"
 }

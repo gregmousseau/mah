@@ -34,6 +34,7 @@ export interface SprintContract {
   id: string;
   name: string;
   task: string;
+  projectId?: string;
   status: "planned" | "dev" | "qa" | "passed" | "failed" | "escalated" | "running";
   devBrief: {
     repo: string;
@@ -108,4 +109,27 @@ export interface SprintSummary {
   totalCost: number;
   createdAt: string;
   completedAt?: string;
+  projectId?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  repo?: string;
+  createdAt: string;
+  config?: {
+    priorities?: { speed: number; quality: number; cost: number };
+    defaultAgents?: { generator: { type: string; model: string }; evaluator: { type: string; model: string } };
+    qa?: { defaultTier: string; maxIterations: number };
+  };
+  // Computed stats
+  sprintCount?: number;
+  passRate?: number;
+  totalCost?: number;
+  lastSprintDate?: string;
+}
+
+export interface ProjectWithSprints extends Project {
+  sprints: SprintSummary[];
 }

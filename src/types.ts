@@ -43,12 +43,28 @@ export interface AgentConfig {
   testUrl?: string
 }
 
+// ─── Project ───
+
+export interface Project {
+  id: string
+  name: string
+  description?: string
+  repo?: string
+  createdAt: string
+  config?: {
+    priorities?: { speed: 1 | 2 | 3; quality: 1 | 2 | 3; cost: 1 | 2 | 3 }
+    defaultAgents?: { generator: AgentConfig; evaluator: AgentConfig }
+    qa?: { defaultTier: 'smoke' | 'targeted' | 'full'; maxIterations: number }
+  }
+}
+
 // ─── Sprint Contract ───
 
 export interface SprintContract {
   id: string
   name: string
   task: string
+  projectId?: string  // which project this sprint belongs to
   status: 'planned' | 'dev' | 'qa' | 'passed' | 'failed' | 'escalated'
   devBrief: {
     repo: string

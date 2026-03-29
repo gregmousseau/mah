@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import MetricsCard from "@/components/MetricsCard";
 import VerdictBadge from "@/components/VerdictBadge";
 import ActiveSprint from "@/components/ActiveSprint";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { usePolling } from "@/hooks/usePolling";
-import type { SprintSummary, MahConfig } from "@/types/mah";
+import type { SprintSummary, MahConfig, Project } from "@/types/mah";
 
 interface Stats {
   totalSprints: number;
@@ -54,16 +55,43 @@ function CostChart({ data }: { data: { id: string; name: string; cost: number }[
   );
 }
 
+function getProjectAccent(projectId?: string | null): string {
+  if (projectId === "w-construction") return "#f59e0b";
+  if (projectId === "mah-build") return "#a855f7";
+  if (!projectId) return "#555565";
+  const hash = (projectId || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return `hsl(${hash % 360}, 70%, 65%)`;
+}
+
 export default function DashboardPage() {
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const { data: stats } = usePolling<Stats>("/api/stats", 10000);
-  const { data: sprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
+  const { data: allSprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
   const { data: config } = usePolling<MahConfig>("/api/config", 60000);
+  const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
 
-  const recentSprints = (sprints || []).slice().reverse();
+  const sprints = projectFilter
+    ? (allSprints || []).filter((s) => s.projectId === projectFilter)
+    : (allSprints || []);
+
+  const recentSprints = sprints.slice().reverse();
   const priorities = config?.priorities ? priorityOrder(config.priorities) : [];
-  const s = stats || { totalSprints: 0, passRate: 0, avgIterations: 0, totalCost: 0, costPerSprint: [] };
 
-  const isLoading = !stats && !sprints;
+  // Compute filtered stats
+  const filteredPassRate = sprints.length > 0
+    ? Math.round((sprints.filter((s) => s.verdict === "pass" || s.status === "passed").length / sprints.length) * 100)
+    : 0;
+  const filteredAvgIter = sprints.length > 0
+    ? sprints.reduce((sum, s) => sum + (s.iterations || 0), 0) / sprints.length
+    : 0;
+  const filteredCost = sprints.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+  const filteredCostPerSprint = sprints.map((s) => ({ id: s.id, name: s.name, cost: s.totalCost }));
+
+  const s = projectFilter
+    ? { totalSprints: sprints.length, passRate: filteredPassRate, avgIterations: filteredAvgIter, totalCost: filteredCost, costPerSprint: filteredCostPerSprint }
+    : stats || { totalSprints: 0, passRate: 0, avgIterations: 0, totalCost: 0, costPerSprint: [] };
+
+  const isLoading = !stats && !allSprints;
 
   if (isLoading) {
     return (
@@ -113,6 +141,58 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Project selector */}
+      {projects && projects.length > 0 && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
+          <button
+            onClick={() => setProjectFilter(null)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: "8px",
+              border: "1px solid",
+              borderColor: !projectFilter ? "#7c3aed" : "#2a2a3a",
+              background: !projectFilter ? "rgba(124,58,237,0.15)" : "transparent",
+              color: !projectFilter ? "#a855f7" : "#888898",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            All Projects
+          </button>
+          {projects.map((project) => {
+            const accentColor = getProjectAccent(project.id);
+            const active = projectFilter === project.id;
+            return (
+              <button
+                key={project.id}
+                onClick={() => setProjectFilter(active ? null : project.id)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid",
+                  borderColor: active ? accentColor : "#2a2a3a",
+                  background: active ? `${accentColor}18` : "transparent",
+                  color: active ? accentColor : "#888898",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  transition: "all 0.15s",
+                }}
+              >
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: accentColor, display: "inline-block" }} />
+                {project.name}
+                <span style={{ fontSize: "11px", opacity: 0.7 }}>({project.sprintCount})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Active sprint indicator */}
       <div style={{ marginBottom: "28px" }}>
@@ -201,6 +281,69 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Project breakdown */}
+      {!projectFilter && projects && projects.length > 0 && (
+        <div style={{ marginTop: "24px", background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Projects</h2>
+            <Link href="/projects" style={{ fontSize: "12px", color: "#7c3aed", textDecoration: "none" }}>View all →</Link>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "12px" }}>
+            {projects.map((project) => {
+              const accentColor = getProjectAccent(project.id);
+              return (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  <div
+                    style={{
+                      background: "#0d0d18",
+                      border: `1px solid #2a2a3a`,
+                      borderRadius: "10px",
+                      padding: "16px",
+                      cursor: "pointer",
+                      position: "relative",
+                      overflow: "hidden",
+                      transition: "border-color 0.15s",
+                    }}
+                    className="project-mini-card"
+                  >
+                    <div style={{
+                      position: "absolute",
+                      left: 0, top: 0, bottom: 0,
+                      width: "3px",
+                      background: accentColor,
+                      borderRadius: "10px 0 0 10px",
+                    }} />
+                    <div style={{ paddingLeft: "8px" }}>
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#e0e0e8", marginBottom: "8px" }}>
+                        {project.name}
+                      </div>
+                      <div style={{ display: "flex", gap: "12px", fontSize: "12px" }}>
+                        <div>
+                          <span style={{ color: "#555565" }}>Sprints </span>
+                          <span style={{ color: "#e0e0e8", fontWeight: 600 }}>{project.sprintCount ?? 0}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: "#555565" }}>Pass </span>
+                          <span style={{ color: "#22c55e", fontWeight: 600 }}>{project.passRate ?? 0}%</span>
+                        </div>
+                        <div>
+                          <span style={{ color: "#555565" }}>Cost </span>
+                          <span style={{ color: accentColor, fontWeight: 600 }}>${(project.totalCost ?? 0).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Config summary */}
       {config?.agents && (
