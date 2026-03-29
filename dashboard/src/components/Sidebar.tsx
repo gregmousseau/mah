@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, List, Radio, Zap, Menu, X, FolderKanban } from "lucide-react";
+import { LayoutDashboard, List, Radio, Zap, Menu, X, FolderKanban, PlusSquare } from "lucide-react";
 import { useState } from "react";
 import ActiveSprint from "@/components/ActiveSprint";
 import { usePolling } from "@/hooks/usePolling";
@@ -23,6 +23,8 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
   const { data: config } = usePolling<MahConfig>("/api/config", 60000);
   const { data: stats } = usePolling<Stats>("/api/stats", 15000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
+  const { data: drafts } = usePolling<unknown[]>("/api/builder/drafts", 15000);
+  const draftCount = (drafts || []).length;
 
   return (
     <>
@@ -70,6 +72,51 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
 
       {/* Nav */}
       <nav style={{ padding: "12px 10px", flex: 1 }}>
+        {/* Builder — primary action */}
+        <Link
+          href="/builder"
+          onClick={onClose}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "9px 12px",
+            borderRadius: "8px",
+            marginBottom: "8px",
+            textDecoration: "none",
+            fontSize: "14px",
+            fontWeight: 600,
+            color: pathname.startsWith("/builder") ? "white" : "#e0e0e8",
+            background: pathname.startsWith("/builder")
+              ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+              : "rgba(124, 58, 237, 0.18)",
+            border: "1px solid rgba(124,58,237,0.3)",
+            transition: "all 0.15s ease",
+            position: "relative",
+          }}
+          className="nav-link"
+        >
+          <PlusSquare size={16} color={pathname.startsWith("/builder") ? "white" : "#a855f7"} />
+          Builder
+          {draftCount > 0 && (
+            <span
+              style={{
+                marginLeft: "auto",
+                background: "#7c3aed",
+                color: "white",
+                fontSize: "10px",
+                fontWeight: 700,
+                borderRadius: "10px",
+                padding: "1px 6px",
+                minWidth: "18px",
+                textAlign: "center",
+              }}
+            >
+              {draftCount}
+            </span>
+          )}
+        </Link>
+
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (

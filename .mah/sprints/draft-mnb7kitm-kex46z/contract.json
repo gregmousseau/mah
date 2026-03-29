@@ -1,0 +1,62 @@
+{
+  "id": "draft-mnb7kitm-kex46z",
+  "name": "Add a contact form to the W Construction website with nam...",
+  "task": "Add a contact form to the W Construction website with name, email, phone, and project description fields. Should submit to a Netlify form and show a success message.",
+  "projectId": "w-construction",
+  "status": "draft",
+  "agents": {
+    "generator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    },
+    "evaluator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    }
+  },
+  "priorities": {
+    "quality": 1,
+    "speed": 2,
+    "cost": 3
+  },
+  "human": {
+    "checkpoints": [
+      "On completion",
+      "On escalation"
+    ],
+    "notificationChannel": "telegram",
+    "responseTimeoutMinutes": 30,
+    "onTimeout": "proceed"
+  },
+  "devBrief": {
+    "repo": "~/pro/w",
+    "constraints": [
+      "Follow existing code patterns and conventions",
+      "Maintain backward compatibility"
+    ],
+    "definitionOfDone": [
+      "Feature works as described",
+      "No regressions introduced",
+      "Code follows project conventions",
+      "Tests pass"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "",
+    "testFocus": [
+      "Core functionality",
+      "Edge cases",
+      "Mobile responsiveness"
+    ],
+    "passCriteria": [
+      "Zero P0 defects",
+      "Zero P1 defects",
+      "P2 defects documented"
+    ],
+    "knownLimitations": []
+  },
+  "iterations": [],
+  "createdAt": "2026-03-29T03:37:26.602Z",
+  "savedAt": "2026-03-29T03:38:07.656Z"
+}

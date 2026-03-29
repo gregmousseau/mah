@@ -55,6 +55,57 @@ export default function VerdictBadge({ verdict }: { verdict: string }) {
     );
   }
 
+  if (v === "draft") {
+    return (
+      <span style={{
+        background: "rgba(85, 85, 101, 0.15)",
+        color: "#888898",
+        border: "1px solid rgba(85, 85, 101, 0.3)",
+        borderRadius: "6px",
+        padding: "2px 8px",
+        fontSize: "12px",
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+      }}>
+        ○ DRAFT
+      </span>
+    );
+  }
+
+  if (v === "scheduled") {
+    return (
+      <span style={{
+        background: "rgba(59, 130, 246, 0.15)",
+        color: "#60a5fa",
+        border: "1px solid rgba(59, 130, 246, 0.3)",
+        borderRadius: "6px",
+        padding: "2px 8px",
+        fontSize: "12px",
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+      }}>
+        🕐 SCHEDULED
+      </span>
+    );
+  }
+
+  if (v === "approved") {
+    return (
+      <span style={{
+        background: "rgba(124, 58, 237, 0.15)",
+        color: "#a855f7",
+        border: "1px solid rgba(124, 58, 237, 0.3)",
+        borderRadius: "6px",
+        padding: "2px 8px",
+        fontSize: "12px",
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+      }}>
+        ✦ APPROVED
+      </span>
+    );
+  }
+
   return (
     <span style={{
       background: "rgba(136, 136, 152, 0.15)",

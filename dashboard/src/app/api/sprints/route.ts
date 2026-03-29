@@ -8,6 +8,9 @@ const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
 function isRealSprint(dirName: string, contract: Record<string, unknown> | null): boolean {
   if (!contract) return false;
   const id = contract.id as string || "";
+  const status = contract.status as string || "";
+  // Include drafts and scheduled sprints from builder
+  if (status === "draft" || status === "scheduled" || status === "approved") return true;
   if (/^\d{3}$/.test(id)) return true;
   if (/^\d{3}-/.test(dirName)) return true;
   return false;
@@ -46,17 +49,26 @@ export async function GET(request: Request) {
       })
       // Skip placeholder/test sprints
       .filter(({ dir, contract }) => isRealSprint(dir, contract))
-      .map(({ contract, metrics }) => ({
-        id: contract?.id || "",
-        name: contract?.name || "",
-        status: contract?.status || "unknown",
-        verdict: metrics?.verdict || (contract?.status === "passed" ? "pass" : "unknown"),
-        iterations: metrics?.totals?.iterations || contract?.iterations?.length || 0,
-        totalCost: metrics?.totals?.estimatedCost || 0,
-        createdAt: contract?.createdAt || null,
-        completedAt: contract?.completedAt || null,
-        projectId: contract?.projectId || null,
-      }))
+      .map(({ contract, metrics }) => {
+        const status = contract?.status || "unknown";
+        let verdict = metrics?.verdict || (status === "passed" ? "pass" : "unknown");
+        // For draft/scheduled/approved, use status as verdict-equivalent
+        if (status === "draft" || status === "scheduled" || status === "approved") {
+          verdict = status;
+        }
+        return {
+          id: contract?.id || "",
+          name: contract?.name || "",
+          status,
+          verdict,
+          iterations: metrics?.totals?.iterations || contract?.iterations?.length || 0,
+          totalCost: metrics?.totals?.estimatedCost || 0,
+          createdAt: contract?.createdAt || null,
+          completedAt: contract?.completedAt || null,
+          scheduledFor: contract?.scheduledFor || null,
+          projectId: contract?.projectId || null,
+        };
+      })
       // Apply project filter if provided
       .filter((sprint) => !projectFilter || sprint.projectId === projectFilter)
       // Sort by createdAt ascending

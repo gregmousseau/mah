@@ -7,6 +7,7 @@ import VerdictBadge from "@/components/VerdictBadge";
 import ActiveSprint from "@/components/ActiveSprint";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { usePolling } from "@/hooks/usePolling";
+import { PlusSquare, Clock, FileText } from "lucide-react";
 import type { SprintSummary, MahConfig, Project } from "@/types/mah";
 
 interface Stats {
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const { data: allSprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
   const { data: config } = usePolling<MahConfig>("/api/config", 60000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
+  const { data: drafts } = usePolling<Record<string, unknown>[]>("/api/builder/drafts", 15000);
 
   const sprints = projectFilter
     ? (allSprints || []).filter((s) => s.projectId === projectFilter)
@@ -117,21 +119,42 @@ export default function DashboardPage() {
     <div style={{ padding: "32px", maxWidth: "1100px" }}>
       {/* Header */}
       <div style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#e0e0e8" }}>
-            {config?.project?.name || "MAH Project"}
-          </h1>
-          <span style={{
-            background: "rgba(124, 58, 237, 0.15)",
-            color: "#a855f7",
-            border: "1px solid rgba(168, 85, 247, 0.3)",
-            borderRadius: "6px",
-            padding: "2px 8px",
-            fontSize: "12px",
-            fontWeight: 500,
-          }}>
-            Multi-Agent Harness
-          </span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "8px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#e0e0e8" }}>
+              {config?.project?.name || "MAH Project"}
+            </h1>
+            <span style={{
+              background: "rgba(124, 58, 237, 0.15)",
+              color: "#a855f7",
+              border: "1px solid rgba(168, 85, 247, 0.3)",
+              borderRadius: "6px",
+              padding: "2px 8px",
+              fontSize: "12px",
+              fontWeight: 500,
+            }}>
+              Multi-Agent Harness
+            </span>
+          </div>
+          <Link
+            href="/builder"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              padding: "8px 16px",
+              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+              borderRadius: "8px",
+              textDecoration: "none",
+              color: "white",
+              fontSize: "13px",
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            <PlusSquare size={15} />
+            New Sprint
+          </Link>
         </div>
         {priorities.length > 0 && (
           <div style={{ fontSize: "13px", color: "#888898", display: "flex", gap: "12px", flexWrap: "wrap" }}>
@@ -339,6 +362,120 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Drafts section */}
+      {drafts && drafts.length > 0 && (
+        <div style={{ marginTop: "24px", background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>
+              Drafts & Scheduled
+              <span style={{
+                marginLeft: "8px",
+                background: "#7c3aed",
+                color: "white",
+                fontSize: "10px",
+                fontWeight: 700,
+                borderRadius: "10px",
+                padding: "1px 7px",
+              }}>
+                {drafts.length}
+              </span>
+            </h2>
+            <Link href="/builder" style={{ fontSize: "12px", color: "#7c3aed", textDecoration: "none" }}>
+              + New Sprint
+            </Link>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {drafts.map((draft) => {
+              const id = draft.id as string;
+              const name = draft.name as string;
+              const status = draft.status as string;
+              const scheduledFor = draft.scheduledFor as string | undefined;
+              const task = draft.task as string;
+              return (
+                <div
+                  key={id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 14px",
+                    background: "#0d0d18",
+                    border: "1px solid #2a2a3a",
+                    borderRadius: "8px",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: "200px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
+                      {status === "scheduled" ? (
+                        <Clock size={13} color="#60a5fa" />
+                      ) : (
+                        <FileText size={13} color="#888898" />
+                      )}
+                      <span style={{ fontSize: "13px", fontWeight: 500, color: "#e0e0e8" }}>{name || id}</span>
+                      <span style={{
+                        fontSize: "10px",
+                        fontWeight: 600,
+                        borderRadius: "4px",
+                        padding: "1px 6px",
+                        background: status === "scheduled" ? "rgba(59,130,246,0.1)" : status === "approved" ? "rgba(124,58,237,0.1)" : "rgba(85,85,101,0.1)",
+                        color: status === "scheduled" ? "#60a5fa" : status === "approved" ? "#a855f7" : "#888898",
+                        border: `1px solid ${status === "scheduled" ? "rgba(59,130,246,0.25)" : status === "approved" ? "rgba(124,58,237,0.25)" : "rgba(85,85,101,0.25)"}`,
+                      }}>
+                        {status?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#555565", paddingLeft: "21px" }}>
+                      {scheduledFor ? `Scheduled for ${new Date(scheduledFor).toLocaleString()}` : (task as string || "").slice(0, 80)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                    <Link
+                      href={`/builder?resume=${id}`}
+                      style={{
+                        fontSize: "12px",
+                        padding: "5px 12px",
+                        background: "rgba(124,58,237,0.1)",
+                        border: "1px solid rgba(124,58,237,0.25)",
+                        borderRadius: "6px",
+                        color: "#a855f7",
+                        textDecoration: "none",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Resume
+                    </Link>
+                    <button
+                      onClick={async () => {
+                        await fetch("/api/builder/save", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ contract: { ...draft, status: "approved" } }),
+                        });
+                        window.location.reload();
+                      }}
+                      style={{
+                        fontSize: "12px",
+                        padding: "5px 12px",
+                        background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                        border: "none",
+                        borderRadius: "6px",
+                        color: "white",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Run Now
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
