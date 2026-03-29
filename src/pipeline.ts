@@ -19,6 +19,8 @@ import type {
   SprintMetrics,
   SprintIteration,
   PhaseResult,
+  SprintTranscript,
+  TranscriptPhase,
 } from './types.js'
 
 function writeNotification(contract: SprintContract, metrics: SprintMetrics): void {
@@ -67,6 +69,12 @@ function clearHeartbeat(): void {
   } catch {
     // ignore
   }
+}
+
+function saveTranscript(transcript: SprintTranscript, sprintDir: string, sprintId: string): void {
+  const dir = join(sprintDir, sprintId)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'transcript.json'), JSON.stringify(transcript, null, 2), 'utf-8')
 }
 
 function saveContract(contract: SprintContract, sprintDir: string): void {
@@ -128,6 +136,12 @@ export async function runSprint(
   let currentRound = 0
   const sprintStartTime = Date.now()
 
+  // Initialize transcript
+  const transcript: SprintTranscript = {
+    sprintId: contract.id,
+    phases: [],
+  }
+
   // Start heartbeat interval
   writeHeartbeat(currentPhase, currentRound, sprintStartTime)
   const heartbeatInterval = setInterval(() => {
@@ -157,6 +171,22 @@ export async function runSprint(
       label: `dev-${contract.id}-r${round}`,
     })
 
+    // Capture dev transcript phase
+    const devTranscriptPhase: TranscriptPhase = {
+      phase: 'dev',
+      round,
+      actor: 'dev',
+      model: config.agents.generator.model,
+      startTime: new Date(devResult.timing.startMs).toISOString(),
+      endTime: new Date(devResult.timing.endMs).toISOString(),
+      promptSent: devPrompt,
+      responseReceived: devResult.output,
+      tokenUsage: devResult.tokenUsage,
+      costEstimate: devResult.costEstimate,
+    }
+    transcript.phases.push(devTranscriptPhase)
+    saveTranscript(transcript, sprintDir, contract.id)
+
     const devDuration = formatDuration(devResult.timing.durationMs)
     const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
@@ -174,6 +204,22 @@ export async function runSprint(
       timeoutMs: 30 * 60 * 1000,
       label: `qa-${contract.id}-r${round}`,
     })
+
+    // Capture QA transcript phase
+    const qaTranscriptPhase: TranscriptPhase = {
+      phase: 'qa',
+      round,
+      actor: 'quinn',
+      model: config.agents.evaluator.model,
+      startTime: new Date(qaResult.timing.startMs).toISOString(),
+      endTime: new Date(qaResult.timing.endMs).toISOString(),
+      promptSent: qaPrompt,
+      responseReceived: qaResult.output,
+      tokenUsage: qaResult.tokenUsage,
+      costEstimate: qaResult.costEstimate,
+    }
+    transcript.phases.push(qaTranscriptPhase)
+    saveTranscript(transcript, sprintDir, contract.id)
 
     const qaDuration = formatDuration(qaResult.timing.durationMs)
     const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''

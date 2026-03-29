@@ -1,3 +1,21 @@
+export interface SprintTranscript {
+  sprintId: string;
+  phases: TranscriptPhase[];
+}
+
+export interface TranscriptPhase {
+  phase: "plan" | "dev" | "qa";
+  round: number;
+  actor: string;
+  model: string;
+  startTime: string;
+  endTime: string;
+  promptSent: string;
+  responseReceived: string;
+  tokenUsage?: { input: number; output: number };
+  costEstimate?: number;
+}
+
 export interface Defect {
   id: string;
   severity: "p0" | "p1" | "p2" | "p3";

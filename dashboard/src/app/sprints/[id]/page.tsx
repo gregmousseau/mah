@@ -7,6 +7,7 @@ import SprintTimeline from "@/components/SprintTimeline";
 import DefectTable from "@/components/DefectTable";
 import VerdictBadge from "@/components/VerdictBadge";
 import SprintProgressBar from "@/components/SprintProgressBar";
+import TranscriptViewer from "@/components/TranscriptViewer";
 import { usePolling } from "@/hooks/usePolling";
 import type { SprintContract, SprintMetrics, Defect, Project } from "@/types/mah";
 
@@ -234,6 +235,9 @@ export default function SprintDetailPage() {
           <DefectTable defects={allDefects} />
         </Section>
       )}
+
+      {/* Transcript */}
+      <TranscriptViewer sprintId={contract.id} />
 
       {/* Sprint Contract */}
       <Section title="Sprint Contract">

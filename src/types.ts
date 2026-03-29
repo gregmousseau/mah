@@ -181,6 +181,26 @@ export interface AgentResult {
   costEstimate?: number
 }
 
+// ─── Sprint Transcript ───
+
+export interface SprintTranscript {
+  sprintId: string
+  phases: TranscriptPhase[]
+}
+
+export interface TranscriptPhase {
+  phase: 'plan' | 'dev' | 'qa'
+  round: number
+  actor: string          // 'moe', 'dev', 'quinn', etc.
+  model: string
+  startTime: string
+  endTime: string
+  promptSent: string     // full prompt sent to the agent
+  responseReceived: string  // full response from the agent
+  tokenUsage?: { input: number; output: number }
+  costEstimate?: number
+}
+
 // ─── Event Stream (for Remotion replay) ───
 
 export interface BuildEvent {
