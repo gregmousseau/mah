@@ -4,13 +4,14 @@ import { join } from "path";
 
 const MAH_ROOT = join(process.cwd(), "..");
 const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
+const METRICS_DIR = join(MAH_ROOT, ".mah", "metrics");
 
 function isRealSprint(dirName: string, contract: Record<string, unknown> | null): boolean {
   if (!contract) return false;
   const id = contract.id as string || "";
   const status = contract.status as string || "";
   // Include all lifecycle statuses
-  const lifecycleStatuses = ["draft", "scheduled", "approved", "queued", "running", "passed", "failed", "escalated", "cancelled"];
+  const lifecycleStatuses = ["draft", "planned", "scheduled", "approved", "queued", "running", "passed", "failed", "escalated", "cancelled"];
   if (lifecycleStatuses.includes(status)) return true;
   if (/^\d{3}$/.test(id)) return true;
   if (/^\d{3}-/.test(dirName)) return true;
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
     const sprints = sprintDirs
       .map((dir) => {
         const contractPath = join(SPRINTS_DIR, dir, "contract.json");
-        const metricsPath = join(SPRINTS_DIR, dir, "metrics.json");
+        const metricsPathOld = join(SPRINTS_DIR, dir, "metrics.json");
 
         let contract = null;
         let metrics = null;
@@ -42,8 +43,17 @@ export async function GET(request: Request) {
         if (existsSync(contractPath)) {
           contract = JSON.parse(readFileSync(contractPath, "utf-8"));
         }
-        if (existsSync(metricsPath)) {
-          metrics = JSON.parse(readFileSync(metricsPath, "utf-8"));
+
+        // Try old location first (sprint-specific)
+        if (existsSync(metricsPathOld)) {
+          metrics = JSON.parse(readFileSync(metricsPathOld, "utf-8"));
+        }
+        // Then try new centralized location using sprint ID
+        else if (contract?.id) {
+          const metricsPathNew = join(METRICS_DIR, `${contract.id}.json`);
+          if (existsSync(metricsPathNew)) {
+            metrics = JSON.parse(readFileSync(metricsPathNew, "utf-8"));
+          }
         }
 
         return { dir, contract, metrics };

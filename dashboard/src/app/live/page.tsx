@@ -12,6 +12,7 @@ interface Heartbeat {
   round: number;
   elapsed: number;
   sprintId?: string;
+  sprintName?: string;
   lastUpdate: string;
 }
 
@@ -121,6 +122,8 @@ export default function LivePage() {
   const { data: sprints } = usePolling<SprintSummary[]>("/api/sprints", 5000);
   const { data: heartbeat } = usePolling<Heartbeat>("/api/heartbeat", 5000);
   const { data: queue } = usePolling<QueueEntry[]>("/api/sprints/queue", 5000);
+  // Watchdog: auto-recovers stuck sprints every 60s (GET is side-effect-free when healthy)
+  usePolling("/api/queue/watchdog", 60000);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
@@ -281,6 +284,54 @@ export default function LivePage() {
             </div>
           </div>
         </>
+      ) : isActive && heartbeat?.alive ? (
+        /* ─── HEARTBEAT-ONLY RUNNING STATE (activeSprint not loaded yet) ─── */
+        <div style={{
+          background: "rgba(124,58,237,0.1)",
+          border: "1px solid rgba(168,85,247,0.4)",
+          borderRadius: "12px",
+          padding: "20px 24px",
+          marginBottom: "16px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <div className="dot-pulse" style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "16px", fontWeight: 700, color: "#e0e0e8", marginBottom: "4px" }}>
+                {heartbeat.sprintName
+                  ? heartbeat.sprintName
+                  : heartbeat.sprintId
+                  ? `Sprint #${heartbeat.sprintId}`
+                  : "Sprint Running"}
+              </div>
+              <div style={{ fontSize: "12px", color: "#888898", display: "flex", gap: "14px", flexWrap: "wrap" }}>
+                <span style={{ color: "#a855f7", fontWeight: 600, textTransform: "uppercase", fontSize: "11px" }}>RUNNING</span>
+                {heartbeat.phase && (
+                  <span>Phase: <span style={{ color: heartbeat.phase === "dev" ? "#3b82f6" : "#a855f7" }}>{heartbeat.phase}</span> · Round {heartbeat.round}</span>
+                )}
+              </div>
+            </div>
+            {heartbeat.sprintId && (
+              <Link
+                href={`/sprints/${heartbeat.sprintId}`}
+                style={{
+                  padding: "7px 14px",
+                  background: "rgba(168,85,247,0.1)",
+                  border: "1px solid rgba(168,85,247,0.3)",
+                  borderRadius: "7px",
+                  color: "#a855f7",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                }}
+              >
+                View Sprint →
+              </Link>
+            )}
+          </div>
+          <div style={{ marginTop: "12px" }}>
+            <HeartbeatStatus heartbeat={heartbeat} />
+          </div>
+        </div>
       ) : queuedSprints.length > 0 ? (
         /* ─── QUEUE STATE ─── */
         <div style={{

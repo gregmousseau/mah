@@ -100,8 +100,10 @@ export function createSprintMetrics(
 
 export function saveMetrics(metrics: SprintMetrics, outputDir: string): void {
   mkdirSync(outputDir, { recursive: true })
-  const filePath = join(outputDir, `${metrics.sprintId}.json`)
-  writeFileSync(filePath, JSON.stringify(metrics, null, 2), 'utf-8')
+  const data = JSON.stringify(metrics, null, 2)
+  // Save as both {sprintId}.json (for aggregate loading) and metrics.json (for dashboard)
+  writeFileSync(join(outputDir, `${metrics.sprintId}.json`), data, 'utf-8')
+  writeFileSync(join(outputDir, 'metrics.json'), data, 'utf-8')
 }
 
 export function loadAggregateMetrics(outputDir: string): SprintMetrics[] {

@@ -1,0 +1,9 @@
+[executor] Running sprint: Bug: Every sprint since 006 has $0 (017)
+[executor] Working directory: /home/greg/clawd/projects/mah
+[executor] Loaded project config: /home/greg/clawd/projects/mah/.mah/projects/mah-build.json
+[executor] Starting pipeline for sprint 017...
+  🏁 moe    [contract] Starting sprint: Bug: Every sprint since 006 has $0
+  🏁 moe    [contract] Sprint ID: 017
+
+  ─── Round 1 / 3 ─────────────────────
+  🚀 moe    [dev] Spawned dev agent R1

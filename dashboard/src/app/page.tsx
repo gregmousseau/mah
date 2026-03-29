@@ -6,6 +6,7 @@ import MetricsCard from "@/components/MetricsCard";
 import VerdictBadge from "@/components/VerdictBadge";
 import ActiveSprint from "@/components/ActiveSprint";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import SprintTimelineChart from "@/components/SprintTimelineChart";
 import { usePolling } from "@/hooks/usePolling";
 import { PlusSquare, Clock, FileText, Radio } from "lucide-react";
 import type { SprintSummary, MahConfig, Project } from "@/types/mah";
@@ -26,34 +27,6 @@ function priorityOrder(p: Record<string, number>) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-}
-
-function CostChart({ data }: { data: { id: string; name: string; cost: number }[] }) {
-  if (!data || data.length === 0) return null;
-  const maxCost = Math.max(...data.map((d) => d.cost), 0.01);
-
-  return (
-    <div style={{ padding: "20px 0 8px" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", height: "80px" }}>
-        {data.map((sprint) => (
-          <div key={sprint.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-            <div style={{ fontSize: "10px", color: "#888898" }}>${sprint.cost.toFixed(2)}</div>
-            <div
-              style={{
-                width: "100%",
-                maxWidth: "60px",
-                height: `${Math.max((sprint.cost / maxCost) * 56, 4)}px`,
-                background: "linear-gradient(180deg, #7c3aed, #a855f7)",
-                borderRadius: "4px 4px 2px 2px",
-                transition: "height 0.4s ease",
-              }}
-            />
-            <div style={{ fontSize: "10px", color: "#888898" }}>#{sprint.id}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function getProjectAccent(projectId?: string | null): string {
@@ -357,12 +330,12 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Cost chart */}
+        {/* Sprint Timeline Chart */}
         <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
-          <h2 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Cost per Sprint</h2>
-          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Estimated API cost</div>
-          {s.costPerSprint && s.costPerSprint.length > 0 ? (
-            <CostChart data={s.costPerSprint} />
+          <h2 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Sprint Timeline</h2>
+          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Cost over time by project</div>
+          {sprints.length > 0 ? (
+            <SprintTimelineChart sprints={sprints} getProjectAccent={getProjectAccent} />
           ) : (
             <div style={{ color: "#888898", fontSize: "14px", padding: "24px 0" }}>No data yet.</div>
           )}

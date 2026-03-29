@@ -152,7 +152,7 @@ function TimelineNode({ title, subtitle, time, duration, cost, verdict, defectCo
 
 interface Props {
   contract: SprintContract;
-  metrics: SprintMetrics;
+  metrics?: SprintMetrics | null;
 }
 
 export default function SprintTimeline({ contract, metrics }: Props) {
@@ -210,40 +210,42 @@ export default function SprintTimeline({ contract, metrics }: Props) {
         <TimelineNode key={i} {...node} isLast={i === nodes.length - 1} />
       ))}
 
-      {/* Summary bar */}
-      <div style={{
-        marginTop: "16px",
-        padding: "12px 16px",
-        background: contract.status === "passed"
-          ? "rgba(34, 197, 94, 0.08)"
-          : "rgba(239, 68, 68, 0.08)",
-        border: `1px solid ${contract.status === "passed" ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
-        borderRadius: "10px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: "8px",
-      }}>
-        <span style={{
-          fontWeight: 700,
-          color: contract.status === "passed" ? "#22c55e" : "#ef4444",
-          fontSize: "14px",
+      {/* Summary bar — only shown when metrics are available */}
+      {metrics && (
+        <div style={{
+          marginTop: "16px",
+          padding: "12px 16px",
+          background: contract.status === "passed"
+            ? "rgba(34, 197, 94, 0.08)"
+            : "rgba(239, 68, 68, 0.08)",
+          border: `1px solid ${contract.status === "passed" ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
+          borderRadius: "10px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "8px",
         }}>
-          {contract.status === "passed" ? "✓ Sprint Passed" : "✗ Sprint Failed"}
-        </span>
-        <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "12px", color: "#888898" }}>
-            Total: <strong style={{ color: "#e0e0e8" }}>{formatDuration(metrics.totals.durationMs)}</strong>
+          <span style={{
+            fontWeight: 700,
+            color: contract.status === "passed" ? "#22c55e" : "#ef4444",
+            fontSize: "14px",
+          }}>
+            {contract.status === "passed" ? "✓ Sprint Passed" : "✗ Sprint Failed"}
           </span>
-          <span style={{ fontSize: "12px", color: "#888898" }}>
-            Cost: <strong style={{ color: "#e0e0e8" }}>${metrics.totals.estimatedCost.toFixed(2)}</strong>
-          </span>
-          <span style={{ fontSize: "12px", color: "#888898" }}>
-            Iterations: <strong style={{ color: "#e0e0e8" }}>{metrics.totals.iterations}</strong>
-          </span>
+          <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "12px", color: "#888898" }}>
+              Total: <strong style={{ color: "#e0e0e8" }}>{formatDuration(metrics.totals.durationMs)}</strong>
+            </span>
+            <span style={{ fontSize: "12px", color: "#888898" }}>
+              Cost: <strong style={{ color: "#e0e0e8" }}>${metrics.totals.estimatedCost.toFixed(2)}</strong>
+            </span>
+            <span style={{ fontSize: "12px", color: "#888898" }}>
+              Iterations: <strong style={{ color: "#e0e0e8" }}>{metrics.totals.iterations}</strong>
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

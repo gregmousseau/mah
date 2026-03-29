@@ -1,0 +1,33 @@
+{"ts":"2026-03-29T15:16:32.945Z","local":"11:16:32","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: On this MAH dashboard, there are 2 issues"}
+{"ts":"2026-03-29T15:16:32.976Z","local":"11:16:32","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: draft-mnbwhdab-4k5g0c"}
+{"ts":"2026-03-29T15:16:32.994Z","local":"11:16:32","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T15:18:37.299Z","local":"11:18:37","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (2m 4s / $0.0070)"}
+{"ts":"2026-03-29T15:18:37.300Z","local":"11:18:37","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T15:27:38.701Z","local":"11:27:38","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: On this MAH dashboard, there are 2 issues"}
+{"ts":"2026-03-29T15:27:38.740Z","local":"11:27:38","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 013"}
+{"ts":"2026-03-29T15:27:38.752Z","local":"11:27:38","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T15:30:40.401Z","local":"11:30:40","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (3m 1s / $0.0091)"}
+{"ts":"2026-03-29T15:30:40.402Z","local":"11:30:40","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T15:34:22.736Z","local":"11:34:22","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (3m 42s / $0.0108)"}
+{"ts":"2026-03-29T15:34:22.738Z","local":"11:34:22","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P2-01(P2), P3-01(P3), P3-02(P3)"}
+{"ts":"2026-03-29T15:34:22.739Z","local":"11:34:22","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-03-29T15:35:36.241Z","local":"11:35:36","actor":"system","type":"output","phase":"qa","summary":"Code review R1 complete (1m 13s / $0.0143)"}
+{"ts":"2026-03-29T15:35:36.243Z","local":"11:35:36","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint CONDITIONAL PASS in 1 iteration(s)"}
+{"ts":"2026-03-29T17:31:12.381Z","local":"13:31:12","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Sprint Cost & Timeline Chart"}
+{"ts":"2026-03-29T17:31:12.401Z","local":"13:31:12","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 016"}
+{"ts":"2026-03-29T17:31:12.411Z","local":"13:31:12","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T17:36:23.292Z","local":"13:36:23","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (5m 10s / $0.0169)"}
+{"ts":"2026-03-29T17:36:23.294Z","local":"13:36:23","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T17:40:43.413Z","local":"13:40:43","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (4m 20s / $0.0158)"}
+{"ts":"2026-03-29T17:40:43.417Z","local":"13:40:43","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P3-01(P3), P3-02(P3), P3-03(P3)"}
+{"ts":"2026-03-29T17:40:43.417Z","local":"13:40:43","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-03-29T17:41:56.470Z","local":"13:41:56","actor":"system","type":"output","phase":"qa","summary":"Code review R1 complete (1m 13s / $0.0174)"}
+{"ts":"2026-03-29T17:41:56.472Z","local":"13:41:56","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint CONDITIONAL PASS in 1 iteration(s)"}
+{"ts":"2026-03-29T19:27:42.665Z","local":"15:27:42","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Bug: Every sprint since 006 has $0"}
+{"ts":"2026-03-29T19:27:42.684Z","local":"15:27:42","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 017"}
+{"ts":"2026-03-29T19:27:42.691Z","local":"15:27:42","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T19:31:00.463Z","local":"15:31:00","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (3m 17s / $0.0089)"}
+{"ts":"2026-03-29T19:31:00.468Z","local":"15:31:00","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T19:33:40.852Z","local":"15:33:40","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (2m 40s / $0.0104)"}
+{"ts":"2026-03-29T19:33:40.854Z","local":"15:33:40","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P2-01(P2), P3-01(P3)"}
+{"ts":"2026-03-29T19:33:40.855Z","local":"15:33:40","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}

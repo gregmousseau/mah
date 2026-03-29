@@ -573,7 +573,7 @@ function BuilderInner() {
   };
 
   const handleSave = async (
-    status: "draft" | "approved" | "scheduled",
+    status: "draft" | "approved" | "scheduled" | "enqueue",
     schedFor?: string
   ) => {
     if (!contract) return;
@@ -583,7 +583,7 @@ function BuilderInner() {
     try {
       const contractToSave = {
         ...contract,
-        status: schedFor ? "scheduled" : status,
+        status: schedFor ? "scheduled" : status === "enqueue" ? "approved" : status,
         priorities: priorityOrderToMap(priorityOrder),
         graders,
       };
@@ -600,19 +600,45 @@ function BuilderInner() {
       }
 
       if (status === "approved" && !schedFor) {
-        // Run Now: queue and redirect to live
-        setSaveMsg("Sprint queued! Redirecting to live view...");
+        // Run Now: start immediately (or queue if something running)
+        setSaveMsg("Starting sprint... Redirecting to live view...");
         const runRes = await fetch("/api/sprints/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contractId: contractToSave.id }),
         });
         if (!runRes.ok) {
-          setSaveMsg("Sprint saved but failed to queue. Check /sprints.");
+          setSaveMsg("Sprint saved but failed to start. Check /sprints.");
           return;
+        }
+        const runData = await runRes.json();
+        if (runData.status === "queued") {
+          setSaveMsg(`Sprint queued at position ${runData.position}! Redirecting...`);
+        } else {
+          setSaveMsg("Sprint started! Redirecting to live view...");
         }
         localStorage.removeItem(STORAGE_KEY);
         setTimeout(() => router.push("/live"), 1200);
+      } else if (status === "enqueue") {
+        // Explicitly enqueue (add to pending queue)
+        setSaveMsg("Adding sprint to queue...");
+        const runRes = await fetch("/api/sprints/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contractId: contractToSave.id, enqueue: true }),
+        });
+        if (!runRes.ok) {
+          setSaveMsg("Sprint saved but failed to queue. Check /sprints.");
+          return;
+        }
+        const runData = await runRes.json();
+        setSaveMsg(
+          runData.status === "started"
+            ? "Sprint started (queue was empty)! Redirecting..."
+            : `Sprint queued at position ${runData.position}!`
+        );
+        localStorage.removeItem(STORAGE_KEY);
+        setTimeout(() => router.push("/live"), 1500);
       } else if (schedFor) {
         // Schedule: show confirmation, stay on page
         const dt = new Date(schedFor).toLocaleString("en-CA", {
@@ -1532,7 +1558,34 @@ function BuilderInner() {
             <Rocket size={18} />
             Run Now
             <span style={{ fontSize: "12px", opacity: 0.75, fontWeight: 400 }}>
-              — queue &amp; go live
+              — start immediately
+            </span>
+          </button>
+
+          {/* Add to Queue */}
+          <button
+            onClick={() => handleSave("enqueue")}
+            disabled={saving}
+            style={{
+              padding: "14px 24px",
+              background: saving ? "#1a1a2a" : "rgba(59,130,246,0.1)",
+              border: `1px solid ${saving ? "#2a2a3a" : "rgba(59,130,246,0.4)"}`,
+              borderRadius: "10px",
+              color: saving ? "#555565" : "#60a5fa",
+              fontSize: "14px",
+              fontWeight: 600,
+              cursor: saving ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              transition: "all 0.15s",
+            }}
+          >
+            <span style={{ fontSize: "16px" }}>🗂</span>
+            Add to Queue
+            <span style={{ fontSize: "12px", opacity: 0.75, fontWeight: 400 }}>
+              — run after current sprint
             </span>
           </button>
 

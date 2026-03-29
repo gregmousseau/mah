@@ -1,0 +1,51 @@
+{
+  "sprintId": "013",
+  "projectName": "MAH Build",
+  "task": "On this MAH dashboard, there are 2 issues. \n1) in the top right corner by the logo, it say \"W Construction\", which is only one of our projects, not the umbrella Organization. For our purposes, I think this should be Moe's AI. \n2) The Live page: http://localhost:3333/live doesn't have any updated event streams since last night. Possibly b/c the latest sprint was manually created, but there should still be events from today. Check and fix as needed",
+  "startTime": "2026-03-29T15:14:49.859Z",
+  "endTime": "2026-03-29T15:35:36.244Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 181647,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.009105
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 222334,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.010836
+    }
+  ],
+  "totals": {
+    "durationMs": 1246385,
+    "estimatedCost": 0.019941,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 2
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 2
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "qa-r1"
+}

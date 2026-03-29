@@ -21,6 +21,7 @@ export async function GET(req: Request) {
 
     const events: unknown[] = [];
 
+    // Read ALL files first, then sort and limit
     for (const file of files) {
       const content = readFileSync(join(EVENTS_DIR, file), "utf-8");
       const lines = content.trim().split("\n").filter(Boolean);
@@ -31,7 +32,6 @@ export async function GET(req: Request) {
           // skip malformed lines
         }
       }
-      if (events.length >= limit) break;
     }
 
     // Sort by timestamp descending, return latest `limit`

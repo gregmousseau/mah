@@ -12,12 +12,17 @@ const PHASE_ORDER: PhaseLabel[] = ["Contract", "Dev", "QA", "Complete"];
 
 function getActivePhase(status: string): PhaseLabel | null {
   switch (status) {
+    case "draft": return "Contract";
     case "planned": return "Contract";
+    case "approved": return "Contract";
+    case "queued": return "Contract";
+    case "running": return "Dev";
     case "dev": return "Dev";
     case "qa": return "QA";
     case "passed": return "Complete";
     case "escalated": return "Complete";
     case "failed": return "QA";
+    case "cancelled": return null;
     default: return null;
   }
 }

@@ -273,11 +273,17 @@ function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
   const updateStatus = async (newStatus: string) => {
     setBusy(true);
     try {
-      await fetch(`/api/sprints/${sprintId}/status`, {
+      const res = await fetch(`/api/sprints/${sprintId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
+      const data = await res.json();
+      // If the sprint got a new ID (e.g., on approval), redirect to the new ID
+      if (data.id && data.id !== sprintId) {
+        router.push(`/sprints/${data.id}`);
+        return;
+      }
       onRefresh();
     } finally {
       setBusy(false);
@@ -288,15 +294,20 @@ function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
   const runNow = async () => {
     setBusy(true);
     try {
-      await fetch(`/api/sprints/${sprintId}/status`, {
+      // Approve first — may assign a new sequential ID
+      const approveRes = await fetch(`/api/sprints/${sprintId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "approved" }),
       });
+      const approveData = await approveRes.json();
+      const actualId = approveData.id ?? sprintId;
+
+      // Run with the (possibly new) ID
       await fetch("/api/sprints/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contractId: sprintId }),
+        body: JSON.stringify({ contractId: actualId }),
       });
       router.push("/live");
     } finally {
@@ -516,10 +527,17 @@ function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
   );
 }
 
+interface QueueState {
+  running: { sprintId: string; sprintName?: string; startedAt: string; pid?: number } | null;
+  pending: { sprintId: string; sprintName?: string; queuedAt: string }[];
+  completed: { sprintId: string; completedAt: string; status: string }[];
+}
+
 export default function SprintDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, loading, error, refetch } = usePolling<SprintData>(`/api/sprints/${id}`, 5000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 60000);
+  const { data: queueState } = usePolling<QueueState>("/api/queue", 5000);
 
   // Dynamic page title
   useEffect(() => {
@@ -567,6 +585,11 @@ export default function SprintDetailPage() {
 
   const project = projects?.find((p) => p.id === contract.projectId);
 
+  // Queue position (if this sprint is pending)
+  const queuePosition = queueState
+    ? queueState.pending.findIndex((p) => p.sprintId === contract.id) + 1
+    : 0;
+
   function getAccent(pid?: string) {
     if (pid === "w-construction") return "#f59e0b";
     if (pid === "mah-build") return "#a855f7";
@@ -601,6 +624,45 @@ export default function SprintDetailPage() {
 
       {/* Action Bar */}
       <ActionBar contract={contract} sprintId={contract.id} onRefresh={refetch} />
+
+      {/* Queued status banner */}
+      {contract.status === "queued" && (
+        <div style={{
+          marginBottom: "16px",
+          padding: "14px 20px",
+          background: "rgba(59,130,246,0.08)",
+          border: "1px solid rgba(59,130,246,0.3)",
+          borderRadius: "10px",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}>
+          <span style={{ fontSize: "18px" }}>🗂</span>
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 600, color: "#60a5fa" }}>
+              {queuePosition > 0 ? `Queued — Position #${queuePosition}` : "Queued"}
+            </div>
+            <div style={{ fontSize: "12px", color: "#888898", marginTop: "2px" }}>
+              Waiting for the current sprint to finish. Will start automatically.
+            </div>
+          </div>
+          <Link
+            href="/live"
+            style={{
+              marginLeft: "auto",
+              fontSize: "12px",
+              color: "#60a5fa",
+              textDecoration: "none",
+              padding: "5px 12px",
+              border: "1px solid rgba(59,130,246,0.3)",
+              borderRadius: "6px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Watch Live →
+          </Link>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ marginBottom: "24px" }}>
@@ -705,7 +767,7 @@ export default function SprintDetailPage() {
 
       {/* Timeline */}
       <Section title="Sprint Timeline">
-        <SprintTimeline contract={contract} metrics={metrics} />
+        <SprintTimeline contract={contract} metrics={metrics ?? null} />
       </Section>
 
       {/* Defects */}
@@ -721,6 +783,85 @@ export default function SprintDetailPage() {
           <GraderResultsPanel results={latestGraderResults} />
         </Section>
       )}
+
+      {/* Next Steps / Human Actions */}
+      {(() => {
+        // Derive next steps from contract fields + dev output patterns
+        const steps: string[] = [];
+
+        // Explicit nextSteps from contract
+        if (contract.nextSteps && contract.nextSteps.length > 0) {
+          steps.push(...contract.nextSteps);
+        }
+
+        // Parse dev output for patterns
+        const allDevOutput = contract.iterations.map(i => i.dev?.output || "").join(" ").toLowerCase();
+        if (allDevOutput.includes("committed") || allDevOutput.includes("pushed")) {
+          steps.push("Code committed to repo");
+        }
+        const fileChanges = contract.iterations.flatMap(i => {
+          const out = i.dev?.output || "";
+          const matches = out.match(/(?:created?|modified?|updated?|changed?|wrote?|added?)\s+[`'"]?([^\s`'"]+\.[a-z]{2,5})[`'"]?/gi) || [];
+          return matches.map(m => `File changed: ${m}`);
+        });
+        if (fileChanges.length > 0) {
+          steps.push(...fileChanges.slice(0, 5));
+        }
+
+        // Status-based suggestions
+        if (contract.status === "passed") {
+          steps.push("Ready for human review");
+          if (contract.devBrief?.repo) {
+            steps.push(`Code lives in: ${contract.devBrief.repo}`);
+          }
+        } else if (contract.status === "draft") {
+          steps.push("Awaiting approval — review the contract and click Approve");
+        } else if (contract.status === "approved") {
+          steps.push("Approved — click Run Now to start the sprint");
+        } else if (contract.status === "failed") {
+          steps.push("Sprint failed — review defects, then re-run or escalate");
+        } else if (contract.status === "running" || contract.status === "dev" || contract.status === "qa") {
+          steps.push("Sprint in progress — monitor the Live page");
+        }
+
+        if (steps.length === 0) return null;
+
+        return (
+          <Section title="Next Steps / Human Actions">
+            <div style={{
+              background: "#141420",
+              border: "1px solid #2a2a3a",
+              borderRadius: "12px",
+              overflow: "hidden",
+            }}>
+              <div style={{ padding: "20px" }}>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {steps.map((step, i) => (
+                    <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                      <span style={{
+                        flexShrink: 0,
+                        width: "20px",
+                        height: "20px",
+                        borderRadius: "50%",
+                        background: "rgba(124,58,237,0.2)",
+                        border: "1px solid rgba(124,58,237,0.4)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#a855f7",
+                        marginTop: "1px",
+                      }}>{i + 1}</span>
+                      <span style={{ fontSize: "13px", color: "#e0e0e8", lineHeight: 1.6 }}>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </Section>
+        );
+      })()}
 
       {/* Transcript */}
       <div id="transcript">

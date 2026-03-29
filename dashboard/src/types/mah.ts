@@ -93,6 +93,7 @@ export interface SprintContract {
   queuedAt?: string;
   cancelledAt?: string;
   graders?: Grader[];
+  nextSteps?: string[];
   devBrief: {
     repo: string;
     constraints: string[];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePolling } from "@/hooks/usePolling";
 
 interface Heartbeat {
@@ -8,6 +9,8 @@ interface Heartbeat {
   phase: string;
   round: number;
   elapsed: number;
+  sprintId?: string;
+  sprintName?: string;
   lastUpdate: string;
 }
 
@@ -88,11 +91,21 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
   const relTime = useRelativeTime(lastTs);
 
   const isActive = (() => {
+    if (heartbeat?.alive) return true; // heartbeat says alive — trust it
     if (!lastTs) return false;
     return Date.now() - new Date(lastTs).getTime() < 5 * 60 * 1000;
   })();
 
   const currentPhase = latestEvent?.phase || heartbeat?.phase || null;
+
+  // Sprint label: prefer name from heartbeat, fall back to ID, then generic
+  const sprintLabel = heartbeat?.sprintName
+    ? `Sprint: ${heartbeat.sprintName}`
+    : heartbeat?.sprintId
+    ? `Sprint #${heartbeat.sprintId}`
+    : "Sprint Active";
+
+  const sprintHref = heartbeat?.sprintId ? `/sprints/${heartbeat.sprintId}` : null;
 
   if (compact) {
     return (
@@ -116,12 +129,19 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
             }}
           />
           <span style={{ color: isActive ? "#e0e0e8" : "#888898", fontWeight: 500 }}>
-            {isActive ? "Sprint Active" : "Ready"}
+            {isActive ? (sprintLabel) : "Ready"}
           </span>
         </div>
         {isActive && currentPhase && (
           <div style={{ marginTop: "4px", paddingLeft: "14px", color: "#888898", fontSize: "11px" }}>
             {currentPhase} · {relTime}
+          </div>
+        )}
+        {isActive && sprintHref && (
+          <div style={{ marginTop: "4px", paddingLeft: "14px" }}>
+            <Link href={sprintHref} style={{ fontSize: "11px", color: "#7c3aed", textDecoration: "none" }}>
+              View sprint →
+            </Link>
           </div>
         )}
         {isActive && heartbeat && (
@@ -158,7 +178,13 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
         />
         <div>
           <div style={{ fontWeight: 600, color: "#e0e0e8", fontSize: "14px" }}>
-            {isActive ? "Sprint Active" : "Ready — No active sprint"}
+            {isActive ? (
+              sprintHref ? (
+                <Link href={sprintHref} style={{ color: "#e0e0e8", textDecoration: "none" }}>
+                  {sprintLabel}
+                </Link>
+              ) : sprintLabel
+            ) : "Ready — No active sprint"}
           </div>
           {isActive && currentPhase && (
             <div style={{ fontSize: "12px", color: "#888898", marginTop: "2px" }}>

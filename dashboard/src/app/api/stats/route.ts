@@ -4,6 +4,7 @@ import { join } from "path";
 
 const MAH_ROOT = join(process.cwd(), "..");
 const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
+const METRICS_DIR = join(MAH_ROOT, ".mah", "metrics");
 
 function isRealSprint(dirName: string, contract: Record<string, unknown> | null): boolean {
   if (!contract) return false;
@@ -34,7 +35,7 @@ export async function GET() {
     const costPerSprint: { id: string; name: string; cost: number; date: string }[] = [];
 
     for (const dir of dirs) {
-      const metricsPath = join(SPRINTS_DIR, dir, "metrics.json");
+      const metricsPathOld = join(SPRINTS_DIR, dir, "metrics.json");
       const contractPath = join(SPRINTS_DIR, dir, "contract.json");
 
       const contract = existsSync(contractPath)
@@ -44,15 +45,26 @@ export async function GET() {
       // Skip placeholder/test sprints
       if (!isRealSprint(dir, contract)) continue;
 
-      if (!existsSync(metricsPath)) {
+      let metrics = null;
+      // Try old location first (sprint-specific)
+      if (existsSync(metricsPathOld)) {
+        metrics = JSON.parse(readFileSync(metricsPathOld, "utf-8"));
+      }
+      // Then try new centralized location using sprint ID
+      else if (contract?.id) {
+        const metricsPathNew = join(METRICS_DIR, `${contract.id}.json`);
+        if (existsSync(metricsPathNew)) {
+          metrics = JSON.parse(readFileSync(metricsPathNew, "utf-8"));
+        }
+      }
+
+      if (!metrics) {
         // Running sprint with no metrics yet — count it but don't affect pass rate
         if (contract?.status === "running" || contract?.status === "dev" || contract?.status === "qa") {
           totalSprints++;
         }
         continue;
       }
-
-      const metrics = JSON.parse(readFileSync(metricsPath, "utf-8"));
 
       totalSprints++;
       completedSprints++;

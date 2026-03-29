@@ -1,0 +1,51 @@
+{
+  "sprintId": "016",
+  "projectName": "MAH Build",
+  "task": "Add an interactive sprint timeline chart to the MAH dashboard home page. Show all sprints as dots on a timeline (x-axis: date, y-axis: cost). Color by project. Hover shows sprint name, cost, and duration. Clicking a dot navigates to the sprint detail page. Replace or augment the existing simple bar chart. Use inline SVG (no external chart library). Style: dark theme matching existing dashboard (#0d0d18 bg, #141420 cards, purple/blue/amber accents by project).",
+  "startTime": "2026-03-29T17:30:00Z",
+  "endTime": "2026-03-29T17:41:56.474Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 310878,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.016866000000000003
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 260119,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.015768
+    }
+  ],
+  "totals": {
+    "durationMs": 716474,
+    "estimatedCost": 0.032634,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 3
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 3
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}

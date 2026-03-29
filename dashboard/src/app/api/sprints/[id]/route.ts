@@ -4,6 +4,7 @@ import { join } from "path";
 
 const MAH_ROOT = join(process.cwd(), "..");
 const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
+const METRICS_DIR = join(MAH_ROOT, ".mah", "metrics");
 
 export async function GET(
   _req: Request,
@@ -30,14 +31,24 @@ export async function GET(
     }
 
     const contractPath = join(SPRINTS_DIR, sprintDir, "contract.json");
-    const metricsPath = join(SPRINTS_DIR, sprintDir, "metrics.json");
+    const metricsPathOld = join(SPRINTS_DIR, sprintDir, "metrics.json");
 
     const contract = existsSync(contractPath)
       ? JSON.parse(readFileSync(contractPath, "utf-8"))
       : null;
-    const metrics = existsSync(metricsPath)
-      ? JSON.parse(readFileSync(metricsPath, "utf-8"))
-      : null;
+
+    let metrics = null;
+    // Try old location first (sprint-specific)
+    if (existsSync(metricsPathOld)) {
+      metrics = JSON.parse(readFileSync(metricsPathOld, "utf-8"));
+    }
+    // Then try new centralized location using sprint ID
+    else if (contract?.id) {
+      const metricsPathNew = join(METRICS_DIR, `${contract.id}.json`);
+      if (existsSync(metricsPathNew)) {
+        metrics = JSON.parse(readFileSync(metricsPathNew, "utf-8"));
+      }
+    }
 
     return NextResponse.json({ contract, metrics });
   } catch (err) {

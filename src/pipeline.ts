@@ -45,15 +45,17 @@ function writeNotification(contract: SprintContract, metrics: SprintMetrics): vo
   }
 }
 
-function writeHeartbeat(phase: string, round: number, startTime: number): void {
+function writeHeartbeat(phase: string, round: number, startTime: number, sprintId?: string, sprintName?: string): void {
   try {
-    const heartbeat = {
+    const heartbeat: Record<string, unknown> = {
       alive: true,
       phase,
       round,
       elapsed: Date.now() - startTime,
       lastUpdate: new Date().toISOString(),
     }
+    if (sprintId) heartbeat.sprintId = sprintId
+    if (sprintName) heartbeat.sprintName = sprintName
     const hbPath = join(resolve(process.cwd(), '.mah'), 'heartbeat.json')
     mkdirSync(resolve(process.cwd(), '.mah'), { recursive: true })
     writeFileSync(hbPath, JSON.stringify(heartbeat, null, 2), 'utf-8')
@@ -83,6 +85,16 @@ function saveContract(contract: SprintContract, sprintDir: string): void {
   const dir = join(sprintDir, contract.id)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, 'contract.json'), JSON.stringify(contract, null, 2), 'utf-8')
+}
+
+function saveContractDirect(contract: SprintContract, sprintFullPath: string): void {
+  mkdirSync(sprintFullPath, { recursive: true })
+  writeFileSync(join(sprintFullPath, 'contract.json'), JSON.stringify(contract, null, 2), 'utf-8')
+}
+
+function saveTranscriptDirect(transcript: SprintTranscript, sprintFullPath: string): void {
+  mkdirSync(sprintFullPath, { recursive: true })
+  writeFileSync(join(sprintFullPath, 'transcript.json'), JSON.stringify(transcript, null, 2), 'utf-8')
 }
 
 function agentResultToPhaseResult(
@@ -166,9 +178,9 @@ export async function runSprint(
   }
 
   // Start heartbeat interval
-  writeHeartbeat(currentPhase, currentRound, sprintStartTime)
+  writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
   const heartbeatInterval = setInterval(() => {
-    writeHeartbeat(currentPhase, currentRound, sprintStartTime)
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
   }, 30_000)
 
   // 3. Dev/QA loop
@@ -180,7 +192,7 @@ export async function runSprint(
     contract.status = 'dev'
     currentPhase = 'dev'
     currentRound = round
-    writeHeartbeat(currentPhase, currentRound, sprintStartTime)
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
     events.log('moe', 'spawn', 'dev', `Spawned dev agent R${round}`)
 
     const devPrompt = round === 1
@@ -190,7 +202,7 @@ export async function runSprint(
     const devResult = await adapter.execute(devPrompt, {
       model: config.agents.generator.model,
       cwd: config.agents.generator.cwd,
-      timeoutMs: 30 * 60 * 1000,
+      timeoutMs: 10 * 60 * 1000,
       label: `dev-${contract.id}-r${round}`,
     })
 
@@ -217,13 +229,23 @@ export async function runSprint(
     // 3b. Run all enabled graders
     contract.status = 'qa'
     currentPhase = 'qa'
-    writeHeartbeat(currentPhase, currentRound, sprintStartTime)
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
 
     const graderResults: GraderResult[] = []
     // Use graders from contract if present; otherwise fall back to legacy UX-only
-    const graders = contract.graders?.filter(g => g.enabled) ?? [
+    const rawGraders = contract.graders?.filter(g => g.enabled) ?? [
       { id: 'ux-quinn', type: 'ux' as const, name: 'Quinn (UX)', agent: config.agents.evaluator, enabled: true },
     ]
+    // Normalize graders: builder puts model flat on grader, pipeline expects grader.agent.model
+    const graders = rawGraders.map(g => ({
+      ...g,
+      agent: g.agent ?? {
+        type: 'openclaw' as const,
+        model: (g as unknown as Record<string, unknown>).model as string ?? config.agents.evaluator.model,
+        workspace: config.agents.evaluator.workspace,
+        testUrl: config.agents.evaluator.testUrl,
+      },
+    }))
 
     let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
     let qaOutput = ''
@@ -236,7 +258,7 @@ export async function runSprint(
         qaResult = await adapter.execute(qaPrompt, {
           model: grader.agent.model,
           cwd: grader.agent.workspace,
-          timeoutMs: 30 * 60 * 1000,
+          timeoutMs: 10 * 60 * 1000,
           label: `qa-${contract.id}-r${round}`,
         })
 
@@ -303,7 +325,7 @@ export async function runSprint(
         const crResult = await adapter.execute(crPrompt, {
           model: grader.agent.model,
           cwd: config.agents.generator.cwd,  // run in repo context
-          timeoutMs: 20 * 60 * 1000,
+          timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
 
@@ -405,6 +427,281 @@ export async function runSprint(
   saveMetrics(metrics, metricsDir)
 
   // 6. Write notification + clear heartbeat
+  clearInterval(heartbeatInterval)
+  clearHeartbeat()
+  writeNotification(contract, metrics)
+
+  return { contract, metrics }
+}
+
+/**
+ * Run an existing sprint contract (skip contract generation).
+ * Used by the dashboard executor when running an approved sprint.
+ *
+ * @param contract   The pre-existing SprintContract to execute
+ * @param config     Project configuration
+ * @param events     Event logger
+ * @param sprintFullPath  Absolute path to the sprint directory (e.g. .mah/sprints/007-add-kanban)
+ */
+export async function runExistingContract(
+  contract: SprintContract,
+  config: ProjectConfig,
+  events: EventLogger,
+  sprintFullPath: string,
+): Promise<{ contract: SprintContract; metrics: SprintMetrics }> {
+  const metricsDir = resolve(process.cwd(), config.metrics.output)
+  const sprintStartTime = Date.now()
+
+  events.log('moe', 'milestone', 'contract', `Starting sprint: ${contract.name}`)
+  events.log('moe', 'milestone', 'contract', `Sprint ID: ${contract.id}`)
+
+  const adapter = new OpenClawAdapter()
+  let lastDevOutput = ''
+  let lastQAOutput = ''
+  let currentPhase = 'dev'
+  let currentRound = 0
+
+  const transcript: SprintTranscript = {
+    sprintId: contract.id,
+    phases: [],
+  }
+
+  contract.status = 'dev'
+  saveContractDirect(contract, sprintFullPath)
+
+  writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
+  const heartbeatInterval = setInterval(() => {
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
+  }, 30_000)
+
+  // Dev/QA loop — identical logic to runSprint()
+  for (let round = 1; round <= config.qa.maxIterations; round++) {
+    console.log()
+    console.log(chalk.bold.white(`  ─── Round ${round} / ${config.qa.maxIterations} ─────────────────────`))
+
+    // Dev phase
+    contract.status = 'dev'
+    currentPhase = 'dev'
+    currentRound = round
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
+    events.log('moe', 'spawn', 'dev', `Spawned dev agent R${round}`)
+
+    const devPrompt = round === 1
+      ? contractToDevPrompt(contract)
+      : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
+
+    const devResult = await adapter.execute(devPrompt, {
+      model: config.agents.generator.model,
+      cwd: config.agents.generator.cwd,
+      timeoutMs: 10 * 60 * 1000,
+      label: `dev-${contract.id}-r${round}`,
+    })
+
+    const devTranscriptPhase: TranscriptPhase = {
+      phase: 'dev',
+      round,
+      actor: 'dev',
+      model: config.agents.generator.model,
+      startTime: new Date(devResult.timing.startMs).toISOString(),
+      endTime: new Date(devResult.timing.endMs).toISOString(),
+      promptSent: devPrompt,
+      responseReceived: devResult.output,
+      tokenUsage: devResult.tokenUsage,
+      costEstimate: devResult.costEstimate,
+    }
+    transcript.phases.push(devTranscriptPhase)
+    saveTranscriptDirect(transcript, sprintFullPath)
+
+    const devDuration = formatDuration(devResult.timing.durationMs)
+    const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
+    events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
+
+    // QA phase — run all enabled graders
+    contract.status = 'qa'
+    currentPhase = 'qa'
+    writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
+
+    const graderResults: GraderResult[] = []
+    const rawGraders = contract.graders?.filter(g => g.enabled) ?? [
+      { id: 'ux-quinn', type: 'ux' as const, name: 'Quinn (UX)', agent: config.agents.evaluator, enabled: true },
+    ]
+    // Normalize graders: builder puts model flat on grader, pipeline expects grader.agent.model
+    const graders = rawGraders.map(g => ({
+      ...g,
+      agent: g.agent ?? {
+        type: 'openclaw' as const,
+        model: (g as unknown as Record<string, unknown>).model as string ?? config.agents.evaluator.model,
+        workspace: config.agents.evaluator.workspace,
+        testUrl: config.agents.evaluator.testUrl,
+      },
+    }))
+
+    let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
+    let qaOutput = ''
+
+    for (const grader of graders) {
+      if (grader.type === 'ux') {
+        events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
+        const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
+        qaResult = await adapter.execute(qaPrompt, {
+          model: grader.agent.model,
+          cwd: grader.agent.workspace,
+          timeoutMs: 10 * 60 * 1000,
+          label: `qa-${contract.id}-r${round}`,
+        })
+
+        const qaTranscriptPhase: TranscriptPhase = {
+          phase: 'qa',
+          round,
+          actor: 'quinn',
+          model: grader.agent.model,
+          startTime: new Date(qaResult.timing.startMs).toISOString(),
+          endTime: new Date(qaResult.timing.endMs).toISOString(),
+          promptSent: qaPrompt,
+          responseReceived: qaResult.output,
+          tokenUsage: qaResult.tokenUsage,
+          costEstimate: qaResult.costEstimate,
+        }
+        transcript.phases.push(qaTranscriptPhase)
+        saveTranscriptDirect(transcript, sprintFullPath)
+
+        const qaDuration = formatDuration(qaResult.timing.durationMs)
+        const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''
+        events.log('quinn', 'output', 'qa', `R${round} verdict received (${qaDuration}${qaCost ? ' / ' + qaCost : ''})`)
+
+        const qaReport = parseQAReport(qaResult.output)
+        qaOutput = qaResult.output
+
+        let uxVerdict: GraderResult['verdict'] = qaReport.verdict
+        if (qaReport.verdict === 'conditional') {
+          const hasBlocking = qaReport.defects.some(d => d.severity === 'p0' || d.severity === 'p1')
+          if (hasBlocking) uxVerdict = 'fail'
+        }
+
+        const uxGraderResult: GraderResult = {
+          graderId: grader.id,
+          graderType: 'ux',
+          graderName: grader.name,
+          verdict: uxVerdict,
+          findings: qaReport.defects.map((d) => ({
+            id: d.id,
+            severity: severityMap(d.severity),
+            category: 'ux',
+            description: d.description,
+          })),
+          summary: qaReport.summary,
+          model: grader.agent.model,
+          durationMs: qaResult.timing.durationMs,
+          costEstimate: qaResult.costEstimate ?? 0,
+        }
+        graderResults.push(uxGraderResult)
+
+        if (qaReport.defects.length > 0) {
+          const defectSummary = qaReport.defects
+            .map(d => `${d.id}(${d.severity.toUpperCase()})`)
+            .join(', ')
+          events.log('quinn', 'output', 'qa', `Defects: ${defectSummary}`)
+        }
+
+      } else if (grader.type === 'code-review') {
+        events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
+        const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
+        const crResult = await adapter.execute(crPrompt, {
+          model: grader.agent.model,
+          cwd: config.agents.generator.cwd,
+          timeoutMs: 5 * 60 * 1000,
+          label: `cr-${contract.id}-r${round}`,
+        })
+
+        const crTranscriptPhase: TranscriptPhase = {
+          phase: 'qa',
+          round,
+          actor: 'code-reviewer',
+          model: grader.agent.model,
+          startTime: new Date(crResult.timing.startMs).toISOString(),
+          endTime: new Date(crResult.timing.endMs).toISOString(),
+          promptSent: crPrompt,
+          responseReceived: crResult.output,
+          tokenUsage: crResult.tokenUsage,
+          costEstimate: crResult.costEstimate,
+        }
+        transcript.phases.push(crTranscriptPhase)
+        saveTranscriptDirect(transcript, sprintFullPath)
+
+        const crDuration = formatDuration(crResult.timing.durationMs)
+        const crCost = crResult.costEstimate ? `$${crResult.costEstimate.toFixed(4)}` : ''
+        events.log('system', 'output', 'qa', `Code review R${round} complete (${crDuration}${crCost ? ' / ' + crCost : ''})`)
+
+        const crGraderResult = parseCodeReviewResult(
+          crResult.output,
+          grader.id,
+          grader.name,
+          grader.agent.model,
+          crResult.timing.durationMs,
+          crResult.costEstimate ?? 0
+        )
+        graderResults.push(crGraderResult)
+      }
+    }
+
+    const aggregateVerdict = aggregateGraderVerdicts(graderResults)
+
+    const uxResult = graderResults.find(r => r.graderType === 'ux')
+    const qaDefects = uxResult?.findings.map(f => ({
+      id: f.id,
+      severity: reverseSeverityMap(f.severity),
+      description: f.description,
+      fixed: false,
+    })) ?? []
+
+    const iteration: SprintIteration = {
+      round,
+      dev: agentResultToPhaseResult(devResult, config.agents.generator.model),
+      qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
+      defects: qaDefects,
+      graderResults,
+    }
+    contract.iterations.push(iteration)
+
+    if (aggregateVerdict === 'pass') {
+      contract.status = 'passed'
+      events.log('system', 'milestone', 'metrics',
+        `Sprint PASSED in ${round} iteration(s) [all graders passed]`)
+      saveContractDirect(contract, sprintFullPath)
+      break
+    }
+
+    if (aggregateVerdict === 'conditional') {
+      contract.status = 'passed'
+      events.log('system', 'milestone', 'metrics',
+        `Sprint CONDITIONAL PASS in ${round} iteration(s)`)
+      saveContractDirect(contract, sprintFullPath)
+      break
+    }
+
+    if (round === config.qa.maxIterations) {
+      contract.status = 'escalated'
+      events.log('moe', 'decision', 'human',
+        `Sprint ESCALATED after ${round} iterations — requires human review`)
+      saveContractDirect(contract, sprintFullPath)
+    } else {
+      events.log('moe', 'decision', 'dev',
+        `QA failed — sending findings back to dev for R${round + 1}`)
+      saveContractDirect(contract, sprintFullPath)
+    }
+
+    lastDevOutput = devResult.output
+    lastQAOutput = qaOutput
+  }
+
+  // Compute and save metrics
+  contract.completedAt = new Date().toISOString()
+  const metrics = createSprintMetrics(contract, config)
+
+  saveContractDirect(contract, sprintFullPath)
+  saveMetrics(metrics, sprintFullPath)
+  saveMetrics(metrics, metricsDir)
+
   clearInterval(heartbeatInterval)
   clearHeartbeat()
   writeNotification(contract, metrics)

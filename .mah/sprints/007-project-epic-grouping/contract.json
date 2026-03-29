@@ -1,0 +1,23 @@
+{
+  "id": "007",
+  "name": "Project & Epic Grouping",
+  "task": "Add project/epic grouping — data model, project pages, filtered dashboard, sprint tagging",
+  "projectId": "mah-build",
+  "status": "passed",
+  "devBrief": {
+    "repo": "~/clawd/projects/mah",
+    "constraints": ["Follow existing patterns", "Maintain backward compatibility"],
+    "definitionOfDone": ["Feature implemented and working", "Dashboard compiles cleanly", "Code committed"]
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "http://localhost:3099",
+    "testFocus": ["Core functionality works"],
+    "passCriteria": ["No build errors", "Feature works as described"],
+    "knownLimitations": ["Retroactive record — built directly without pipeline"]
+  },
+  "iterations": [],
+  "createdAt": "2026-03-28T23:25:22Z",
+  "completedAt": "2026-03-28T23:25:22Z",
+  "nextSteps": ["Retroactive record — code already committed and deployed"]
+}

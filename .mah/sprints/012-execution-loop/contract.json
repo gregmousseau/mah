@@ -1,0 +1,50 @@
+{
+  "id": "012",
+  "name": "Execution Loop — Wire Builder to Pipeline",
+  "task": "Wire the MAH dashboard's Run button to actually execute sprints through the pipeline. When a sprint is approved and 'Run Now' is clicked, it should spawn the mah CLI pipeline (or call the adapter directly), run dev→QA→grade→iterate cycles, write transcript.json and metrics.json, update contract status in real-time, and assign sequential IDs (007, 008...) on approval instead of datetime stamps.",
+  "projectId": "mah-build",
+  "status": "passed",
+  "devBrief": {
+    "repo": "~/clawd/projects/mah",
+    "constraints": [
+      "Use the existing OpenClawAdapter and pipeline.ts as the execution engine",
+      "Queue watcher should poll .mah/queue/ for run-*.json entries",
+      "Sprint IDs: drafts keep temp IDs, auto-assign next sequential ### on approval",
+      "Write transcript.json, metrics.json, and update contract.json status during execution",
+      "Dashboard should show real-time progress via existing heartbeat.json polling",
+      "Keep the dashboard and CLI as separate concerns — dashboard writes queue, executor picks up",
+      "All execution logs must be JSON for future Remotion video rendering"
+    ],
+    "definitionOfDone": [
+      "Builder creates draft → approve assigns sequential ID (007+)",
+      "Run Now queues the sprint and executor picks it up within 5 seconds",
+      "Pipeline runs dev→QA cycle with real agent calls (OpenClaw adapter)",
+      "transcript.json written with full prompt/response/timing data",
+      "metrics.json written with cost/duration/quality summary",
+      "Contract status updates in real-time (queued→running→dev→qa→passed/failed)",
+      "Dashboard live page shows progress via heartbeat polling",
+      "Completed sprint visible in sprints list and board with full detail"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "http://localhost:3099",
+    "testFocus": [
+      "End-to-end: create sprint in builder → approve → run → see results",
+      "Sequential ID assignment works correctly",
+      "Heartbeat updates during execution",
+      "Transcript and metrics files are well-formed JSON"
+    ],
+    "passCriteria": [
+      "Sprint executes end-to-end from dashboard",
+      "All JSON output files are valid and complete",
+      "No regression in existing dashboard features"
+    ],
+    "knownLimitations": [
+      "First sprint bootstrapped manually (this one) since pipeline doesn't exist yet"
+    ]
+  },
+  "iterations": [],
+  "createdAt": "2026-03-29T14:44:00Z",
+  "completedAt": "2026-03-29T14:50:00Z"
+}
