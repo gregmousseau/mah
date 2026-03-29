@@ -1,0 +1,24 @@
+{
+  "sprintId": "006",
+  "projectName": "MAH",
+  "task": "Dashboard polish + demo data",
+  "startTime": "2026-03-28T20:15:00Z",
+  "endTime": "2026-03-28T20:28:30Z",
+  "phases": [
+    { "phase": "dev", "round": 1, "durationMs": 720000, "model": "sonnet", "costEstimate": 0.45 },
+    { "phase": "qa", "round": 1, "durationMs": 60000, "model": "sonnet", "costEstimate": 0.05 }
+  ],
+  "totals": {
+    "durationMs": 780000,
+    "estimatedCost": 0.50,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
+    "defectsFixed": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
+    "defectsRemaining": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 }
+  },
+  "verdict": "pass",
+  "bottleneck": "none"
+}
