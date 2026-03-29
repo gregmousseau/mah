@@ -41,6 +41,22 @@
       "PDF viewer unlikely to theme"
     ]
   },
+  "graders": [
+    {
+      "id": "ux-quinn",
+      "type": "ux",
+      "name": "Quinn (UX)",
+      "agent": { "type": "openclaw", "model": "claude-sonnet-4-5", "testUrl": "http://localhost:3099" },
+      "enabled": true
+    },
+    {
+      "id": "code-review",
+      "type": "code-review",
+      "name": "Code Reviewer",
+      "agent": { "type": "openclaw", "model": "claude-sonnet-4-5" },
+      "enabled": true
+    }
+  ],
   "iterations": [
     {
       "round": 1,
@@ -103,6 +119,62 @@
           "description": "Mobile theme switcher: cut off on iPhone SE below social icons",
           "fixed": true
         }
+      ],
+      "graderResults": [
+        {
+          "graderId": "ux-quinn",
+          "graderType": "ux",
+          "graderName": "Quinn (UX)",
+          "verdict": "fail",
+          "findings": [
+            { "id": "P1-01", "severity": "major", "category": "ux", "description": "Services dropdown: white background in dark mode" },
+            { "id": "P1-02", "severity": "major", "category": "ux", "description": "Contact form inputs: white background, invisible text (~1.3:1 contrast)" },
+            { "id": "P1-03", "severity": "major", "category": "ux", "description": "Logo swap: dark:hidden/dark:block not applying (root cause: dual config)" },
+            { "id": "P1-04", "severity": "major", "category": "ux", "description": "Service card headings: near-invisible text on dark backgrounds" },
+            { "id": "P2-01", "severity": "minor", "category": "ux", "description": "Contact form labels: low contrast in dark mode" },
+            { "id": "P2-02", "severity": "minor", "category": "ux", "description": "Contact info card: light background in dark mode" },
+            { "id": "P2-03", "severity": "minor", "category": "ux", "description": "Mobile theme switcher: cut off on iPhone SE below social icons" }
+          ],
+          "summary": "100 Playwright tests across 5 device viewports. Root cause identified: duplicate Tailwind config files. The tailwind.config.js is overriding tailwind.config.ts, causing all dark: class variants to silently fail.",
+          "model": "claude-sonnet-4-5",
+          "durationMs": 1200000,
+          "costEstimate": 0.35
+        },
+        {
+          "graderId": "code-review",
+          "graderType": "code-review",
+          "graderName": "Code Reviewer",
+          "verdict": "conditional",
+          "findings": [
+            {
+              "id": "CR-01",
+              "severity": "major",
+              "category": "bug-risk",
+              "file": "tailwind.config.js",
+              "description": "Two Tailwind config files coexist (tailwind.config.js and tailwind.config.ts). The .js file takes precedence at runtime, causing the darkMode: 'class' setting in .ts to be silently ignored. This is the root cause of all dark mode failures.",
+              "suggestion": "Remove tailwind.config.js entirely. Only tailwind.config.ts should exist. Verify with: ls tailwind.config.*"
+            },
+            {
+              "id": "CR-02",
+              "severity": "minor",
+              "category": "bug-risk",
+              "file": "components/ThemeSwitcher.tsx",
+              "description": "ThemeSwitcher lacks an error boundary. If next-themes fails to initialize (e.g., SSR hydration mismatch), the toggle disappears with no fallback UI.",
+              "suggestion": "Wrap ThemeSwitcher in a React ErrorBoundary or add a try/catch around the useTheme() hook with a fallback render."
+            },
+            {
+              "id": "CR-03",
+              "severity": "info",
+              "category": "style",
+              "description": "Dark mode color values are hardcoded inline across multiple components (e.g., bg-gray-900, text-gray-100). Consider extracting these to CSS custom properties or a Tailwind theme extension for consistency and easier future updates.",
+              "suggestion": "Define a color palette in tailwind.config.ts under theme.extend.colors and reference named tokens instead of raw gray values."
+            }
+          ],
+          "summary": "Code review identified the dual Tailwind config as the root cause of all dark mode failures — a systemic issue rather than per-component bugs. One structural issue (duplicate config), one resilience gap (missing error boundary), one style observation.",
+          "model": "claude-sonnet-4-5",
+          "durationMs": 45000,
+          "costEstimate": 0.12
+        }
       ]
     },
     {
@@ -123,7 +195,39 @@
         "model": "sonnet",
         "costEstimate": 0.3
       },
-      "defects": []
+      "defects": [],
+      "graderResults": [
+        {
+          "graderId": "ux-quinn",
+          "graderType": "ux",
+          "graderName": "Quinn (UX)",
+          "verdict": "pass",
+          "findings": [],
+          "summary": "Full re-verification complete. All 100 Playwright tests pass. Dark mode works correctly across all pages and viewports. No new defects found.",
+          "model": "claude-sonnet-4-5",
+          "durationMs": 600000,
+          "costEstimate": 0.3
+        },
+        {
+          "graderId": "code-review",
+          "graderType": "code-review",
+          "graderName": "Code Reviewer",
+          "verdict": "pass",
+          "findings": [
+            {
+              "id": "CR-01",
+              "severity": "info",
+              "category": "style",
+              "description": "CR-02 from round 1 (missing error boundary on ThemeSwitcher) remains unresolved but is acceptable for this sprint scope. Recommend addressing in a follow-up.",
+              "suggestion": "Add ErrorBoundary wrapper in a future sprint."
+            }
+          ],
+          "summary": "Duplicate config file removed. Dark mode logic is now clean and correct. The minor error boundary gap was not addressed but is not blocking. Code quality is solid overall.",
+          "model": "claude-sonnet-4-5",
+          "durationMs": 38000,
+          "costEstimate": 0.09
+        }
+      ]
     }
   ],
   "createdAt": "2026-03-28T09:55:00Z",

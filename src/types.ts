@@ -1,6 +1,38 @@
 // MAH - Multi-Agent Harness
 // Core type definitions
 
+// ─── Grader System ───
+
+export interface Grader {
+  id: string
+  type: 'ux' | 'code-review' | 'accessibility' | 'performance' | 'custom'
+  name: string
+  agent: AgentConfig
+  enabled: boolean
+}
+
+export interface GraderResult {
+  graderId: string
+  graderType: string
+  graderName: string
+  verdict: 'pass' | 'conditional' | 'fail'
+  findings: GraderFinding[]
+  summary: string
+  model: string
+  durationMs: number
+  costEstimate: number
+}
+
+export interface GraderFinding {
+  id: string
+  severity: 'critical' | 'major' | 'minor' | 'info'
+  category: string  // e.g., "security", "performance", "style", "bug-risk", "complexity"
+  file?: string
+  line?: number
+  description: string
+  suggestion?: string
+}
+
 // ─── Project Configuration (from mah.yaml) ───
 
 export interface ProjectConfig {
@@ -78,6 +110,7 @@ export interface SprintContract {
     passCriteria: string[]
     knownLimitations: string[]
   }
+  graders: Grader[]  // which graders to run for this sprint
   iterations: SprintIteration[]
   createdAt: string
   completedAt?: string
@@ -88,6 +121,7 @@ export interface SprintIteration {
   dev?: PhaseResult
   qa?: PhaseResult
   defects: Defect[]
+  graderResults?: GraderResult[]  // results from all graders this round
 }
 
 export interface PhaseResult {

@@ -24,6 +24,17 @@ interface AgentConfig {
   model: string;
 }
 
+interface GraderConfig {
+  id: string;
+  type: "ux" | "code-review" | "accessibility" | "performance" | "custom";
+  name: string;
+  description: string;
+  costRange: string;
+  enabled: boolean;
+  model: string;
+  comingSoon?: boolean;
+}
+
 interface BuilderContract {
   id: string;
   name: string;
@@ -46,6 +57,7 @@ interface BuilderContract {
     passCriteria: string[];
     knownLimitations: string[];
   };
+  graders?: GraderConfig[];
   iterations: unknown[];
   createdAt: string;
   scheduledFor?: string;
@@ -73,6 +85,47 @@ const ADAPTER_OPTIONS = [
   { value: "openclaw", label: "OpenClaw" },
   { value: "claude-cli", label: "Claude CLI" },
   { value: "codex", label: "Codex" },
+];
+
+const DEFAULT_GRADERS: GraderConfig[] = [
+  {
+    id: "ux-quinn",
+    type: "ux",
+    name: "Quinn (UX)",
+    description: "Browser testing, device matrix, visual verification",
+    costRange: "$0.50–5.00",
+    enabled: true,
+    model: "claude-sonnet-4-5",
+  },
+  {
+    id: "code-review",
+    type: "code-review",
+    name: "Code Reviewer",
+    description: "Bug risks, security, performance, style",
+    costRange: "$0.10–0.50",
+    enabled: true,
+    model: "claude-sonnet-4-5",
+  },
+  {
+    id: "accessibility",
+    type: "accessibility",
+    name: "Accessibility",
+    description: "WCAG compliance, ARIA, keyboard navigation",
+    costRange: "$0.20–0.80",
+    enabled: false,
+    model: "claude-sonnet-4-5",
+    comingSoon: true,
+  },
+  {
+    id: "performance",
+    type: "performance",
+    name: "Performance",
+    description: "Lighthouse audit, bundle size, Core Web Vitals",
+    costRange: "$0.10–0.40",
+    enabled: false,
+    model: "claude-haiku-3-5",
+    comingSoon: true,
+  },
 ];
 
 const QA_TIERS = [
@@ -398,6 +451,7 @@ function BuilderInner() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [priorityOrder, setPriorityOrder] = useState<Priority[]>(["Quality", "Speed", "Cost"]);
+  const [graders, setGraders] = useState<GraderConfig[]>(DEFAULT_GRADERS);
 
   // Load saved state from localStorage or resume from URL param
   useEffect(() => {
@@ -531,6 +585,7 @@ function BuilderInner() {
         ...contract,
         status,
         priorities: priorityOrderToMap(priorityOrder),
+        graders,
       };
 
       const res = await fetch("/api/builder/save", {
@@ -993,6 +1048,107 @@ function BuilderInner() {
               }
               placeholder="Add pass criterion..."
             />
+          </div>
+        </SectionCard>
+
+        {/* Graders */}
+        <SectionCard title="Graders">
+          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "14px" }}>
+            Select which evaluators run after each dev iteration.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {graders.map((grader) => (
+              <div
+                key={grader.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "14px 16px",
+                  background: grader.comingSoon ? "#0a0a14" : grader.enabled ? "rgba(124,58,237,0.06)" : "#0d0d18",
+                  border: `1px solid ${grader.comingSoon ? "#1e1e2e" : grader.enabled ? "rgba(124,58,237,0.3)" : "#2a2a3a"}`,
+                  borderRadius: "10px",
+                  opacity: grader.comingSoon ? 0.5 : 1,
+                }}
+              >
+                {/* Toggle */}
+                <div
+                  onClick={() => {
+                    if (grader.comingSoon) return;
+                    const updated = graders.map(g =>
+                      g.id === grader.id ? { ...g, enabled: !g.enabled } : g
+                    );
+                    setGraders(updated);
+                  }}
+                  style={{
+                    width: "36px",
+                    height: "20px",
+                    borderRadius: "10px",
+                    background: grader.enabled && !grader.comingSoon ? "#7c3aed" : "#2a2a3a",
+                    cursor: grader.comingSoon ? "not-allowed" : "pointer",
+                    position: "relative",
+                    flexShrink: 0,
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <div style={{
+                    position: "absolute",
+                    top: "3px",
+                    left: grader.enabled && !grader.comingSoon ? "18px" : "3px",
+                    width: "14px",
+                    height: "14px",
+                    borderRadius: "50%",
+                    background: "white",
+                    transition: "left 0.2s",
+                  }} />
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 600, color: grader.comingSoon ? "#555565" : "#e0e0e8" }}>
+                      {grader.name}
+                    </span>
+                    {grader.comingSoon && (
+                      <span style={{ fontSize: "10px", color: "#555565", background: "#1e1e2e", border: "1px solid #2a2a3a", borderRadius: "4px", padding: "1px 6px" }}>
+                        coming soon
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#555565" }}>
+                    {grader.description} · <span style={{ color: "#7c3aed" }}>{grader.costRange}</span>
+                  </div>
+                </div>
+
+                {/* Model selector */}
+                {!grader.comingSoon && (
+                  <select
+                    value={grader.model}
+                    onChange={(e) => {
+                      const updated = graders.map(g =>
+                        g.id === grader.id ? { ...g, model: e.target.value } : g
+                      );
+                      setGraders(updated);
+                    }}
+                    disabled={!grader.enabled}
+                    style={{
+                      background: "#0d0d18",
+                      border: "1px solid #2a2a3a",
+                      borderRadius: "6px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      color: grader.enabled ? "#e0e0e8" : "#555565",
+                      outline: "none",
+                      cursor: grader.enabled ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    {MODEL_OPTIONS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            ))}
           </div>
         </SectionCard>
 

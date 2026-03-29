@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import SprintTimeline from "@/components/SprintTimeline";
 import DefectTable from "@/components/DefectTable";
 import VerdictBadge from "@/components/VerdictBadge";
 import SprintProgressBar from "@/components/SprintProgressBar";
 import TranscriptViewer from "@/components/TranscriptViewer";
 import { usePolling } from "@/hooks/usePolling";
-import type { SprintContract, SprintMetrics, Defect, Project } from "@/types/mah";
+import type { SprintContract, SprintMetrics, Defect, Project, GraderResult, GraderFinding } from "@/types/mah";
 
 interface SprintData {
   contract: SprintContract;
@@ -40,6 +40,217 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {title}
       </h2>
       {children}
+    </div>
+  );
+}
+
+// ─── Grader Results Panel ────────────────────────────────────────────────────
+
+const SEVERITY_CONFIG: Record<GraderFinding["severity"], { label: string; color: string; bg: string; border: string }> = {
+  critical: { label: "Critical", color: "#ef4444", bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.25)" },
+  major:    { label: "Major",    color: "#f59e0b", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)" },
+  minor:    { label: "Minor",    color: "#3b82f6", bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)" },
+  info:     { label: "Info",     color: "#888898", bg: "rgba(136,136,152,0.08)", border: "rgba(136,136,152,0.2)" },
+};
+
+const VERDICT_CONFIG: Record<GraderResult["verdict"], { label: string; color: string; bg: string }> = {
+  pass:        { label: "PASS",        color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
+  conditional: { label: "CONDITIONAL", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+  fail:        { label: "FAIL",        color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
+};
+
+function GraderFindingRow({ finding }: { finding: GraderFinding }) {
+  const cfg = SEVERITY_CONFIG[finding.severity];
+  return (
+    <div style={{
+      padding: "12px 14px",
+      background: cfg.bg,
+      border: `1px solid ${cfg.border}`,
+      borderRadius: "8px",
+      marginBottom: "8px",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+        <span style={{
+          fontSize: "10px",
+          fontWeight: 700,
+          color: cfg.color,
+          background: cfg.bg,
+          border: `1px solid ${cfg.border}`,
+          borderRadius: "4px",
+          padding: "2px 6px",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+          marginTop: "1px",
+        }}>
+          {cfg.label}
+        </span>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: finding.file || finding.suggestion ? "4px" : "0" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#888898" }}>{finding.id}</span>
+            {finding.file && (
+              <code style={{ fontSize: "11px", color: "#a855f7", background: "rgba(168,85,247,0.1)", padding: "1px 5px", borderRadius: "3px" }}>
+                {finding.file}{finding.line ? `:${finding.line}` : ""}
+              </code>
+            )}
+            <span style={{ fontSize: "11px", color: "#555565", background: "#1a1a2a", padding: "1px 6px", borderRadius: "3px" }}>
+              {finding.category}
+            </span>
+          </div>
+          <div style={{ fontSize: "13px", color: "#e0e0e8", lineHeight: 1.5 }}>{finding.description}</div>
+          {finding.suggestion && (
+            <div style={{ marginTop: "5px", fontSize: "12px", color: "#888898", fontStyle: "italic" }}>
+              💡 {finding.suggestion}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GraderTab({ result }: { result: GraderResult }) {
+  const severityOrder: GraderFinding["severity"][] = ["critical", "major", "minor", "info"];
+  const vcfg = VERDICT_CONFIG[result.verdict];
+
+  const grouped = severityOrder.reduce<Record<string, GraderFinding[]>>((acc, sev) => {
+    const items = result.findings.filter(f => f.severity === sev);
+    if (items.length > 0) acc[sev] = items;
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      {/* Verdict + summary */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        marginBottom: "16px",
+        padding: "12px 16px",
+        background: vcfg.bg,
+        borderRadius: "8px",
+      }}>
+        <span style={{
+          fontSize: "11px",
+          fontWeight: 700,
+          color: vcfg.color,
+          background: vcfg.bg,
+          border: `1px solid ${vcfg.color}40`,
+          borderRadius: "5px",
+          padding: "3px 10px",
+          letterSpacing: "0.05em",
+        }}>
+          {vcfg.label}
+        </span>
+        <span style={{ fontSize: "13px", color: "#888898", flex: 1 }}>{result.summary}</span>
+      </div>
+
+      {/* Findings by severity */}
+      {result.findings.length === 0 ? (
+        <div style={{ fontSize: "13px", color: "#555565", padding: "12px 0" }}>No findings — clean pass ✓</div>
+      ) : (
+        severityOrder.map(sev => {
+          const items = grouped[sev];
+          if (!items) return null;
+          const cfg = SEVERITY_CONFIG[sev];
+          return (
+            <div key={sev} style={{ marginBottom: "16px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: cfg.color, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>
+                {cfg.label} ({items.length})
+              </div>
+              {items.map(f => <GraderFindingRow key={f.id} finding={f} />)}
+            </div>
+          );
+        })
+      )}
+
+      {/* Meta */}
+      <div style={{ fontSize: "11px", color: "#555565", marginTop: "12px", display: "flex", gap: "16px" }}>
+        <span>Model: {result.model}</span>
+        <span>Duration: {result.durationMs >= 60000 ? `${Math.floor(result.durationMs / 60000)}m ${Math.round((result.durationMs % 60000) / 1000)}s` : `${Math.round(result.durationMs / 1000)}s`}</span>
+        {result.costEstimate > 0 && <span>Cost: ${result.costEstimate.toFixed(3)}</span>}
+      </div>
+    </div>
+  );
+}
+
+function GraderResultsPanel({ results }: { results: GraderResult[] }) {
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Aggregate verdict
+  const aggregateVerdict: GraderResult["verdict"] =
+    results.some(r => r.verdict === "fail") ? "fail" :
+    results.some(r => r.verdict === "conditional") ? "conditional" : "pass";
+  const avcfg = VERDICT_CONFIG[aggregateVerdict];
+
+  return (
+    <div>
+      {/* Aggregate verdict */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        marginBottom: "20px",
+        padding: "10px 16px",
+        background: avcfg.bg,
+        border: `1px solid ${avcfg.color}30`,
+        borderRadius: "8px",
+      }}>
+        <span style={{ fontSize: "12px", color: "#888898" }}>Aggregate verdict:</span>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: avcfg.color }}>
+          {avcfg.label}
+        </span>
+        <span style={{ fontSize: "12px", color: "#555565" }}>— all graders must pass</span>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "1px solid #2a2a3a", paddingBottom: "0" }}>
+        {results.map((r, i) => {
+          const active = activeTab === i;
+          const vc = VERDICT_CONFIG[r.verdict];
+          return (
+            <button
+              key={r.graderId}
+              onClick={() => setActiveTab(i)}
+              style={{
+                padding: "8px 16px",
+                background: active ? "#141420" : "transparent",
+                border: `1px solid ${active ? "#2a2a3a" : "transparent"}`,
+                borderBottom: active ? "1px solid #141420" : "1px solid transparent",
+                borderRadius: "8px 8px 0 0",
+                color: active ? "#e0e0e8" : "#888898",
+                fontSize: "13px",
+                fontWeight: active ? 600 : 400,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "-1px",
+                transition: "color 0.15s",
+              }}
+            >
+              {r.graderName}
+              <span style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: vc.color,
+                flexShrink: 0,
+              }} />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Active tab content */}
+      <div style={{
+        background: "#141420",
+        border: "1px solid #2a2a3a",
+        borderRadius: "12px",
+        padding: "20px",
+      }}>
+        {results[activeTab] && <GraderTab result={results[activeTab]} />}
+      </div>
     </div>
   );
 }
@@ -86,6 +297,10 @@ export default function SprintDetailPage() {
 
   const { contract, metrics } = data;
   const allDefects: Defect[] = contract.iterations.flatMap((iter) => iter.defects || []);
+
+  // Collect all grader results from the latest iteration
+  const latestIteration = contract.iterations[contract.iterations.length - 1];
+  const latestGraderResults: GraderResult[] = latestIteration?.graderResults ?? [];
 
   const isActive = contract.status === "dev" || contract.status === "qa" || contract.status === "running";
 
@@ -233,6 +448,13 @@ export default function SprintDetailPage() {
       {allDefects.length > 0 && (
         <Section title={`Defects (${allDefects.length})`}>
           <DefectTable defects={allDefects} />
+        </Section>
+      )}
+
+      {/* Grader Results */}
+      {latestGraderResults.length > 0 && (
+        <Section title="Grader Results">
+          <GraderResultsPanel results={latestGraderResults} />
         </Section>
       )}
 

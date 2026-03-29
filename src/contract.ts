@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { SprintContract, ProjectConfig } from './types.js'
+import type { SprintContract, ProjectConfig, Grader } from './types.js'
 
 export function generateContract(
   task: string,
@@ -12,11 +12,29 @@ export function generateContract(
     ? firstSentence.slice(0, 57) + '...'
     : firstSentence
 
+  const defaultGraders: Grader[] = [
+    {
+      id: 'ux-quinn',
+      type: 'ux',
+      name: 'Quinn (UX)',
+      agent: config.agents.evaluator,
+      enabled: true,
+    },
+    {
+      id: 'code-review',
+      type: 'code-review',
+      name: 'Code Reviewer',
+      agent: { type: 'openclaw', model: 'claude-sonnet-4-5' },
+      enabled: true,
+    },
+  ]
+
   return {
     id: sprintId,
     name,
     task,
     status: 'planned',
+    graders: defaultGraders,
     devBrief: {
       repo: config.project.repo,
       constraints: [

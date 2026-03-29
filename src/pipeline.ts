@@ -11,6 +11,7 @@ import {
   contractToDevFixPrompt,
 } from './contract.js'
 import { parseQAReport } from './parser.js'
+import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
 import type {
@@ -21,6 +22,7 @@ import type {
   PhaseResult,
   SprintTranscript,
   TranscriptPhase,
+  GraderResult,
 } from './types.js'
 
 function writeNotification(contract: SprintContract, metrics: SprintMetrics): void {
@@ -102,6 +104,27 @@ function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
+}
+
+export function aggregateGraderVerdicts(results: GraderResult[]): GraderResult['verdict'] {
+  if (results.length === 0) return 'pass'
+  if (results.some(r => r.verdict === 'fail')) return 'fail'
+  if (results.some(r => r.verdict === 'conditional')) return 'conditional'
+  return 'pass'
+}
+
+function severityMap(s: 'p0' | 'p1' | 'p2' | 'p3'): GraderResult['findings'][number]['severity'] {
+  if (s === 'p0') return 'critical'
+  if (s === 'p1') return 'major'
+  if (s === 'p2') return 'minor'
+  return 'info'
+}
+
+function reverseSeverityMap(s: GraderResult['findings'][number]['severity']): 'p0' | 'p1' | 'p2' | 'p3' {
+  if (s === 'critical') return 'p0'
+  if (s === 'major') return 'p1'
+  if (s === 'minor') return 'p2'
+  return 'p3'
 }
 
 export async function runSprint(
@@ -191,83 +214,167 @@ export async function runSprint(
     const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
 
-    // 3b. QA phase
+    // 3b. Run all enabled graders
     contract.status = 'qa'
     currentPhase = 'qa'
     writeHeartbeat(currentPhase, currentRound, sprintStartTime)
-    events.log('moe', 'spawn', 'qa', `Spawned Quinn for QA R${round}`)
 
-    const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
-    const qaResult = await adapter.execute(qaPrompt, {
-      model: config.agents.evaluator.model,
-      cwd: config.agents.evaluator.workspace,
-      timeoutMs: 30 * 60 * 1000,
-      label: `qa-${contract.id}-r${round}`,
-    })
+    const graderResults: GraderResult[] = []
+    // Use graders from contract if present; otherwise fall back to legacy UX-only
+    const graders = contract.graders?.filter(g => g.enabled) ?? [
+      { id: 'ux-quinn', type: 'ux' as const, name: 'Quinn (UX)', agent: config.agents.evaluator, enabled: true },
+    ]
 
-    // Capture QA transcript phase
-    const qaTranscriptPhase: TranscriptPhase = {
-      phase: 'qa',
-      round,
-      actor: 'quinn',
-      model: config.agents.evaluator.model,
-      startTime: new Date(qaResult.timing.startMs).toISOString(),
-      endTime: new Date(qaResult.timing.endMs).toISOString(),
-      promptSent: qaPrompt,
-      responseReceived: qaResult.output,
-      tokenUsage: qaResult.tokenUsage,
-      costEstimate: qaResult.costEstimate,
+    let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
+    let qaOutput = ''
+
+    for (const grader of graders) {
+      if (grader.type === 'ux') {
+        // ── Quinn (UX) grader ──
+        events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
+        const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
+        qaResult = await adapter.execute(qaPrompt, {
+          model: grader.agent.model,
+          cwd: grader.agent.workspace,
+          timeoutMs: 30 * 60 * 1000,
+          label: `qa-${contract.id}-r${round}`,
+        })
+
+        const qaTranscriptPhase: TranscriptPhase = {
+          phase: 'qa',
+          round,
+          actor: 'quinn',
+          model: grader.agent.model,
+          startTime: new Date(qaResult.timing.startMs).toISOString(),
+          endTime: new Date(qaResult.timing.endMs).toISOString(),
+          promptSent: qaPrompt,
+          responseReceived: qaResult.output,
+          tokenUsage: qaResult.tokenUsage,
+          costEstimate: qaResult.costEstimate,
+        }
+        transcript.phases.push(qaTranscriptPhase)
+        saveTranscript(transcript, sprintDir, contract.id)
+
+        const qaDuration = formatDuration(qaResult.timing.durationMs)
+        const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''
+        events.log('quinn', 'output', 'qa', `R${round} verdict received (${qaDuration}${qaCost ? ' / ' + qaCost : ''})`)
+
+        // Convert QA report to GraderResult format
+        const qaReport = parseQAReport(qaResult.output)
+        qaOutput = qaResult.output
+
+        // Map QA defect severities (p0/p1 → fail, etc.) to grader verdict
+        let uxVerdict: GraderResult['verdict'] = qaReport.verdict
+        if (qaReport.verdict === 'conditional') {
+          const hasBlocking = qaReport.defects.some(d => d.severity === 'p0' || d.severity === 'p1')
+          if (hasBlocking) uxVerdict = 'fail'
+        }
+
+        const uxGraderResult: GraderResult = {
+          graderId: grader.id,
+          graderType: 'ux',
+          graderName: grader.name,
+          verdict: uxVerdict,
+          findings: qaReport.defects.map((d, i) => ({
+            id: d.id,
+            severity: severityMap(d.severity),
+            category: 'ux',
+            description: d.description,
+          })),
+          summary: qaReport.summary,
+          model: grader.agent.model,
+          durationMs: qaResult.timing.durationMs,
+          costEstimate: qaResult.costEstimate ?? 0,
+        }
+        graderResults.push(uxGraderResult)
+
+        // Log defect summary
+        if (qaReport.defects.length > 0) {
+          const defectSummary = qaReport.defects
+            .map(d => `${d.id}(${d.severity.toUpperCase()})`)
+            .join(', ')
+          events.log('quinn', 'output', 'qa', `Defects: ${defectSummary}`)
+        }
+
+      } else if (grader.type === 'code-review') {
+        // ── Code Review grader ──
+        events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
+        const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
+        const crResult = await adapter.execute(crPrompt, {
+          model: grader.agent.model,
+          cwd: config.agents.generator.cwd,  // run in repo context
+          timeoutMs: 20 * 60 * 1000,
+          label: `cr-${contract.id}-r${round}`,
+        })
+
+        const crTranscriptPhase: TranscriptPhase = {
+          phase: 'qa',
+          round,
+          actor: 'code-reviewer',
+          model: grader.agent.model,
+          startTime: new Date(crResult.timing.startMs).toISOString(),
+          endTime: new Date(crResult.timing.endMs).toISOString(),
+          promptSent: crPrompt,
+          responseReceived: crResult.output,
+          tokenUsage: crResult.tokenUsage,
+          costEstimate: crResult.costEstimate,
+        }
+        transcript.phases.push(crTranscriptPhase)
+        saveTranscript(transcript, sprintDir, contract.id)
+
+        const crDuration = formatDuration(crResult.timing.durationMs)
+        const crCost = crResult.costEstimate ? `$${crResult.costEstimate.toFixed(4)}` : ''
+        events.log('system', 'output', 'qa', `Code review R${round} complete (${crDuration}${crCost ? ' / ' + crCost : ''})`)
+
+        const crGraderResult = parseCodeReviewResult(
+          crResult.output,
+          grader.id,
+          grader.name,
+          grader.agent.model,
+          crResult.timing.durationMs,
+          crResult.costEstimate ?? 0
+        )
+        graderResults.push(crGraderResult)
+      }
     }
-    transcript.phases.push(qaTranscriptPhase)
-    saveTranscript(transcript, sprintDir, contract.id)
 
-    const qaDuration = formatDuration(qaResult.timing.durationMs)
-    const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''
-    events.log('quinn', 'output', 'qa', `R${round} verdict received (${qaDuration}${qaCost ? ' / ' + qaCost : ''})`)
+    // 3c. Aggregate verdict across all graders
+    const aggregateVerdict = aggregateGraderVerdicts(graderResults)
 
-    // 3c. Parse QA report
-    const qaReport = parseQAReport(qaResult.output)
+    // Extract QA defects from UX grader result (for backward compat)
+    const uxResult = graderResults.find(r => r.graderType === 'ux')
+    const qaDefects = uxResult?.findings.map(f => ({
+      id: f.id,
+      severity: reverseSeverityMap(f.severity),
+      description: f.description,
+      fixed: false,
+    })) ?? []
 
-    // 3d. Record iteration
+    // 3d. Record iteration (backward compatible)
     const iteration: SprintIteration = {
       round,
       dev: agentResultToPhaseResult(devResult, config.agents.generator.model),
-      qa: agentResultToPhaseResult(qaResult, config.agents.evaluator.model),
-      defects: qaReport.defects,
+      qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
+      defects: qaDefects,
+      graderResults,
     }
     contract.iterations.push(iteration)
 
-    // Log defect summary
-    if (qaReport.defects.length > 0) {
-      const defectSummary = qaReport.defects
-        .map(d => `${d.id}(${d.severity.toUpperCase()})`)
-        .join(', ')
-      events.log('quinn', 'output', 'qa', `Defects: ${defectSummary}`)
-    }
-
-    // 3e. Check verdict
-    if (qaReport.verdict === 'pass') {
+    // 3e. Check aggregate verdict
+    if (aggregateVerdict === 'pass') {
       contract.status = 'passed'
       events.log('system', 'milestone', 'metrics',
-        `Sprint PASSED in ${round} iteration(s)`)
+        `Sprint PASSED in ${round} iteration(s) [all graders passed]`)
       saveContract(contract, sprintDir)
       break
     }
 
-    if (qaReport.verdict === 'conditional') {
-      const hasBlocking = qaReport.defects.some(
-        d => d.severity === 'p0' || d.severity === 'p1'
-      )
-      if (!hasBlocking) {
-        contract.status = 'passed'
-        events.log('system', 'milestone', 'metrics',
-          `Sprint CONDITIONAL PASS in ${round} iteration(s)`)
-        saveContract(contract, sprintDir)
-        break
-      }
-      // Blocking defects in a conditional — treat as fail and loop
-      events.log('moe', 'decision', 'dev',
-        `Conditional PASS but has blocking defects — continuing to R${round + 1}`)
+    if (aggregateVerdict === 'conditional') {
+      contract.status = 'passed'
+      events.log('system', 'milestone', 'metrics',
+        `Sprint CONDITIONAL PASS in ${round} iteration(s)`)
+      saveContract(contract, sprintDir)
+      break
     }
 
     // Failed — decide whether to loop or escalate
@@ -283,7 +390,7 @@ export async function runSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = qaResult.output
+    lastQAOutput = qaOutput
   }
 
   // 4. Compute metrics

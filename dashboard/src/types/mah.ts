@@ -1,3 +1,37 @@
+// ─── Grader System ───────────────────────────────────────────────────────────
+
+export interface Grader {
+  id: string;
+  type: "ux" | "code-review" | "accessibility" | "performance" | "custom";
+  name: string;
+  agent: { type: string; model: string; cwd?: string; workspace?: string; testUrl?: string };
+  enabled: boolean;
+}
+
+export interface GraderFinding {
+  id: string;
+  severity: "critical" | "major" | "minor" | "info";
+  category: string;
+  file?: string;
+  line?: number;
+  description: string;
+  suggestion?: string;
+}
+
+export interface GraderResult {
+  graderId: string;
+  graderType: string;
+  graderName: string;
+  verdict: "pass" | "conditional" | "fail";
+  findings: GraderFinding[];
+  summary: string;
+  model: string;
+  durationMs: number;
+  costEstimate: number;
+}
+
+// ─── Transcript ───────────────────────────────────────────────────────────────
+
 export interface SprintTranscript {
   sprintId: string;
   phases: TranscriptPhase[];
@@ -46,6 +80,7 @@ export interface Iteration {
   dev: DevRound;
   qa: QARound;
   defects: Defect[];
+  graderResults?: GraderResult[];
 }
 
 export interface SprintContract {
@@ -54,6 +89,7 @@ export interface SprintContract {
   task: string;
   projectId?: string;
   status: "planned" | "dev" | "qa" | "passed" | "failed" | "escalated" | "running";
+  graders?: Grader[];
   devBrief: {
     repo: string;
     constraints: string[];
