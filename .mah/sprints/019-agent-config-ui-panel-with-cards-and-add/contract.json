@@ -1,0 +1,84 @@
+{
+  "id": "019",
+  "name": "Agent Config UI panel with cards and add-agent flow",
+  "task": "Replace the minimal Agent Config section on the main dashboard page (src/app/page.tsx lines 529-552) with a rich, production-grade agent management panel. Import agents from the new centralized registry (src/lib/agents.ts) and the GET /api/agents endpoint.\n\n1. **Agent Cards Grid**: Display all 5 agents as styled cards in a responsive grid. Each card shows:\n   - Agent avatar/icon with their color accent\n   - Name and role tagline\n   - Platform badge (openclaw/claude-code/codex)\n   - Skills as small pill tags\n   - Context folders count/indicator\n   - Status indicator (active/configured)\n   - isEvaluator badge for Quinn\n\n2. **Agent Detail Expand**: Clicking a card expands or opens a detail panel showing full description, skills list, context folders, workspace path, and platform details. This is read-only — editing happens via sprints.\n\n3. **Add Agent Button**: A prominent '+ Add Agent' button that opens a minimal form/modal collecting: name, description, platform (dropdown: openclaw/claude-code/codex), optional skills, optional context folders. On submit, POST to /api/agents which creates the agent AND auto-creates a sprint to fully configure it. Show a toast/notification confirming the sprint was created.\n\n4. **Visual polish**: Match the existing dark theme (#141420 backgrounds, #2a2a3a borders, purple accents). Use smooth transitions, hover states, and the same design language as the rest of the dashboard. Make it look premium.\n\n5. Keep the section title 'Agent Config' but make it feel like a proper management panel, not just a config dump.",
+  "projectId": "mah-build",
+  "status": "dev",
+  "sprintType": "frontend",
+  "agentConfig": {
+    "generator": {
+      "agentId": "frontend-dev",
+      "agentName": "Frankie"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "planId": "plan-mnca4jx7",
+  "plannerOutput": "The work splits naturally into backend (consolidate agent registry with full metadata for all 5 agents, plus an API for CRUD) and frontend (rich Agent Config panel with cards, detail view, and add-agent flow). Backend must come first so the frontend has data to render. Two sprints keeps it focused.",
+  "agents": {
+    "generator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    },
+    "evaluator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    }
+  },
+  "priorities": {
+    "speed": 2,
+    "quality": 1,
+    "cost": 3
+  },
+  "human": {
+    "checkpoints": [
+      "On completion",
+      "On escalation"
+    ],
+    "notificationChannel": "telegram",
+    "responseTimeoutMinutes": 30,
+    "onTimeout": "proceed"
+  },
+  "devBrief": {
+    "repo": ".",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "",
+    "testFocus": [
+      "**Card grid renders all 5 agents** — Verify all agents from `/api/agents` appear as cards with name, role, platform badge, skills pills, and status indicator. Quinn must show isEvaluator badge.",
+      "**Add Agent modal — validation** — Submit with empty name or no platform selected. Form must block submission and show inline errors. No network request should fire.",
+      "**Theme consistency** — Panel background uses `#141420`, borders `#2a2a3a`, accents purple. No white/light backgrounds bleeding in. Hover states on cards and button are visible but not jarring.",
+      "All 5 agent cards render with correct data on all 4 tested devices"
+    ],
+    "passCriteria": [
+      "**Card grid renders all 5 agents** — Verify all agents from `/api/agents` appear as cards with name, role, platform badge, skills pills, and status indicator. Quinn must show isEvaluator badge.",
+      "**Add Agent modal — validation** — Submit with empty name or no platform selected. Form must block submission and show inline errors. No network request should fire.",
+      "**Theme consistency** — Panel background uses `#141420`, borders `#2a2a3a`, accents purple. No white/light backgrounds bleeding in. Hover states on cards and button are visible but not jarring.",
+      "All 5 agent cards render with correct data on all 4 tested devices",
+      "Expand/collapse works on desktop and touch (tap on mobile)"
+    ],
+    "knownLimitations": []
+  },
+  "graders": [
+    {
+      "id": "ux-quinn",
+      "type": "ux",
+      "name": "Quinn (UX)",
+      "enabled": true,
+      "model": "claude-sonnet-4-5"
+    }
+  ],
+  "iterations": [],
+  "createdAt": "2026-03-29T21:36:47.178Z",
+  "savedAt": "2026-03-29T21:36:48.025Z",
+  "previousId": "draft-mnca4kei-yr05c",
+  "queuedAt": "2026-03-29T21:36:48.049Z",
+  "startedAt": "2026-03-29T22:32:53.857Z"
+}

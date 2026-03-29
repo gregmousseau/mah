@@ -1,0 +1,51 @@
+{
+  "sprintId": "018",
+  "projectName": "MAH Build",
+  "task": "Create a centralized agent registry. Currently agent definitions are scattered across negotiate/route.ts (AGENT_WORKSPACES, AGENT_NAMES), plan/route.ts (agent descriptions), builder/page.tsx (AGENT_OPTIONS, AGENT_COLORS), and executor.mjs. Consolidate into a single source of truth:\n\n1. Create `src/lib/agents.ts` with a full agent registry containing all 5 agents:\n   - Frankie (id: 'frontend-dev'): Frontend UI specialist, platform: 'openclaw', skills: ['Impeccable design skill'], description, color: '#f97316'\n   - Devin (id: 'dev'): Backend/general developer, platform: 'openclaw', skills: [], description, color: '#3b82f6'\n   - Quinn (id: 'qa'): QA evaluator, platform: 'openclaw', skills: [], description, color: '#a855f7'\n   - Reese (id: 'research'): Research & analysis, platform: 'openclaw', skills: [], description, color: '#10b981'\n   - Connie (id: 'content'): Content & writing, platform: 'openclaw', skills: [], description, color: '#ec4899'\n\n   Each agent should have: id, name, role (one-liner), description (detailed), platform ('openclaw'|'claude-code'|'codex'), skills (string[]), contextFolders (array of {type: 'local'|'gdrive'|'url', path: string}), workspace, color, icon, isEvaluator (boolean).\n\n2. Create API routes `src/app/api/agents/route.ts` with GET (list all) and POST (add new agent — POST should auto-create a sprint item to configure the agent via an agent sprint).\n\n3. Update existing consumers (negotiate/route.ts, plan/route.ts, builder/page.tsx, executor.mjs) to import from the centralized registry instead of hardcoding.\n\n4. Export TypeScript types for AgentDefinition.",
+  "startTime": "2026-03-29T21:36:46.555Z",
+  "endTime": "2026-03-29T22:32:53.854Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 190470,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.017556000000000002
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 176542,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.010749
+    }
+  ],
+  "totals": {
+    "durationMs": 3367299,
+    "estimatedCost": 0.028305000000000004,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}

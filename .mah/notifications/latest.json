@@ -1,10 +1,10 @@
 {
   "type": "sprint_complete",
-  "sprintId": "016",
-  "name": "Sprint Cost & Timeline Chart",
+  "sprintId": "018",
+  "name": "Agent registry data model and API endpoints",
   "verdict": "passed",
   "iterations": 1,
-  "cost": 0.032634,
-  "duration": 716474,
-  "timestamp": "2026-03-29T17:41:56.476Z"
+  "cost": 0.028305000000000004,
+  "duration": 3367299,
+  "timestamp": "2026-03-29T22:32:53.855Z"
 }

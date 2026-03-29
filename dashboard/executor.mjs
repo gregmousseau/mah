@@ -17,6 +17,44 @@ import { spawn } from "child_process";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MAH_ROOT = process.env.MAH_ROOT ?? resolve(__dirname, "..");
 
+// Global error handlers — ensure sprint gets marked failed on any crash
+process.on('uncaughtException', (err) => {
+  console.error('[executor] Uncaught exception:', err);
+  markFailed(err.message);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[executor] Unhandled rejection:', reason);
+  markFailed(String(reason));
+  process.exit(1);
+});
+process.on('SIGTERM', () => {
+  console.error('[executor] Received SIGTERM');
+  markFailed('Process received SIGTERM');
+  process.exit(143);
+});
+
+function markFailed(reason) {
+  try {
+    const p = process.argv[2];
+    if (!p) return;
+    const cp = join(p, 'contract.json');
+    if (!existsSync(cp)) return;
+    const c = JSON.parse(readFileSync(cp, 'utf-8'));
+    if (c.status === 'passed' || c.status === 'failed') return;
+    c.status = 'failed';
+    c.failedAt = new Date().toISOString();
+    c.failureReason = reason;
+    writeFileSync(cp, JSON.stringify(c, null, 2));
+    // Clear heartbeat
+    const hbPath = join(MAH_ROOT, '.mah', 'heartbeat.json');
+    writeFileSync(hbPath, JSON.stringify({ alive: false, lastUpdate: new Date().toISOString(), recoveredBy: 'executor-crash-handler' }, null, 2));
+    console.error('[executor] Sprint marked as failed');
+  } catch (e) {
+    console.error('[executor] Failed to mark sprint:', e);
+  }
+}
+
 const sprintFullPath = process.argv[2];
 const QUEUE_FILE = join(MAH_ROOT, ".mah", "queue", "queue.json");
 
@@ -112,7 +150,7 @@ async function advanceQueue(completedSprintId, completedStatus) {
       cwd: MAH_ROOT,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, MAH_ROOT },
+      env: (() => { const e = { ...process.env, MAH_ROOT }; delete e.CLAUDECODE; return e; })(),
     }
   );
 

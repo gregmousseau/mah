@@ -31,3 +31,30 @@
 {"ts":"2026-03-29T19:33:40.852Z","local":"15:33:40","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (2m 40s / $0.0104)"}
 {"ts":"2026-03-29T19:33:40.854Z","local":"15:33:40","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P2-01(P2), P3-01(P3)"}
 {"ts":"2026-03-29T19:33:40.855Z","local":"15:33:40","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-03-29T21:36:48.209Z","local":"17:36:48","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Agent registry data model and API endpoints"}
+{"ts":"2026-03-29T21:36:48.241Z","local":"17:36:48","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 018"}
+{"ts":"2026-03-29T21:36:48.250Z","local":"17:36:48","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T21:41:13.968Z","local":"17:41:13","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (4m 25s / $0.0163)"}
+{"ts":"2026-03-29T21:41:13.969Z","local":"17:41:13","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T21:43:22.667Z","local":"17:43:22","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (2m 8s / $0.0215)"}
+{"ts":"2026-03-29T21:43:22.670Z","local":"17:43:22","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P1-01(P1), P1-02(P1), P2-03(P2)"}
+{"ts":"2026-03-29T21:43:22.671Z","local":"17:43:22","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R2"}
+{"ts":"2026-03-29T21:43:22.672Z","local":"17:43:22","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R2"}
+{"ts":"2026-03-29T21:47:07.598Z","local":"17:47:07","actor":"dev","type":"output","phase":"dev","summary":"R2 complete (3m 44s / $0.0099)"}
+{"ts":"2026-03-29T21:47:07.599Z","local":"17:47:07","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R2"}
+{"ts":"2026-03-29T21:55:45.234Z","local":"17:55:45","actor":"quinn","type":"output","phase":"qa","summary":"R2 verdict received (8m 37s / $0.0102)"}
+{"ts":"2026-03-29T21:55:45.238Z","local":"17:55:45","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P1-01(P1)"}
+{"ts":"2026-03-29T21:55:45.238Z","local":"17:55:45","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R3"}
+{"ts":"2026-03-29T21:55:45.239Z","local":"17:55:45","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R3"}
+{"ts":"2026-03-29T22:01:44.132Z","local":"18:01:44","actor":"dev","type":"output","phase":"dev","summary":"R3 complete (5m 58s / $0.0064)"}
+{"ts":"2026-03-29T22:01:44.134Z","local":"18:01:44","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R3"}
+{"ts":"2026-03-29T22:26:46.796Z","local":"18:26:46","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Agent registry data model and API endpoints"}
+{"ts":"2026-03-29T22:26:46.822Z","local":"18:26:46","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 018"}
+{"ts":"2026-03-29T22:26:46.834Z","local":"18:26:46","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T22:29:57.306Z","local":"18:29:57","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (3m 10s / $0.0176)"}
+{"ts":"2026-03-29T22:29:57.307Z","local":"18:29:57","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T22:32:53.851Z","local":"18:32:53","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (2m 56s / $0.0107)"}
+{"ts":"2026-03-29T22:32:53.853Z","local":"18:32:53","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 1 iteration(s) [all graders passed]"}
+{"ts":"2026-03-29T22:32:54.040Z","local":"18:32:54","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Agent Config UI panel with cards and add-agent flow"}
+{"ts":"2026-03-29T22:32:54.061Z","local":"18:32:54","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 019"}
+{"ts":"2026-03-29T22:32:54.068Z","local":"18:32:54","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}

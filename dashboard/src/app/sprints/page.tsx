@@ -6,17 +6,10 @@ import VerdictBadge from "@/components/VerdictBadge";
 import CountdownTimer from "@/components/CountdownTimer";
 import { usePolling } from "@/hooks/usePolling";
 import type { SprintSummary, Project } from "@/types/mah";
-
-const AGENT_COLORS: Record<string, string> = {
-  "frontend-dev": "#f59e0b",
-  dev: "#3b82f6",
-  research: "#22c55e",
-  content: "#ec4899",
-  qa: "#a855f7",
-};
+import { getAgentColor } from "@/lib/agents";
 
 function AgentDot({ agentId, agentName }: { agentId: string; agentName: string }) {
-  const color = AGENT_COLORS[agentId] || "#888898";
+  const color = getAgentColor(agentId);
   return (
     <span style={{
       display: "inline-flex",

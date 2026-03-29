@@ -3,23 +3,7 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
-
-// Agent workspace directories
-const AGENT_WORKSPACES: Record<string, string> = {
-  'frontend-dev': '/home/greg/.openclaw/workspace-frontend-dev',
-  'dev': '/home/greg/.openclaw/workspace-dev',
-  'qa': '/home/greg/.openclaw/workspace-qa',
-  'research': '/home/greg/.openclaw/workspace-research',
-  'content': '/home/greg/.openclaw/workspace-content',
-}
-
-const AGENT_NAMES: Record<string, string> = {
-  'frontend-dev': 'Frankie',
-  'dev': 'Devin',
-  'qa': 'Quinn',
-  'research': 'Reese',
-  'content': 'Connie',
-}
+import { getAgentWorkspace, getAgentName } from '../lib/agentRegistry.js'
 
 const IMPECCABLE_SKILL_PATH = '/home/greg/.openclaw/skills/impeccable/frontend-design/SKILL.md'
 
@@ -31,8 +15,8 @@ function readFileSafe(path: string): string | null {
 }
 
 function buildAgentContext(agentId: string, task: string): string {
-  const workspace = AGENT_WORKSPACES[agentId]
-  const agentName = AGENT_NAMES[agentId] || agentId
+  const workspace = getAgentWorkspace(agentId)
+  const agentName = getAgentName(agentId) || agentId
 
   if (!workspace || !existsSync(workspace)) {
     return task
@@ -120,10 +104,15 @@ export class OpenClawAdapter implements AgentAdapter {
       '--permission-mode', 'bypassPermissions',
     ]
 
+    const spawnEnv = { ...process.env }
+    delete spawnEnv.CLAUDECODE
+    const claudePath = spawnEnv.HOME ? `${spawnEnv.HOME}/.local/bin/claude` : 'claude'
+
     return new Promise((resolve, reject) => {
-      const child = spawn('claude', args, {
+      const child = spawn(claudePath, args, {
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
+        env: spawnEnv,
       })
 
       let stdout = ''
