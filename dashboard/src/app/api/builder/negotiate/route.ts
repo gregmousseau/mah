@@ -2,22 +2,7 @@ import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { spawn } from "child_process";
-
-const AGENT_WORKSPACES: Record<string, string> = {
-  "frontend-dev": "/home/greg/.openclaw/workspace-frontend-dev",
-  dev: "/home/greg/.openclaw/workspace-dev",
-  qa: "/home/greg/.openclaw/workspace-qa",
-  research: "/home/greg/.openclaw/workspace-research",
-  content: "/home/greg/.openclaw/workspace-content",
-};
-
-const AGENT_NAMES: Record<string, string> = {
-  "frontend-dev": "Frankie",
-  dev: "Devin",
-  qa: "Quinn",
-  research: "Reese",
-  content: "Connie",
-};
+import { getAgentWorkspace, getAgentName } from "@/lib/agents";
 
 function readFileSafe(path: string): string | null {
   try {
@@ -27,15 +12,20 @@ function readFileSafe(path: string): string | null {
 }
 
 function getAgentSoul(agentId: string): string {
-  const workspace = AGENT_WORKSPACES[agentId];
+  const workspace = getAgentWorkspace(agentId);
   if (!workspace || !existsSync(workspace)) return "";
   return readFileSafe(join(workspace, "SOUL.md")) ?? "";
 }
 
 async function runClaude(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn("claude", ["--print", "--model", "sonnet", "--permission-mode", "bypassPermissions"], {
+    const env = { ...process.env };
+    delete env.CLAUDECODE;
+    const claudePath = env.HOME ? `${env.HOME}/.local/bin/claude` : "claude";
+
+    const child = spawn(claudePath, ["--print", "--model", "sonnet", "--permission-mode", "bypassPermissions"], {
       stdio: ["pipe", "pipe", "pipe"],
+      env,
     });
 
     let stdout = "";
@@ -96,8 +86,8 @@ export async function POST(request: Request) {
 
     const generatorId = sprint.agent.id;
     const evaluatorId = sprint.evaluator.id;
-    const generatorName = AGENT_NAMES[generatorId] || sprint.agent.name;
-    const evaluatorName = AGENT_NAMES[evaluatorId] || sprint.evaluator.name;
+    const generatorName = getAgentName(generatorId) || sprint.agent.name;
+    const evaluatorName = getAgentName(evaluatorId) || sprint.evaluator.name;
 
     const generatorSoul = getAgentSoul(generatorId);
     const evaluatorSoul = getAgentSoul(evaluatorId);

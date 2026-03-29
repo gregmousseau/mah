@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { spawn } from "child_process";
+import { buildAgentsInfoString } from "@/lib/agents";
 
 const MAH_ROOT = join(process.cwd(), "..");
 const PROJECTS_DIR = join(MAH_ROOT, ".mah", "projects");
@@ -12,25 +13,17 @@ interface PlanRequest {
   context?: string;
 }
 
-const AGENTS_INFO = `
-Available agents:
-- **Frankie** (id: "frontend-dev"): Frontend UI specialist. Has the Impeccable design skill for beautiful, production-grade UIs. Use for any visual/UI work.
-- **Devin** (id: "dev"): General-purpose developer. Backend logic, bug fixes, API work, database changes, non-UI code.
-- **Reese** (id: "research"): Research and analysis. Use for gathering information, writing technical specs, competitive analysis, documentation.
-- **Connie** (id: "content"): Content and writing. Use for copy, blog posts, marketing text, user-facing strings, README updates.
-- **Quinn** (id: "qa"): QA evaluator. Always use as the evaluator for all sprints.
-`.trim();
-
 function buildPlanningPrompt(
   userPrompt: string,
   projectContext: string,
   extraContext?: string
 ): string {
+  const agentsInfo = buildAgentsInfoString();
   return `You are a senior engineering lead responsible for decomposing work into focused agent sprints.
 
 ${projectContext}
 
-${AGENTS_INFO}
+${agentsInfo}
 
 ## Decomposition Rules
 
@@ -78,8 +71,15 @@ Return ONLY a JSON object (no markdown, no explanation outside the JSON) with th
 
 async function runClaudeOpus(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn("claude", ["--print", "--model", "opus", "--permission-mode", "bypassPermissions"], {
+    // Unset CLAUDECODE so nested claude invocations aren't blocked
+    const env = { ...process.env };
+    delete env.CLAUDECODE;
+    // Use full path to claude in case PATH isn't inherited
+    const claudePath = env.HOME ? `${env.HOME}/.local/bin/claude` : "claude";
+
+    const child = spawn(claudePath, ["--print", "--model", "opus", "--permission-mode", "bypassPermissions"], {
       stdio: ["pipe", "pipe", "pipe"],
+      env,
     });
 
     let stdout = "";
@@ -93,8 +93,8 @@ async function runClaudeOpus(prompt: string): Promise<string> {
 
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error("Planning timed out after 90s"));
-    }, 90_000);
+      reject(new Error("Planning timed out after 3 minutes"));
+    }, 180_000);
 
     child.on("close", (code) => {
       clearTimeout(timer);

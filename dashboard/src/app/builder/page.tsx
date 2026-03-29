@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
 import type { Project, SprintPlanItem } from "@/types/mah";
+import { getGeneratorAgents, getAgentColor, getAgentIcon } from "@/lib/agents";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,29 +44,6 @@ interface DraftSprint {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const AGENT_COLORS: Record<string, string> = {
-  "frontend-dev": "#f59e0b",
-  dev: "#3b82f6",
-  research: "#22c55e",
-  content: "#ec4899",
-  qa: "#a855f7",
-};
-
-const AGENT_ICONS: Record<string, string> = {
-  "frontend-dev": "🎨",
-  dev: "⚙️",
-  research: "🔬",
-  content: "✍️",
-  qa: "🧪",
-};
-
-const AGENT_OPTIONS = [
-  { id: "dev", name: "Devin", label: "Devin (Backend/Code)" },
-  { id: "frontend-dev", name: "Frankie", label: "Frankie (Frontend/UI)" },
-  { id: "research", name: "Reese", label: "Reese (Research)" },
-  { id: "content", name: "Connie", label: "Connie (Content)" },
-];
-
 const COMPLEXITY_COLORS: Record<string, string> = {
   low: "#22c55e",
   medium: "#f59e0b",
@@ -77,8 +55,8 @@ const STORAGE_KEY = "mah-builder-state-v2";
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
 function AgentBadge({ agentId, agentName, size = "sm" }: { agentId: string; agentName: string; size?: "sm" | "md" }) {
-  const color = AGENT_COLORS[agentId] || "#888898";
-  const icon = AGENT_ICONS[agentId] || "🤖";
+  const color = getAgentColor(agentId);
+  const icon = getAgentIcon(agentId);
   const fontSize = size === "md" ? "12px" : "10px";
   const padding = size === "md" ? "3px 8px" : "2px 6px";
   return (
@@ -146,7 +124,7 @@ function SprintCard({
   const [editTask, setEditTask] = useState(sprint.task);
   const [editAgent, setEditAgent] = useState(sprint.agent.id);
 
-  const agentColor = AGENT_COLORS[sprint.agent.id] || "#888898";
+  const agentColor = getAgentColor(sprint.agent.id);
 
   return (
     <div
@@ -298,7 +276,8 @@ function SprintCard({
               value={editAgent}
               onChange={(e) => {
                 setEditAgent(e.target.value);
-                const ag = AGENT_OPTIONS.find(a => a.id === e.target.value);
+                const agents = getGeneratorAgents();
+                const ag = agents.find(a => a.id === e.target.value);
                 if (ag) onEdit({ agent: { id: ag.id, name: ag.name } });
               }}
               style={{
@@ -312,8 +291,8 @@ function SprintCard({
                 cursor: "pointer",
               }}
             >
-              {AGENT_OPTIONS.map(a => (
-                <option key={a.id} value={a.id}>{a.label}</option>
+              {getGeneratorAgents().map(a => (
+                <option key={a.id} value={a.id}>{a.name} ({a.role})</option>
               ))}
             </select>
           </div>
