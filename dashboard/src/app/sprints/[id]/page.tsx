@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import SprintTimeline from "@/components/SprintTimeline";
 import DefectTable from "@/components/DefectTable";
 import VerdictBadge from "@/components/VerdictBadge";
 import SprintProgressBar from "@/components/SprintProgressBar";
 import TranscriptViewer from "@/components/TranscriptViewer";
+import CountdownTimer from "@/components/CountdownTimer";
 import { usePolling } from "@/hooks/usePolling";
 import type { SprintContract, SprintMetrics, Defect, Project, GraderResult, GraderFinding } from "@/types/mah";
 
@@ -255,9 +256,269 @@ function GraderResultsPanel({ results }: { results: GraderResult[] }) {
   );
 }
 
+// ─── Sprint Action Bar ────────────────────────────────────────────────────────
+
+interface ActionBarProps {
+  contract: SprintContract;
+  sprintId: string;
+  onRefresh: () => void;
+}
+
+function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<string | null>(null);
+  const status = contract.status;
+
+  const updateStatus = async (newStatus: string) => {
+    setBusy(true);
+    try {
+      await fetch(`/api/sprints/${sprintId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      onRefresh();
+    } finally {
+      setBusy(false);
+      setConfirmAction(null);
+    }
+  };
+
+  const runNow = async () => {
+    setBusy(true);
+    try {
+      await fetch(`/api/sprints/${sprintId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      });
+      await fetch("/api/sprints/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractId: sprintId }),
+      });
+      router.push("/live");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reRun = async () => {
+    setBusy(true);
+    try {
+      // Create new sprint based on same contract
+      const newId = `${Date.now()}`.slice(-6);
+      const newContract = {
+        ...contract,
+        id: newId,
+        name: `${contract.name} (re-run)`,
+        status: "approved",
+        iterations: [],
+        createdAt: new Date().toISOString(),
+        completedAt: undefined,
+        queuedAt: undefined,
+        cancelledAt: undefined,
+      };
+      await fetch("/api/builder/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contract: newContract }),
+      });
+      await fetch("/api/sprints/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractId: newId }),
+      });
+      router.push("/live");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteSprint = async () => {
+    setBusy(true);
+    try {
+      await fetch(`/api/sprints/${sprintId}`, { method: "DELETE" });
+      router.push("/sprints");
+    } finally {
+      setBusy(false);
+      setConfirmAction(null);
+    }
+  };
+
+  const cancel = async () => {
+    setBusy(true);
+    try {
+      await fetch("/api/sprints/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sprintId }),
+      });
+      onRefresh();
+    } finally {
+      setBusy(false);
+      setConfirmAction(null);
+    }
+  };
+
+  // Confirmation dialog
+  if (confirmAction) {
+    const isDestructive = confirmAction === "delete" || confirmAction === "cancel";
+    return (
+      <div style={{
+        marginBottom: "20px",
+        padding: "16px 20px",
+        background: "rgba(239,68,68,0.08)",
+        border: "1px solid rgba(239,68,68,0.3)",
+        borderRadius: "10px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        flexWrap: "wrap",
+      }}>
+        <span style={{ fontSize: "13px", color: "#e0e0e8", flex: 1 }}>
+          {confirmAction === "delete"
+            ? "Delete this sprint? This cannot be undone."
+            : confirmAction === "cancel"
+            ? "Cancel this sprint? Running work will be stopped."
+            : "Are you sure?"}
+        </span>
+        <button
+          onClick={() => {
+            if (confirmAction === "delete") deleteSprint();
+            else if (confirmAction === "cancel") cancel();
+          }}
+          disabled={busy}
+          style={{
+            padding: "7px 16px",
+            background: isDestructive ? "#ef4444" : "#7c3aed",
+            border: "none",
+            borderRadius: "6px",
+            color: "white",
+            fontSize: "13px",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Confirm
+        </button>
+        <button
+          onClick={() => setConfirmAction(null)}
+          style={{
+            padding: "7px 16px",
+            background: "transparent",
+            border: "1px solid #2a2a3a",
+            borderRadius: "6px",
+            color: "#888898",
+            fontSize: "13px",
+            cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  const btnStyle = (variant: "primary" | "secondary" | "danger" | "ghost") => ({
+    padding: "7px 14px",
+    border: "1px solid",
+    borderColor: variant === "primary" ? "transparent" : variant === "danger" ? "rgba(239,68,68,0.4)" : "#2a2a3a",
+    borderRadius: "7px",
+    background:
+      variant === "primary" ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+      : variant === "danger" ? "rgba(239,68,68,0.1)"
+      : "transparent",
+    color:
+      variant === "primary" ? "white"
+      : variant === "danger" ? "#ef4444"
+      : "#888898",
+    fontSize: "13px",
+    fontWeight: variant === "primary" ? 600 : 400,
+    cursor: busy ? "not-allowed" : "pointer" as "pointer",
+    opacity: busy ? 0.6 : 1,
+    display: "flex" as const,
+    alignItems: "center" as const,
+    gap: "5px",
+    transition: "all 0.15s",
+    textDecoration: "none",
+  });
+
+  const actions = [];
+
+  if (status === "draft") {
+    actions.push(
+      <Link key="edit" href={`/builder?resume=${sprintId}`} style={btnStyle("ghost")}>✏️ Edit</Link>,
+      <button key="approve" onClick={() => updateStatus("approved")} disabled={busy} style={btnStyle("primary")}>✅ Approve</button>,
+      <button key="delete" onClick={() => setConfirmAction("delete")} disabled={busy} style={btnStyle("danger")}>🗑 Delete</button>
+    );
+  } else if (status === "approved") {
+    actions.push(
+      <button key="run" onClick={runNow} disabled={busy} style={btnStyle("primary")}>🚀 Run Now</button>,
+      <Link key="edit" href={`/builder?resume=${sprintId}`} style={btnStyle("ghost")}>✏️ Edit</Link>,
+      <button key="delete" onClick={() => setConfirmAction("delete")} disabled={busy} style={btnStyle("danger")}>🗑 Delete</button>
+    );
+  } else if (status === "scheduled") {
+    actions.push(
+      <button key="run" onClick={runNow} disabled={busy} style={btnStyle("primary")}>🚀 Run Now</button>,
+      <button key="cancel" onClick={() => setConfirmAction("cancel")} disabled={busy} style={btnStyle("danger")}>✕ Cancel</button>
+    );
+  } else if (status === "queued") {
+    actions.push(
+      <button key="cancel" onClick={() => setConfirmAction("cancel")} disabled={busy} style={btnStyle("danger")}>✕ Cancel</button>
+    );
+  } else if (status === "running") {
+    actions.push(
+      <button key="cancel" onClick={() => setConfirmAction("cancel")} disabled={busy} style={btnStyle("danger")}>⛔ Cancel Sprint</button>
+    );
+  } else if (status === "passed" || status === "failed") {
+    actions.push(
+      <button key="rerun" onClick={reRun} disabled={busy} style={btnStyle("primary")}>🔁 Re-run</button>,
+      <Link key="transcript" href={`#transcript`} style={btnStyle("ghost")}>📋 View Transcript</Link>
+    );
+  } else if (status === "escalated") {
+    actions.push(
+      <button key="rerun" onClick={reRun} disabled={busy} style={btnStyle("primary")}>🔁 Re-run</button>,
+      <button key="resolve" onClick={() => updateStatus("passed")} disabled={busy} style={btnStyle("secondary")}>✅ Mark Resolved</button>
+    );
+  } else if (status === "cancelled") {
+    actions.push(
+      <button key="rerun" onClick={reRun} disabled={busy} style={btnStyle("primary")}>🔁 Re-run</button>,
+      <button key="delete" onClick={() => setConfirmAction("delete")} disabled={busy} style={btnStyle("danger")}>🗑 Delete</button>
+    );
+  }
+
+  if (actions.length === 0) return null;
+
+  return (
+    <div style={{
+      marginBottom: "20px",
+      padding: "12px 16px",
+      background: "#141420",
+      border: "1px solid #2a2a3a",
+      borderRadius: "10px",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      flexWrap: "wrap",
+    }}>
+      <span style={{ fontSize: "11px", color: "#555565", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginRight: "4px" }}>
+        Actions
+      </span>
+      {actions}
+      {contract.scheduledFor && (status === "scheduled" || status === "approved") && (
+        <span style={{ marginLeft: "auto" }}>
+          <CountdownTimer iso={contract.scheduledFor} />
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function SprintDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, loading, error } = usePolling<SprintData>(`/api/sprints/${id}`, 5000);
+  const { data, loading, error, refetch } = usePolling<SprintData>(`/api/sprints/${id}`, 5000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 60000);
 
   // Dynamic page title
@@ -337,6 +598,9 @@ export default function SprintDetailPage() {
           </>
         )}
       </div>
+
+      {/* Action Bar */}
+      <ActionBar contract={contract} sprintId={contract.id} onRefresh={refetch} />
 
       {/* Header */}
       <div style={{ marginBottom: "24px" }}>
@@ -459,7 +723,9 @@ export default function SprintDetailPage() {
       )}
 
       {/* Transcript */}
-      <TranscriptViewer sprintId={contract.id} />
+      <div id="transcript">
+        <TranscriptViewer sprintId={contract.id} />
+      </div>
 
       {/* Sprint Contract */}
       <Section title="Sprint Contract">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import VerdictBadge from "@/components/VerdictBadge";
+import CountdownTimer from "@/components/CountdownTimer";
 import { usePolling } from "@/hooks/usePolling";
 import type { SprintSummary, Project } from "@/types/mah";
 
@@ -204,6 +205,9 @@ export default function SprintsPage() {
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  {sprint.status === "scheduled" && <span title="Scheduled">🕐</span>}
+                  {sprint.status === "running" && <div className="dot-pulse" style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />}
+                  {sprint.status === "queued" && <span title="Queued">⏳</span>}
                   <span style={{ fontSize: "14px", color: "#e0e0e8", fontWeight: 500 }}>{sprint.name}</span>
                   {sprint.iterations > 0 && (
                     <span style={{
@@ -226,7 +230,9 @@ export default function SprintsPage() {
               <div style={{ fontSize: "12px", color: "#888898" }}>
                 {sprint.createdAt ? formatDate(sprint.createdAt) : "—"}
                 <div style={{ fontSize: "11px", color: "#555565", marginTop: "2px" }}>
-                  {formatDuration(sprint.createdAt, sprint.completedAt)}
+                  {sprint.scheduledFor
+                    ? <CountdownTimer iso={sprint.scheduledFor} prefix="in" />
+                    : formatDuration(sprint.createdAt, sprint.completedAt)}
                 </div>
               </div>
               <div style={{ fontSize: "13px", color: "#e0e0e8", textAlign: "center" }}>

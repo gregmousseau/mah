@@ -9,8 +9,9 @@ function isRealSprint(dirName: string, contract: Record<string, unknown> | null)
   if (!contract) return false;
   const id = contract.id as string || "";
   const status = contract.status as string || "";
-  // Include drafts and scheduled sprints from builder
-  if (status === "draft" || status === "scheduled" || status === "approved") return true;
+  // Include all lifecycle statuses
+  const lifecycleStatuses = ["draft", "scheduled", "approved", "queued", "running", "passed", "failed", "escalated", "cancelled"];
+  if (lifecycleStatuses.includes(status)) return true;
   if (/^\d{3}$/.test(id)) return true;
   if (/^\d{3}-/.test(dirName)) return true;
   return false;

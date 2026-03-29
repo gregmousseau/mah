@@ -573,7 +573,7 @@ function BuilderInner() {
   };
 
   const handleSave = async (
-    status: "draft" | "approved",
+    status: "draft" | "approved" | "scheduled",
     schedFor?: string
   ) => {
     if (!contract) return;
@@ -583,31 +583,48 @@ function BuilderInner() {
     try {
       const contractToSave = {
         ...contract,
-        status,
+        status: schedFor ? "scheduled" : status,
         priorities: priorityOrderToMap(priorityOrder),
         graders,
       };
 
-      const res = await fetch("/api/builder/save", {
+      const saveRes = await fetch("/api/builder/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contract: contractToSave, scheduledFor: schedFor }),
       });
 
-      if (res.ok) {
-        setSaveMsg(
-          status === "approved"
-            ? "Sprint approved! Execution will run when wired."
-            : schedFor
-            ? "Sprint scheduled!"
-            : "Draft saved!"
-        );
-        localStorage.removeItem(STORAGE_KEY);
-        setTimeout(() => {
-          router.push("/sprints");
-        }, 1200);
-      } else {
+      if (!saveRes.ok) {
         setSaveMsg("Save failed. Try again.");
+        return;
+      }
+
+      if (status === "approved" && !schedFor) {
+        // Run Now: queue and redirect to live
+        setSaveMsg("Sprint queued! Redirecting to live view...");
+        const runRes = await fetch("/api/sprints/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contractId: contractToSave.id }),
+        });
+        if (!runRes.ok) {
+          setSaveMsg("Sprint saved but failed to queue. Check /sprints.");
+          return;
+        }
+        localStorage.removeItem(STORAGE_KEY);
+        setTimeout(() => router.push("/live"), 1200);
+      } else if (schedFor) {
+        // Schedule: show confirmation, stay on page
+        const dt = new Date(schedFor).toLocaleString("en-CA", {
+          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+        });
+        setSaveMsg(`Sprint scheduled for ${dt}`);
+        localStorage.removeItem(STORAGE_KEY);
+        setTimeout(() => router.push("/sprints"), 2000);
+      } else {
+        setSaveMsg("Draft saved!");
+        localStorage.removeItem(STORAGE_KEY);
+        setTimeout(() => router.push("/sprints"), 1200);
       }
     } finally {
       setSaving(false);
@@ -1515,7 +1532,7 @@ function BuilderInner() {
             <Rocket size={18} />
             Run Now
             <span style={{ fontSize: "12px", opacity: 0.75, fontWeight: 400 }}>
-              — saves contract, ready for execution
+              — queue &amp; go live
             </span>
           </button>
 
@@ -1551,7 +1568,7 @@ function BuilderInner() {
               />
               <button
                 onClick={() =>
-                  scheduledFor && handleSave("draft", new Date(scheduledFor).toISOString())
+                  scheduledFor && handleSave("scheduled", new Date(scheduledFor).toISOString())
                 }
                 disabled={!scheduledFor || saving}
                 style={{

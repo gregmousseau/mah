@@ -24,7 +24,11 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
   const { data: stats } = usePolling<Stats>("/api/stats", 15000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
   const { data: drafts } = usePolling<unknown[]>("/api/builder/drafts", 15000);
+  const { data: allSprints } = usePolling<{ status: string }[]>("/api/sprints", 8000);
   const draftCount = (drafts || []).length;
+  const runningCount = (allSprints || []).filter((s) => s.status === "running").length;
+  const queuedCount = (allSprints || []).filter((s) => s.status === "queued").length;
+  const isLive = runningCount > 0;
 
   return (
     <>
@@ -119,6 +123,8 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
 
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const isLiveItem = href === "/live";
+          const isSprintsItem = href === "/sprints";
           return (
             <Link
               key={href}
@@ -142,6 +148,27 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
             >
               <Icon size={16} color={active ? "#a855f7" : "#888898"} />
               {label}
+              {isLiveItem && isLive && (
+                <div
+                  className="dot-pulse"
+                  style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7", marginLeft: "2px" }}
+                />
+              )}
+              {isSprintsItem && queuedCount > 0 && (
+                <span style={{
+                  marginLeft: "auto",
+                  background: "#3b82f6",
+                  color: "white",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  borderRadius: "10px",
+                  padding: "1px 6px",
+                  minWidth: "18px",
+                  textAlign: "center",
+                }}>
+                  {queuedCount}
+                </span>
+              )}
             </Link>
           );
         })}

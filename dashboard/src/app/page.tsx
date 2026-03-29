@@ -7,7 +7,7 @@ import VerdictBadge from "@/components/VerdictBadge";
 import ActiveSprint from "@/components/ActiveSprint";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { usePolling } from "@/hooks/usePolling";
-import { PlusSquare, Clock, FileText } from "lucide-react";
+import { PlusSquare, Clock, FileText, Radio } from "lucide-react";
 import type { SprintSummary, MahConfig, Project } from "@/types/mah";
 
 interface Stats {
@@ -95,6 +95,12 @@ export default function DashboardPage() {
 
   const isLoading = !stats && !allSprints;
 
+  // Quick stats
+  const runningCount = (allSprints || []).filter((s) => s.status === "running").length;
+  const queuedCount = (allSprints || []).filter((s) => s.status === "queued").length;
+  const draftCount2 = (allSprints || []).filter((s) => s.status === "draft" || s.status === "approved").length;
+  const activeSprint = (allSprints || []).find((s) => s.status === "running");
+
   if (isLoading) {
     return (
       <div style={{ padding: "32px", maxWidth: "1100px" }}>
@@ -164,6 +170,64 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Quick stats bar */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+        {[
+          { label: "Running", value: runningCount, color: runningCount > 0 ? "#a855f7" : "#555565", active: runningCount > 0, href: "/live" },
+          { label: "Queued", value: queuedCount, color: queuedCount > 0 ? "#3b82f6" : "#555565", active: false, href: "/sprints" },
+          { label: "Drafts", value: draftCount2, color: draftCount2 > 0 ? "#f59e0b" : "#555565", active: false, href: "/sprints" },
+        ].map(({ label, value, color, active, href }) => (
+          <Link
+            key={label}
+            href={href}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "5px 12px",
+              background: active ? `${color}18` : "transparent",
+              border: `1px solid ${active ? `${color}40` : "#2a2a3a"}`,
+              borderRadius: "6px",
+              textDecoration: "none",
+              fontSize: "12px",
+              color: "#888898",
+              transition: "all 0.15s",
+            }}
+          >
+            {active && <div className="dot-pulse" style={{ width: "6px", height: "6px", borderRadius: "50%", background: color }} />}
+            <span style={{ color, fontWeight: 600 }}>{value}</span>
+            <span>{label}</span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Active sprint banner */}
+      {activeSprint && (
+        <Link
+          href="/live"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "14px",
+            padding: "14px 20px",
+            background: "rgba(124,58,237,0.1)",
+            border: "1px solid rgba(168,85,247,0.4)",
+            borderRadius: "12px",
+            marginBottom: "20px",
+            textDecoration: "none",
+          }}
+        >
+          <div className="dot-pulse" style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "#e0e0e8" }}>
+              Sprint running: {activeSprint.name}
+            </div>
+            <div style={{ fontSize: "11px", color: "#888898", marginTop: "2px" }}>Click to watch live</div>
+          </div>
+          <Radio size={16} color="#a855f7" />
+        </Link>
+      )}
 
       {/* Project selector */}
       {projects && projects.length > 0 && (
@@ -454,12 +518,19 @@ export default function DashboardPage() {
                     </Link>
                     <button
                       onClick={async () => {
-                        await fetch("/api/builder/save", {
+                        const saveRes = await fetch("/api/builder/save", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ contract: { ...draft, status: "approved" } }),
                         });
-                        window.location.reload();
+                        if (saveRes.ok) {
+                          await fetch("/api/sprints/run", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ contractId: id }),
+                          });
+                          window.location.href = "/live";
+                        }
                       }}
                       style={{
                         fontSize: "12px",

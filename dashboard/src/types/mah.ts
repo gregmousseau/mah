@@ -88,7 +88,10 @@ export interface SprintContract {
   name: string;
   task: string;
   projectId?: string;
-  status: "planned" | "dev" | "qa" | "passed" | "failed" | "escalated" | "running";
+  status: "draft" | "approved" | "queued" | "scheduled" | "planned" | "dev" | "qa" | "running" | "passed" | "failed" | "escalated" | "cancelled";
+  scheduledFor?: string;
+  queuedAt?: string;
+  cancelledAt?: string;
   graders?: Grader[];
   devBrief: {
     repo: string;
@@ -163,6 +166,7 @@ export interface SprintSummary {
   totalCost: number;
   createdAt: string;
   completedAt?: string;
+  scheduledFor?: string;
   projectId?: string;
 }
 
