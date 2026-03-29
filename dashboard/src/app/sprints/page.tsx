@@ -7,6 +7,34 @@ import CountdownTimer from "@/components/CountdownTimer";
 import { usePolling } from "@/hooks/usePolling";
 import type { SprintSummary, Project } from "@/types/mah";
 
+const AGENT_COLORS: Record<string, string> = {
+  "frontend-dev": "#f59e0b",
+  dev: "#3b82f6",
+  research: "#22c55e",
+  content: "#ec4899",
+  qa: "#a855f7",
+};
+
+function AgentDot({ agentId, agentName }: { agentId: string; agentName: string }) {
+  const color = AGENT_COLORS[agentId] || "#888898";
+  return (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "4px",
+      fontSize: "10px",
+      color,
+      marginTop: "3px",
+    }}>
+      <span style={{
+        width: "6px", height: "6px", borderRadius: "50%",
+        background: color, display: "inline-block", flexShrink: 0,
+      }} />
+      {agentName}
+    </span>
+  );
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", {
     year: "numeric",
@@ -223,6 +251,9 @@ export default function SprintsPage() {
                     </span>
                   )}
                 </div>
+                {sprint.agentConfig?.generator && (
+                  <AgentDot agentId={sprint.agentConfig.generator.agentId} agentName={sprint.agentConfig.generator.agentName} />
+                )}
               </div>
               <div>
                 <ProjectBadge projectId={sprint.projectId} projects={allProjects} />

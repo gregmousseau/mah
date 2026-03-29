@@ -1,6 +1,58 @@
 import { spawn } from 'node:child_process'
 import { execSync } from 'node:child_process'
+import { readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+
+// Agent workspace directories
+const AGENT_WORKSPACES: Record<string, string> = {
+  'frontend-dev': '/home/greg/.openclaw/workspace-frontend-dev',
+  'dev': '/home/greg/.openclaw/workspace-dev',
+  'qa': '/home/greg/.openclaw/workspace-qa',
+  'research': '/home/greg/.openclaw/workspace-research',
+  'content': '/home/greg/.openclaw/workspace-content',
+}
+
+const AGENT_NAMES: Record<string, string> = {
+  'frontend-dev': 'Frankie',
+  'dev': 'Devin',
+  'qa': 'Quinn',
+  'research': 'Reese',
+  'content': 'Connie',
+}
+
+const IMPECCABLE_SKILL_PATH = '/home/greg/.openclaw/skills/impeccable/frontend-design/SKILL.md'
+
+function readFileSafe(path: string): string | null {
+  try {
+    if (existsSync(path)) return readFileSync(path, 'utf-8')
+  } catch { /* ignore */ }
+  return null
+}
+
+function buildAgentContext(agentId: string, task: string): string {
+  const workspace = AGENT_WORKSPACES[agentId]
+  const agentName = AGENT_NAMES[agentId] || agentId
+
+  if (!workspace || !existsSync(workspace)) {
+    return task
+  }
+
+  const soul = readFileSafe(join(workspace, 'SOUL.md'))
+  if (!soul) return task
+
+  let context = `You are ${agentName}. ${soul}\n\n---\n\nTask:\n${task}`
+
+  // For Frankie: also load Impeccable frontend-design skill
+  if (agentId === 'frontend-dev') {
+    const impeccable = readFileSafe(IMPECCABLE_SKILL_PATH)
+    if (impeccable) {
+      context = `You are ${agentName}. ${soul}\n\n---\n\n## Impeccable Frontend Design Skill\n\n${impeccable}\n\n---\n\nTask:\n${task}`
+    }
+  }
+
+  return context
+}
 
 // Per MTok pricing (rough estimates for cost tracking)
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -44,6 +96,15 @@ export class OpenClawAdapter implements AgentAdapter {
       return this.executeMock(task, options)
     }
     return this.executeClaude(task, options)
+  }
+
+  /**
+   * Execute a task with an agent's SOUL.md prepended as context.
+   * Falls back to plain execute() if the agent workspace doesn't exist.
+   */
+  async executeWithAgent(task: string, agentId: string, options: ExecuteOptions): Promise<AgentResult> {
+    const enrichedTask = buildAgentContext(agentId, task)
+    return this.execute(enrichedTask, options)
   }
 
   private async executeClaude(task: string, options: ExecuteOptions): Promise<AgentResult> {

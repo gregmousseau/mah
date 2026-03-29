@@ -13,423 +13,381 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  Handshake,
+  Loader2,
 } from "lucide-react";
 import { usePolling } from "@/hooks/usePolling";
-import type { Project } from "@/types/mah";
+import type { Project, SprintPlanItem } from "@/types/mah";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface AgentConfig {
-  type: string;
-  model: string;
-}
-
-interface GraderConfig {
-  id: string;
-  type: "ux" | "code-review" | "accessibility" | "performance" | "custom";
-  name: string;
-  description: string;
-  costRange: string;
-  enabled: boolean;
-  model: string;
-  comingSoon?: boolean;
-}
-
-interface BuilderContract {
-  id: string;
+interface DraftSprint {
+  // local draft id (not saved to disk yet)
+  localId: string;
   name: string;
   task: string;
-  projectId?: string;
-  status: "draft" | "scheduled" | "approved" | "planned";
-  agents: { generator: AgentConfig; evaluator: AgentConfig };
-  priorities: { speed: number; quality: number; cost: number };
-  human: {
-    checkpoints: string[];
-    notificationChannel: string;
-    responseTimeoutMinutes: number;
-    onTimeout: string;
-  };
-  devBrief: { repo: string; constraints: string[]; definitionOfDone: string[] };
-  qaBrief: {
-    tier: string;
-    testUrl: string;
-    testFocus: string[];
-    passCriteria: string[];
-    knownLimitations: string[];
-  };
-  graders?: GraderConfig[];
-  iterations: unknown[];
-  createdAt: string;
-  scheduledFor?: string;
+  sprintType: "code" | "frontend" | "research" | "content" | "fullstack";
+  agent: { id: string; name: string; reason?: string };
+  evaluator: { id: string; name: string };
+  suggestedQaTier: "smoke" | "targeted" | "full";
+  dependencies: string[];
+  estimatedComplexity: "low" | "medium" | "high";
+  // After negotiation:
+  devBrief?: { repo: string; constraints: string[]; definitionOfDone: string[] };
+  qaBrief?: { tier: string; testUrl: string; testFocus: string[]; passCriteria: string[]; knownLimitations: string[] };
+  generatorBrief?: string;
+  evaluatorBrief?: string;
+  negotiated?: boolean;
+  negotiating?: boolean;
 }
 
-interface CostEstimate {
-  devLow: number;
-  devHigh: number;
-  qaLow: number;
-  qaHigh: number;
-  totalLow: number;
-  totalHigh: number;
-  estimatedIterations: number;
-}
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "mah-builder-state";
-
-const MODEL_OPTIONS = [
-  { value: "claude-haiku-3-5", label: "Haiku 3.5", cost: "$" as const },
-  { value: "claude-sonnet-4-5", label: "Sonnet 4.5", cost: "$$" as const },
-  { value: "claude-opus-4", label: "Opus 4", cost: "$$$" as const },
-];
-
-const ADAPTER_OPTIONS = [
-  { value: "openclaw", label: "OpenClaw" },
-  { value: "claude-cli", label: "Claude CLI" },
-  { value: "codex", label: "Codex" },
-];
-
-const DEFAULT_GRADERS: GraderConfig[] = [
-  {
-    id: "ux-quinn",
-    type: "ux",
-    name: "Quinn (UX)",
-    description: "Browser testing, device matrix, visual verification",
-    costRange: "$0.50–5.00",
-    enabled: true,
-    model: "claude-sonnet-4-5",
-  },
-  {
-    id: "code-review",
-    type: "code-review",
-    name: "Code Reviewer",
-    description: "Bug risks, security, performance, style",
-    costRange: "$0.10–0.50",
-    enabled: true,
-    model: "claude-sonnet-4-5",
-  },
-  {
-    id: "accessibility",
-    type: "accessibility",
-    name: "Accessibility",
-    description: "WCAG compliance, ARIA, keyboard navigation",
-    costRange: "$0.20–0.80",
-    enabled: false,
-    model: "claude-sonnet-4-5",
-    comingSoon: true,
-  },
-  {
-    id: "performance",
-    type: "performance",
-    name: "Performance",
-    description: "Lighthouse audit, bundle size, Core Web Vitals",
-    costRange: "$0.10–0.40",
-    enabled: false,
-    model: "claude-haiku-3-5",
-    comingSoon: true,
-  },
-];
-
-const QA_TIERS = [
-  {
-    id: "smoke",
-    label: "Smoke",
-    desc: "Quick sanity check",
-    devices: "2 devices, 1 browser",
-    costRange: "$0.10–0.30",
-    costLow: 0.10,
-    costHigh: 0.30,
-    icon: "💨",
-  },
-  {
-    id: "targeted",
-    label: "Targeted",
-    desc: "Key flows verified",
-    devices: "4 devices, 2 browsers",
-    costRange: "$0.50–1.50",
-    costLow: 0.50,
-    costHigh: 1.50,
-    icon: "🎯",
-  },
-  {
-    id: "full",
-    label: "Full Matrix",
-    desc: "Everything tested",
-    devices: "8 devices, 3 browsers",
-    costRange: "$2.00–5.00",
-    costLow: 2.00,
-    costHigh: 5.00,
-    icon: "🔬",
-  },
-];
-
-const PRIORITY_ITEMS = ["Speed", "Quality", "Cost"] as const;
-type Priority = (typeof PRIORITY_ITEMS)[number];
-
-const PRIORITY_DESCRIPTIONS: Record<Priority, string> = {
-  Speed: "Dev self-reviews before QA. Smoke tests first. Fast models.",
-  Quality: "Full matrix QA. Multiple graders. Thorough iteration.",
-  Cost: "Haiku where possible. Human reviews findings. Minimal iterations.",
+const AGENT_COLORS: Record<string, string> = {
+  "frontend-dev": "#f59e0b",
+  dev: "#3b82f6",
+  research: "#22c55e",
+  content: "#ec4899",
+  qa: "#a855f7",
 };
 
-const HUMAN_CHECKPOINTS = [
-  "Before running",
-  "On QA failure",
-  "On completion",
-  "On escalation",
+const AGENT_ICONS: Record<string, string> = {
+  "frontend-dev": "🎨",
+  dev: "⚙️",
+  research: "🔬",
+  content: "✍️",
+  qa: "🧪",
+};
+
+const AGENT_OPTIONS = [
+  { id: "dev", name: "Devin", label: "Devin (Backend/Code)" },
+  { id: "frontend-dev", name: "Frankie", label: "Frankie (Frontend/UI)" },
+  { id: "research", name: "Reese", label: "Reese (Research)" },
+  { id: "content", name: "Connie", label: "Connie (Content)" },
 ];
+
+const COMPLEXITY_COLORS: Record<string, string> = {
+  low: "#22c55e",
+  medium: "#f59e0b",
+  high: "#ef4444",
+};
+
+const STORAGE_KEY = "mah-builder-state-v2";
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
-function CostIndicator({ cost }: { cost: "$" | "$$" | "$$$" }) {
+function AgentBadge({ agentId, agentName, size = "sm" }: { agentId: string; agentName: string; size?: "sm" | "md" }) {
+  const color = AGENT_COLORS[agentId] || "#888898";
+  const icon = AGENT_ICONS[agentId] || "🤖";
+  const fontSize = size === "md" ? "12px" : "10px";
+  const padding = size === "md" ? "3px 8px" : "2px 6px";
   return (
     <span
       style={{
-        fontSize: "11px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        fontSize,
         fontWeight: 600,
-        color: cost === "$" ? "#22c55e" : cost === "$$" ? "#f59e0b" : "#ef4444",
-        background:
-          cost === "$"
-            ? "rgba(34,197,94,0.1)"
-            : cost === "$$"
-            ? "rgba(245,158,11,0.1)"
-            : "rgba(239,68,68,0.1)",
-        border: `1px solid ${
-          cost === "$"
-            ? "rgba(34,197,94,0.25)"
-            : cost === "$$"
-            ? "rgba(245,158,11,0.25)"
-            : "rgba(239,68,68,0.25)"
-        }`,
+        color,
+        background: `${color}18`,
+        border: `1px solid ${color}40`,
         borderRadius: "4px",
-        padding: "1px 5px",
+        padding,
+        whiteSpace: "nowrap",
       }}
     >
-      {cost}
+      <span>{icon}</span>
+      {agentName}
     </span>
   );
 }
 
-function SectionCard({
-  title,
-  children,
+function ComplexityBadge({ complexity }: { complexity: string }) {
+  const color = COMPLEXITY_COLORS[complexity] || "#888898";
+  return (
+    <span style={{
+      fontSize: "10px",
+      color,
+      background: `${color}18`,
+      border: `1px solid ${color}40`,
+      borderRadius: "4px",
+      padding: "2px 6px",
+      fontWeight: 500,
+      textTransform: "capitalize" as const,
+    }}>
+      {complexity}
+    </span>
+  );
+}
+
+function SprintCard({
+  sprint,
+  index,
+  total,
+  onEdit,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  onNegotiate,
+  projectRepo,
 }: {
-  title: string;
-  children: React.ReactNode;
+  sprint: DraftSprint;
+  index: number;
+  total: number;
+  onEdit: (updates: Partial<DraftSprint>) => void;
+  onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onNegotiate: () => void;
+  projectRepo: string;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [editTask, setEditTask] = useState(sprint.task);
+  const [editAgent, setEditAgent] = useState(sprint.agent.id);
+
+  const agentColor = AGENT_COLORS[sprint.agent.id] || "#888898";
+
   return (
     <div
       style={{
         background: "#141420",
-        border: "1px solid #2a2a3a",
+        border: `1px solid ${sprint.negotiated ? "rgba(34,197,94,0.3)" : "#2a2a3a"}`,
         borderRadius: "12px",
-        padding: "24px",
-        marginBottom: "16px",
+        padding: "18px 20px",
+        marginBottom: "12px",
+        borderLeft: `3px solid ${agentColor}`,
+        position: "relative",
       }}
     >
-      <h3
-        style={{
-          margin: "0 0 16px",
-          fontSize: "13px",
-          fontWeight: 600,
-          color: "#a855f7",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
-      >
-        {title}
-      </h3>
-      {children}
-    </div>
-  );
-}
-
-function EditableList({
-  items,
-  onChange,
-  placeholder,
-}: {
-  items: string[];
-  onChange: (items: string[]) => void;
-  placeholder: string;
-}) {
-  const [newItem, setNewItem] = useState("");
-
-  const add = () => {
-    const trimmed = newItem.trim();
-    if (trimmed && !items.includes(trimmed)) {
-      onChange([...items, trimmed]);
-      setNewItem("");
-    }
-  };
-
-  return (
-    <div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-        {items.map((item, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              background: "rgba(124,58,237,0.12)",
-              border: "1px solid rgba(124,58,237,0.25)",
-              borderRadius: "6px",
-              padding: "3px 8px",
-              fontSize: "12px",
-              color: "#e0e0e8",
-            }}
-          >
-            {item}
-            <button
-              onClick={() => onChange(items.filter((_, j) => j !== i))}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#888898",
-                padding: "0 0 0 2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <X size={11} />
-            </button>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "10px" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "11px", color: "#555565", fontFamily: "monospace" }}>
+              {index + 1}/{total}
+            </span>
+            {!editing ? (
+              <span
+                style={{ fontSize: "14px", fontWeight: 600, color: "#e0e0e8", cursor: "pointer" }}
+                onClick={() => setEditing(true)}
+              >
+                {sprint.name}
+              </span>
+            ) : (
+              <input
+                value={sprint.name}
+                onChange={(e) => onEdit({ name: e.target.value })}
+                style={{
+                  background: "#0d0d18",
+                  border: "1px solid #7c3aed",
+                  borderRadius: "4px",
+                  padding: "2px 8px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#e0e0e8",
+                  outline: "none",
+                  width: "300px",
+                }}
+              />
+            )}
           </div>
-        ))}
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <AgentBadge agentId={sprint.agent.id} agentName={sprint.agent.name} />
+            <span style={{
+              fontSize: "10px",
+              color: "#888898",
+              background: "rgba(136,136,152,0.1)",
+              border: "1px solid rgba(136,136,152,0.2)",
+              borderRadius: "4px",
+              padding: "2px 6px",
+              fontWeight: 500,
+              textTransform: "capitalize" as const,
+            }}>
+              {sprint.sprintType}
+            </span>
+            <span style={{
+              fontSize: "10px",
+              color: "#a855f7",
+              background: "rgba(168,85,247,0.1)",
+              border: "1px solid rgba(168,85,247,0.2)",
+              borderRadius: "4px",
+              padding: "2px 6px",
+              fontWeight: 500,
+            }}>
+              {sprint.suggestedQaTier} QA
+            </span>
+            <ComplexityBadge complexity={sprint.estimatedComplexity} />
+            {sprint.negotiated && (
+              <span style={{
+                fontSize: "10px",
+                color: "#22c55e",
+                background: "rgba(34,197,94,0.1)",
+                border: "1px solid rgba(34,197,94,0.2)",
+                borderRadius: "4px",
+                padding: "2px 6px",
+                fontWeight: 600,
+              }}>
+                ✓ Negotiated
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: "flex", gap: "4px", alignItems: "flex-start", flexShrink: 0, marginLeft: "12px" }}>
+          <button
+            onClick={onMoveUp}
+            disabled={index === 0}
+            style={{ background: "none", border: "none", cursor: index === 0 ? "default" : "pointer", color: index === 0 ? "#333345" : "#888898", padding: "3px", display: "flex" }}
+          >
+            <ChevronUp size={14} />
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={index === total - 1}
+            style={{ background: "none", border: "none", cursor: index === total - 1 ? "default" : "pointer", color: index === total - 1 ? "#333345" : "#888898", padding: "3px", display: "flex" }}
+          >
+            <ChevronDown size={14} />
+          </button>
+          <button
+            onClick={() => setEditing(!editing)}
+            style={{ background: "none", border: "1px solid #2a2a3a", borderRadius: "4px", cursor: "pointer", color: "#888898", padding: "3px 6px", fontSize: "11px" }}
+          >
+            {editing ? "Done" : "Edit"}
+          </button>
+          <button
+            onClick={onRemove}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#555565", padding: "3px", display: "flex" }}
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
-      <div style={{ display: "flex", gap: "8px" }}>
-        <input
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder={placeholder}
-          style={{
-            flex: 1,
-            background: "#0d0d18",
-            border: "1px solid #2a2a3a",
-            borderRadius: "6px",
-            padding: "6px 10px",
-            fontSize: "12px",
-            color: "#e0e0e8",
-            outline: "none",
-          }}
-        />
-        <button
-          onClick={add}
-          style={{
-            background: "rgba(124,58,237,0.15)",
-            border: "1px solid rgba(124,58,237,0.3)",
-            borderRadius: "6px",
-            padding: "6px 10px",
-            color: "#a855f7",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <Plus size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
 
-function EditableChecklist({
-  items,
-  onChange,
-  placeholder,
-}: {
-  items: string[];
-  onChange: (items: string[]) => void;
-  placeholder: string;
-}) {
-  const [newItem, setNewItem] = useState("");
-
-  const add = () => {
-    const trimmed = newItem.trim();
-    if (trimmed) {
-      onChange([...items, trimmed]);
-      setNewItem("");
-    }
-  };
-
-  return (
-    <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
-        {items.map((item, i) => (
-          <div
-            key={i}
+      {/* Task description */}
+      {!editing ? (
+        <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#888898", lineHeight: 1.5 }}>
+          {sprint.task.length > 180 ? sprint.task.slice(0, 180) + "…" : sprint.task}
+        </p>
+      ) : (
+        <div style={{ marginBottom: "12px" }}>
+          <textarea
+            value={editTask}
+            onChange={(e) => setEditTask(e.target.value)}
+            onBlur={() => onEdit({ task: editTask })}
+            rows={4}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 10px",
+              width: "100%",
               background: "#0d0d18",
               border: "1px solid #2a2a3a",
               borderRadius: "6px",
+              padding: "8px 10px",
+              fontSize: "13px",
+              color: "#e0e0e8",
+              outline: "none",
+              resize: "vertical",
+              fontFamily: "inherit",
+              lineHeight: 1.5,
+              boxSizing: "border-box",
             }}
-          >
-            <div
-              style={{
-                width: "14px",
-                height: "14px",
-                borderRadius: "3px",
-                border: "1px solid #7c3aed",
-                background: "rgba(124,58,237,0.2)",
-                flexShrink: 0,
+          />
+          <div style={{ marginTop: "8px" }}>
+            <label style={{ display: "block", fontSize: "11px", color: "#888898", marginBottom: "4px" }}>Agent</label>
+            <select
+              value={editAgent}
+              onChange={(e) => {
+                setEditAgent(e.target.value);
+                const ag = AGENT_OPTIONS.find(a => a.id === e.target.value);
+                if (ag) onEdit({ agent: { id: ag.id, name: ag.name } });
               }}
-            />
-            <span style={{ flex: 1, fontSize: "13px", color: "#e0e0e8" }}>{item}</span>
-            <button
-              onClick={() => onChange(items.filter((_, j) => j !== i))}
               style={{
-                background: "none",
-                border: "none",
+                background: "#0d0d18",
+                border: "1px solid #2a2a3a",
+                borderRadius: "6px",
+                padding: "6px 10px",
+                fontSize: "12px",
+                color: "#e0e0e8",
+                outline: "none",
                 cursor: "pointer",
-                color: "#555565",
-                padding: "0",
-                display: "flex",
-                alignItems: "center",
               }}
             >
-              <X size={13} />
-            </button>
+              {AGENT_OPTIONS.map(a => (
+                <option key={a.id} value={a.id}>{a.label}</option>
+              ))}
+            </select>
           </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: "8px" }}>
-        <input
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder={placeholder}
-          style={{
-            flex: 1,
-            background: "#0d0d18",
-            border: "1px solid #2a2a3a",
-            borderRadius: "6px",
-            padding: "6px 10px",
-            fontSize: "12px",
-            color: "#e0e0e8",
-            outline: "none",
-          }}
-        />
+        </div>
+      )}
+
+      {/* Dependencies */}
+      {sprint.dependencies.length > 0 && (
+        <div style={{ fontSize: "11px", color: "#555565", marginBottom: "8px" }}>
+          Depends on: {sprint.dependencies.join(", ")}
+        </div>
+      )}
+
+      {/* Negotiated preview */}
+      {sprint.negotiated && sprint.devBrief && (
+        <div style={{
+          marginTop: "10px",
+          padding: "10px 12px",
+          background: "rgba(34,197,94,0.05)",
+          border: "1px solid rgba(34,197,94,0.15)",
+          borderRadius: "8px",
+          fontSize: "12px",
+          color: "#888898",
+        }}>
+          <div style={{ fontWeight: 600, color: "#22c55e", marginBottom: "6px" }}>Negotiated Contract</div>
+          <div style={{ marginBottom: "4px" }}>
+            <span style={{ color: "#555565" }}>DoD: </span>
+            {sprint.devBrief.definitionOfDone.slice(0, 2).join(" · ")}
+            {sprint.devBrief.definitionOfDone.length > 2 && ` · +${sprint.devBrief.definitionOfDone.length - 2} more`}
+          </div>
+          <div>
+            <span style={{ color: "#555565" }}>Pass: </span>
+            {sprint.qaBrief?.passCriteria.slice(0, 2).join(" · ")}
+          </div>
+        </div>
+      )}
+
+      {/* Negotiate button */}
+      {!sprint.negotiated && !sprint.negotiating && (
         <button
-          onClick={add}
+          onClick={onNegotiate}
           style={{
-            background: "rgba(124,58,237,0.15)",
-            border: "1px solid rgba(124,58,237,0.3)",
+            marginTop: "10px",
+            padding: "6px 12px",
+            background: "rgba(124,58,237,0.1)",
+            border: "1px solid rgba(124,58,237,0.25)",
             borderRadius: "6px",
-            padding: "6px 10px",
             color: "#a855f7",
+            fontSize: "12px",
+            fontWeight: 500,
             cursor: "pointer",
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
+            gap: "5px",
           }}
         >
-          <Plus size={14} />
+          <Handshake size={12} />
+          Negotiate Contract
         </button>
-      </div>
+      )}
+
+      {sprint.negotiating && (
+        <div style={{
+          marginTop: "10px",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontSize: "12px",
+          color: "#888898",
+        }}>
+          <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
+          Negotiating…
+        </div>
+      )}
     </div>
   );
 }
@@ -445,40 +403,24 @@ function BuilderInner() {
   const [prompt, setPrompt] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
   const [context, setContext] = useState("");
-  const [contract, setContract] = useState<BuilderContract | null>(null);
-  const [costEstimate, setCostEstimate] = useState<CostEstimate | null>(null);
-  const [scheduledFor, setScheduledFor] = useState("");
+
+  // Planning state
+  const [planning, setPlanningState] = useState(false);
+  const [planReasoning, setPlanReasoning] = useState("");
+  const [sprints, setSprints] = useState<DraftSprint[]>([]);
+
+  // Negotiating all state
+  const [negotiatingAll, setNegotiatingAll] = useState(false);
+
+  // Launch state
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
-  const [priorityOrder, setPriorityOrder] = useState<Priority[]>(["Quality", "Speed", "Cost"]);
-  const [graders, setGraders] = useState<GraderConfig[]>(DEFAULT_GRADERS);
+  const [scheduledFor, setScheduledFor] = useState("");
 
-  // Load saved state from localStorage or resume from URL param
+  const selectedProjectObj = (projects || []).find(p => p.id === selectedProject);
+
+  // Load from localStorage
   useEffect(() => {
-    const resumeId = searchParams.get("resume");
-    if (resumeId) {
-      // Load specific draft
-      fetch("/api/builder/drafts")
-        .then((r) => r.json())
-        .then((drafts: BuilderContract[]) => {
-          const found = drafts.find((d) => d.id === resumeId);
-          if (found) {
-            setContract(found);
-            setPrompt(found.task || "");
-            setSelectedProject(found.projectId || "");
-            if (found.priorities) {
-              const sorted = Object.entries(found.priorities)
-                .sort((a, b) => (a[1] as number) - (b[1] as number))
-                .map(([k]) => (k.charAt(0).toUpperCase() + k.slice(1)) as Priority);
-              setPriorityOrder(sorted);
-            }
-            setStep(2);
-          }
-        })
-        .catch(() => {});
-      return;
-    }
-
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -487,194 +429,248 @@ function BuilderInner() {
         if (state.prompt) setPrompt(state.prompt);
         if (state.selectedProject) setSelectedProject(state.selectedProject);
         if (state.context) setContext(state.context);
-        if (state.contract) setContract(state.contract);
-        if (state.costEstimate) setCostEstimate(state.costEstimate);
-        if (state.priorityOrder) setPriorityOrder(state.priorityOrder);
+        if (state.sprints) setSprints(state.sprints);
+        if (state.planReasoning) setPlanReasoning(state.planReasoning);
       }
-    } catch {}
+    } catch { /* ignore */ }
   }, [searchParams]);
 
-  // Save state to localStorage whenever it changes
-  const saveToStorage = useCallback(
-    (updates: Partial<{
-      step: number;
-      prompt: string;
-      selectedProject: string;
-      context: string;
-      contract: BuilderContract | null;
-      costEstimate: CostEstimate | null;
-      priorityOrder: Priority[];
-    }>) => {
-      try {
-        const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...updates }));
-      } catch {}
-    },
-    []
-  );
+  const saveToStorage = useCallback((updates: Record<string, unknown>) => {
+    try {
+      const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...updates }));
+    } catch { /* ignore */ }
+  }, []);
 
-  const handleGenerate = async () => {
+  const handlePlan = async () => {
     if (!prompt.trim()) return;
-
-    const res = await fetch("/api/builder/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, projectId: selectedProject, context }),
-    });
-
-    if (!res.ok) return;
-    const data = await res.json();
-
-    // Derive priority order from priorities object
-    const p = data.contract.priorities;
-    const sorted = Object.entries(p)
-      .sort((a, b) => (a[1] as number) - (b[1] as number))
-      .map(([k]) => (k.charAt(0).toUpperCase() + k.slice(1)) as Priority);
-    setPriorityOrder(sorted);
-
-    setContract(data.contract);
-    setCostEstimate(data.costEstimate);
-    setStep(2);
-    saveToStorage({ step: 2, contract: data.contract, costEstimate: data.costEstimate, priorityOrder: sorted });
-  };
-
-  const updateContract = (updates: Partial<BuilderContract>) => {
-    if (!contract) return;
-    const updated = { ...contract, ...updates };
-    setContract(updated);
-    saveToStorage({ contract: updated });
-  };
-
-  // Recompute costs when model or tier changes
-  const recomputeCosts = (model: string, tier: string, iterations: number) => {
-    const modelCosts: Record<string, { low: number; high: number }> = {
-      "claude-haiku-3-5": { low: 0.05, high: 0.20 },
-      "claude-sonnet-4-5": { low: 0.15, high: 0.50 },
-      "claude-opus-4": { low: 0.50, high: 2.00 },
-    };
-    const qaCosts: Record<string, { low: number; high: number }> = {
-      smoke: { low: 0.10, high: 0.30 },
-      targeted: { low: 0.50, high: 1.50 },
-      full: { low: 2.00, high: 5.00 },
-    };
-    const mc = modelCosts[model] || { low: 0.15, high: 0.50 };
-    const qc = qaCosts[tier] || { low: 0.50, high: 1.50 };
-    const est: CostEstimate = {
-      devLow: mc.low * iterations,
-      devHigh: mc.high * iterations,
-      qaLow: qc.low * iterations,
-      qaHigh: qc.high * iterations,
-      totalLow: (mc.low + qc.low) * iterations,
-      totalHigh: (mc.high + qc.high) * iterations,
-      estimatedIterations: iterations,
-    };
-    setCostEstimate(est);
-    saveToStorage({ costEstimate: est });
-  };
-
-  const handleSave = async (
-    status: "draft" | "approved" | "scheduled" | "enqueue",
-    schedFor?: string
-  ) => {
-    if (!contract) return;
-    setSaving(true);
-    setSaveMsg("");
+    setPlanningState(true);
 
     try {
-      const contractToSave = {
-        ...contract,
-        status: schedFor ? "scheduled" : status === "enqueue" ? "approved" : status,
-        priorities: priorityOrderToMap(priorityOrder),
-        graders,
-      };
-
-      const saveRes = await fetch("/api/builder/save", {
+      const res = await fetch("/api/builder/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contract: contractToSave, scheduledFor: schedFor }),
+        body: JSON.stringify({ prompt, projectId: selectedProject, context }),
       });
 
-      if (!saveRes.ok) {
-        setSaveMsg("Save failed. Try again.");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Planning failed: " + (err.error || "Unknown error"));
         return;
       }
 
-      if (status === "approved" && !schedFor) {
-        // Run Now: start immediately (or queue if something running)
-        setSaveMsg("Starting sprint... Redirecting to live view...");
-        const runRes = await fetch("/api/sprints/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contractId: contractToSave.id }),
-        });
-        if (!runRes.ok) {
-          setSaveMsg("Sprint saved but failed to start. Check /sprints.");
-          return;
-        }
-        const runData = await runRes.json();
-        if (runData.status === "queued") {
-          setSaveMsg(`Sprint queued at position ${runData.position}! Redirecting...`);
-        } else {
-          setSaveMsg("Sprint started! Redirecting to live view...");
-        }
-        localStorage.removeItem(STORAGE_KEY);
-        setTimeout(() => router.push("/live"), 1200);
-      } else if (status === "enqueue") {
-        // Explicitly enqueue (add to pending queue)
-        setSaveMsg("Adding sprint to queue...");
-        const runRes = await fetch("/api/sprints/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contractId: contractToSave.id, enqueue: true }),
-        });
-        if (!runRes.ok) {
-          setSaveMsg("Sprint saved but failed to queue. Check /sprints.");
-          return;
-        }
-        const runData = await runRes.json();
-        setSaveMsg(
-          runData.status === "started"
-            ? "Sprint started (queue was empty)! Redirecting..."
-            : `Sprint queued at position ${runData.position}!`
-        );
-        localStorage.removeItem(STORAGE_KEY);
-        setTimeout(() => router.push("/live"), 1500);
-      } else if (schedFor) {
-        // Schedule: show confirmation, stay on page
-        const dt = new Date(schedFor).toLocaleString("en-CA", {
-          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-        });
-        setSaveMsg(`Sprint scheduled for ${dt}`);
-        localStorage.removeItem(STORAGE_KEY);
-        setTimeout(() => router.push("/sprints"), 2000);
-      } else {
-        setSaveMsg("Draft saved!");
-        localStorage.removeItem(STORAGE_KEY);
-        setTimeout(() => router.push("/sprints"), 1200);
-      }
+      const data = await res.json();
+      const plan = data.plan as { reasoning?: string; sprints?: SprintPlanItem[] };
+
+      const draftSprints: DraftSprint[] = (plan.sprints || []).map((s: SprintPlanItem, i: number) => ({
+        localId: `sprint-${Date.now()}-${i}`,
+        name: s.name,
+        task: s.task,
+        sprintType: s.sprintType as DraftSprint["sprintType"],
+        agent: s.agent,
+        evaluator: s.evaluator,
+        suggestedQaTier: s.suggestedQaTier,
+        dependencies: s.dependencies || [],
+        estimatedComplexity: s.estimatedComplexity,
+      }));
+
+      setSprints(draftSprints);
+      setPlanReasoning(plan.reasoning || "");
+      setStep(2);
+      saveToStorage({ step: 2, sprints: draftSprints, planReasoning: plan.reasoning || "" });
+    } catch (err) {
+      alert("Planning request failed: " + String(err));
     } finally {
-      setSaving(false);
+      setPlanningState(false);
     }
   };
 
-  const priorityOrderToMap = (order: Priority[]) => {
-    const map: Record<string, number> = {};
-    order.forEach((p, i) => {
-      map[p.toLowerCase()] = i + 1;
+  const updateSprint = (localId: string, updates: Partial<DraftSprint>) => {
+    setSprints(prev => {
+      const updated = prev.map(s => s.localId === localId ? { ...s, ...updates } : s);
+      saveToStorage({ sprints: updated });
+      return updated;
     });
-    return map as { speed: number; quality: number; cost: number };
   };
 
-  const movePriority = (index: number, direction: "up" | "down") => {
-    const newOrder = [...priorityOrder];
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= newOrder.length) return;
-    [newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]];
-    setPriorityOrder(newOrder);
-    saveToStorage({ priorityOrder: newOrder });
+  const removeSprint = (localId: string) => {
+    setSprints(prev => {
+      const updated = prev.filter(s => s.localId !== localId);
+      saveToStorage({ sprints: updated });
+      return updated;
+    });
   };
 
-  // ─── Step 1: Input ──────────────────────────────────────────────────────────
+  const moveSprint = (index: number, dir: "up" | "down") => {
+    setSprints(prev => {
+      const arr = [...prev];
+      const swap = dir === "up" ? index - 1 : index + 1;
+      if (swap < 0 || swap >= arr.length) return arr;
+      [arr[index], arr[swap]] = [arr[swap], arr[index]];
+      saveToStorage({ sprints: arr });
+      return arr;
+    });
+  };
+
+  const addSprint = () => {
+    const newSprint: DraftSprint = {
+      localId: `sprint-${Date.now()}`,
+      name: "New Sprint",
+      task: "",
+      sprintType: "code",
+      agent: { id: "dev", name: "Devin" },
+      evaluator: { id: "qa", name: "Quinn" },
+      suggestedQaTier: "targeted",
+      dependencies: [],
+      estimatedComplexity: "medium",
+    };
+    setSprints(prev => {
+      const updated = [...prev, newSprint];
+      saveToStorage({ sprints: updated });
+      return updated;
+    });
+  };
+
+  const negotiateSprint = async (localId: string) => {
+    const sprint = sprints.find(s => s.localId === localId);
+    if (!sprint) return;
+
+    updateSprint(localId, { negotiating: true });
+
+    try {
+      const res = await fetch("/api/builder/negotiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sprint, projectId: selectedProject }),
+      });
+
+      if (!res.ok) {
+        updateSprint(localId, { negotiating: false });
+        return;
+      }
+
+      const data = await res.json();
+      updateSprint(localId, {
+        negotiating: false,
+        negotiated: true,
+        devBrief: data.negotiated.devBrief,
+        qaBrief: data.negotiated.qaBrief,
+        generatorBrief: data.generatorBrief,
+        evaluatorBrief: data.evaluatorBrief,
+      });
+    } catch {
+      updateSprint(localId, { negotiating: false });
+    }
+  };
+
+  const negotiateAll = async () => {
+    setNegotiatingAll(true);
+    for (const sprint of sprints) {
+      if (!sprint.negotiated) {
+        await negotiateSprint(sprint.localId);
+      }
+    }
+    setNegotiatingAll(false);
+  };
+
+  const handleQueueAll = async () => {
+    if (sprints.length === 0) return;
+    setSaving(true);
+    setSaveMsg("");
+
+    const projectConfig = selectedProjectObj;
+    const repo = (projectConfig as { repo?: string })?.repo || ".";
+    const planId = `plan-${Date.now().toString(36)}`;
+
+    const results: { queued: number; errors: number } = { queued: 0, errors: 0 };
+
+    for (let i = 0; i < sprints.length; i++) {
+      const sprint = sprints[i];
+      try {
+        const id = `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+        const contract = {
+          id,
+          name: sprint.name,
+          task: sprint.task,
+          projectId: selectedProject || undefined,
+          status: "approved",
+          sprintType: sprint.sprintType,
+          agentConfig: {
+            generator: { agentId: sprint.agent.id, agentName: sprint.agent.name },
+            evaluator: { agentId: sprint.evaluator.id, agentName: sprint.evaluator.name },
+          },
+          planId,
+          plannerOutput: planReasoning,
+          agents: {
+            generator: { type: "openclaw", model: "claude-sonnet-4-5" },
+            evaluator: { type: "openclaw", model: "claude-sonnet-4-5" },
+          },
+          priorities: { speed: 2, quality: 1, cost: 3 },
+          human: {
+            checkpoints: ["On completion", "On escalation"],
+            notificationChannel: "telegram",
+            responseTimeoutMinutes: 30,
+            onTimeout: "proceed",
+          },
+          devBrief: sprint.devBrief || {
+            repo,
+            constraints: ["Follow existing code patterns and conventions", "Maintain backward compatibility"],
+            definitionOfDone: ["Feature works as described", "No regressions introduced"],
+          },
+          qaBrief: sprint.qaBrief || {
+            tier: sprint.suggestedQaTier,
+            testUrl: "",
+            testFocus: ["Core functionality", "Edge cases"],
+            passCriteria: ["Zero P0 defects", "Zero P1 defects"],
+            knownLimitations: [],
+          },
+          graders: [
+            { id: "ux-quinn", type: "ux", name: "Quinn (UX)", enabled: true, model: "claude-sonnet-4-5" },
+          ],
+          iterations: [],
+          createdAt: new Date().toISOString(),
+        };
+
+        const saveRes = await fetch("/api/builder/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contract }),
+        });
+
+        if (!saveRes.ok) {
+          results.errors++;
+          continue;
+        }
+
+        // Queue the sprint
+        const runRes = await fetch("/api/sprints/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contractId: id, enqueue: i > 0 }),
+        });
+
+        if (runRes.ok) {
+          results.queued++;
+        } else {
+          results.errors++;
+        }
+      } catch {
+        results.errors++;
+      }
+    }
+
+    setSaving(false);
+
+    if (results.errors === 0) {
+      setSaveMsg(`${results.queued} sprint${results.queued !== 1 ? "s" : ""} queued! Redirecting...`);
+      localStorage.removeItem(STORAGE_KEY);
+      setTimeout(() => router.push("/live"), 1500);
+    } else {
+      setSaveMsg(`${results.queued} queued, ${results.errors} failed. Check /sprints.`);
+    }
+  };
+
+  // ─── Step 1: Describe ─────────────────────────────────────────────────────
 
   const renderStep1 = () => (
     <div style={{ maxWidth: "680px", margin: "0 auto" }}>
@@ -683,82 +679,47 @@ function BuilderInner() {
           Sprint Builder
         </h1>
         <p style={{ margin: 0, fontSize: "14px", color: "#888898" }}>
-          Describe what you want built. We&apos;ll generate a complete sprint contract.
+          Describe what you want built. The planner will decompose it into focused agent sprints.
         </p>
       </div>
 
-      <div
-        style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
-          borderRadius: "12px",
-          padding: "28px",
-        }}
-      >
-        {/* Prompt */}
+      <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "28px" }}>
         <div style={{ marginBottom: "20px" }}>
           <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#e0e0e8", marginBottom: "8px" }}>
             What do you want built?
           </label>
           <textarea
             value={prompt}
-            onChange={(e) => {
-              setPrompt(e.target.value);
-              saveToStorage({ prompt: e.target.value });
-            }}
+            onChange={(e) => { setPrompt(e.target.value); saveToStorage({ prompt: e.target.value }); }}
             placeholder="Paste a client email, feature request, bug report, or just describe the task..."
             rows={7}
             style={{
-              width: "100%",
-              background: "#0d0d18",
-              border: "1px solid #2a2a3a",
-              borderRadius: "8px",
-              padding: "12px 14px",
-              fontSize: "14px",
-              color: "#e0e0e8",
-              outline: "none",
-              resize: "vertical",
-              fontFamily: "inherit",
-              lineHeight: 1.6,
-              boxSizing: "border-box",
+              width: "100%", background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "8px",
+              padding: "12px 14px", fontSize: "14px", color: "#e0e0e8", outline: "none",
+              resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, boxSizing: "border-box",
             }}
           />
         </div>
 
-        {/* Project */}
         <div style={{ marginBottom: "20px" }}>
           <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#e0e0e8", marginBottom: "8px" }}>
             Project
           </label>
           <select
             value={selectedProject}
-            onChange={(e) => {
-              setSelectedProject(e.target.value);
-              saveToStorage({ selectedProject: e.target.value });
-            }}
+            onChange={(e) => { setSelectedProject(e.target.value); saveToStorage({ selectedProject: e.target.value }); }}
             style={{
-              width: "100%",
-              background: "#0d0d18",
-              border: "1px solid #2a2a3a",
-              borderRadius: "8px",
-              padding: "10px 14px",
-              fontSize: "14px",
-              color: "#e0e0e8",
-              outline: "none",
-              cursor: "pointer",
+              width: "100%", background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "8px",
+              padding: "10px 14px", fontSize: "14px", color: "#e0e0e8", outline: "none", cursor: "pointer",
             }}
           >
             <option value="">— Select a project —</option>
             {(projects || []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
-            <option value="new">+ New Project</option>
           </select>
         </div>
 
-        {/* Context */}
         <div style={{ marginBottom: "28px" }}>
           <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#e0e0e8", marginBottom: "8px" }}>
             Additional context{" "}
@@ -766,1005 +727,401 @@ function BuilderInner() {
           </label>
           <textarea
             value={context}
-            onChange={(e) => {
-              setContext(e.target.value);
-              saveToStorage({ context: e.target.value });
-            }}
+            onChange={(e) => { setContext(e.target.value); saveToStorage({ context: e.target.value }); }}
             placeholder="Constraints, tech stack details, related tickets, anything else the agent should know..."
             rows={3}
             style={{
-              width: "100%",
-              background: "#0d0d18",
-              border: "1px solid #2a2a3a",
-              borderRadius: "8px",
-              padding: "12px 14px",
-              fontSize: "14px",
-              color: "#e0e0e8",
-              outline: "none",
-              resize: "vertical",
-              fontFamily: "inherit",
-              lineHeight: 1.6,
-              boxSizing: "border-box",
+              width: "100%", background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "8px",
+              padding: "12px 14px", fontSize: "14px", color: "#e0e0e8", outline: "none",
+              resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, boxSizing: "border-box",
             }}
           />
         </div>
 
         <button
-          onClick={handleGenerate}
-          disabled={!prompt.trim()}
+          onClick={handlePlan}
+          disabled={!prompt.trim() || planning}
           style={{
-            width: "100%",
-            padding: "13px",
-            background: prompt.trim()
-              ? "linear-gradient(135deg, #7c3aed, #a855f7)"
-              : "#2a2a3a",
-            border: "none",
-            borderRadius: "8px",
-            color: prompt.trim() ? "white" : "#555565",
-            fontSize: "15px",
-            fontWeight: 600,
-            cursor: prompt.trim() ? "pointer" : "not-allowed",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
+            width: "100%", padding: "13px",
+            background: prompt.trim() && !planning ? "linear-gradient(135deg, #7c3aed, #a855f7)" : "#2a2a3a",
+            border: "none", borderRadius: "8px",
+            color: prompt.trim() && !planning ? "white" : "#555565",
+            fontSize: "15px", fontWeight: 600,
+            cursor: prompt.trim() && !planning ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
             transition: "all 0.15s",
           }}
         >
-          <Wand2 size={18} />
-          Generate Sprint Contract
+          {planning ? (
+            <>
+              <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+              Planning… (may take 30–60s)
+            </>
+          ) : (
+            <>
+              <Wand2 size={18} />
+              Plan Sprints
+            </>
+          )}
         </button>
       </div>
     </div>
   );
 
-  // ─── Step 2: Review/Edit ────────────────────────────────────────────────────
+  // ─── Step 2: Review & Edit ────────────────────────────────────────────────
 
-  const renderStep2 = () => {
-    if (!contract) return null;
-    const generatorModel = contract.agents.generator.model;
-    const evaluatorModel = contract.agents.evaluator.model;
-    const currentTier = contract.qaBrief.tier;
-
-    return (
-      <div style={{ maxWidth: "760px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px" }}>
-          <button
-            onClick={() => setStep(1)}
-            style={{
-              background: "none",
-              border: "1px solid #2a2a3a",
-              borderRadius: "8px",
-              padding: "6px 12px",
-              color: "#888898",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-            }}
-          >
-            <ArrowLeft size={14} /> Back
-          </button>
-          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>
-            Review Contract
-          </h1>
-        </div>
-
-        {/* Task */}
-        <SectionCard title="Task">
-          <div style={{ marginBottom: "14px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Name</label>
-            <input
-              value={contract.name}
-              onChange={(e) => updateContract({ name: e.target.value })}
-              style={{
-                width: "100%",
-                background: "#0d0d18",
-                border: "1px solid #2a2a3a",
-                borderRadius: "6px",
-                padding: "8px 12px",
-                fontSize: "14px",
-                color: "#e0e0e8",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Description</label>
-            <textarea
-              value={contract.task}
-              onChange={(e) => updateContract({ task: e.target.value })}
-              rows={4}
-              style={{
-                width: "100%",
-                background: "#0d0d18",
-                border: "1px solid #2a2a3a",
-                borderRadius: "6px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                color: "#e0e0e8",
-                outline: "none",
-                resize: "vertical",
-                fontFamily: "inherit",
-                lineHeight: 1.5,
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-        </SectionCard>
-
-        {/* Agent Team */}
-        <SectionCard title="Agent Team">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            {(["generator", "evaluator"] as const).map((role) => {
-              const agent = contract.agents[role];
-              const modelInfo = MODEL_OPTIONS.find((m) => m.value === agent.model);
-              return (
-                <div key={role}>
-                  <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px", textTransform: "capitalize" }}>
-                    {role}
-                  </label>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <select
-                      value={agent.model}
-                      onChange={(e) => {
-                        const newAgents = {
-                          ...contract.agents,
-                          [role]: { ...agent, model: e.target.value },
-                        };
-                        updateContract({ agents: newAgents });
-                        if (role === "generator") {
-                          recomputeCosts(e.target.value, currentTier, costEstimate?.estimatedIterations || 2);
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        background: "#0d0d18",
-                        border: "1px solid #2a2a3a",
-                        borderRadius: "6px",
-                        padding: "7px 10px",
-                        fontSize: "13px",
-                        color: "#e0e0e8",
-                        outline: "none",
-                      }}
-                    >
-                      {MODEL_OPTIONS.map((m) => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
-                    </select>
-                    {modelInfo && <CostIndicator cost={modelInfo.cost} />}
-                  </div>
-                  <select
-                    value={agent.type}
-                    onChange={(e) => {
-                      const newAgents = {
-                        ...contract.agents,
-                        [role]: { ...agent, type: e.target.value },
-                      };
-                      updateContract({ agents: newAgents });
-                    }}
-                    style={{
-                      width: "100%",
-                      background: "#0d0d18",
-                      border: "1px solid #2a2a3a",
-                      borderRadius: "6px",
-                      padding: "7px 10px",
-                      fontSize: "12px",
-                      color: "#888898",
-                      outline: "none",
-                      marginTop: "6px",
-                    }}
-                  >
-                    {ADAPTER_OPTIONS.map((a) => (
-                      <option key={a.value} value={a.value}>{a.label}</option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
-          </div>
-        </SectionCard>
-
-        {/* Dev Brief */}
-        <SectionCard title="Dev Brief">
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Repo Path</label>
-            <input
-              value={contract.devBrief.repo}
-              onChange={(e) =>
-                updateContract({ devBrief: { ...contract.devBrief, repo: e.target.value } })
-              }
-              style={{
-                width: "100%",
-                background: "#0d0d18",
-                border: "1px solid #2a2a3a",
-                borderRadius: "6px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                color: "#e0e0e8",
-                outline: "none",
-                fontFamily: "monospace",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px" }}>Constraints</label>
-            <EditableList
-              items={contract.devBrief.constraints}
-              onChange={(items) =>
-                updateContract({ devBrief: { ...contract.devBrief, constraints: items } })
-              }
-              placeholder="Add a constraint..."
-            />
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px" }}>Definition of Done</label>
-            <EditableChecklist
-              items={contract.devBrief.definitionOfDone}
-              onChange={(items) =>
-                updateContract({ devBrief: { ...contract.devBrief, definitionOfDone: items } })
-              }
-              placeholder="Add a done criterion..."
-            />
-          </div>
-        </SectionCard>
-
-        {/* QA Brief */}
-        <SectionCard title="QA Brief">
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "8px" }}>QA Tier</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-              {QA_TIERS.map((tier) => {
-                const selected = contract.qaBrief.tier === tier.id;
-                return (
-                  <button
-                    key={tier.id}
-                    onClick={() => {
-                      updateContract({ qaBrief: { ...contract.qaBrief, tier: tier.id } });
-                      recomputeCosts(generatorModel, tier.id, costEstimate?.estimatedIterations || 2);
-                    }}
-                    style={{
-                      background: selected ? "rgba(124,58,237,0.12)" : "#0d0d18",
-                      border: selected ? "2px solid #7c3aed" : "1px solid #2a2a3a",
-                      borderRadius: "10px",
-                      padding: "14px 12px",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "all 0.15s",
-                      boxShadow: selected ? "0 0 12px rgba(124,58,237,0.15)" : "none",
-                    }}
-                  >
-                    <div style={{ fontSize: "20px", marginBottom: "6px" }}>{tier.icon}</div>
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: selected ? "#a855f7" : "#e0e0e8", marginBottom: "4px" }}>
-                      {tier.label}
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#888898", marginBottom: "4px" }}>{tier.desc}</div>
-                    <div style={{ fontSize: "10px", color: "#555565" }}>{tier.devices}</div>
-                    <div style={{ fontSize: "11px", color: selected ? "#a855f7" : "#7c3aed", marginTop: "6px", fontWeight: 600 }}>
-                      {tier.costRange}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Test URL</label>
-            <input
-              value={contract.qaBrief.testUrl}
-              onChange={(e) =>
-                updateContract({ qaBrief: { ...contract.qaBrief, testUrl: e.target.value } })
-              }
-              placeholder="http://localhost:3000"
-              style={{
-                width: "100%",
-                background: "#0d0d18",
-                border: "1px solid #2a2a3a",
-                borderRadius: "6px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                color: "#e0e0e8",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px" }}>Test Focus</label>
-            <EditableList
-              items={contract.qaBrief.testFocus}
-              onChange={(items) =>
-                updateContract({ qaBrief: { ...contract.qaBrief, testFocus: items } })
-              }
-              placeholder="Add test focus area..."
-            />
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px" }}>Pass Criteria</label>
-            <EditableChecklist
-              items={contract.qaBrief.passCriteria}
-              onChange={(items) =>
-                updateContract({ qaBrief: { ...contract.qaBrief, passCriteria: items } })
-              }
-              placeholder="Add pass criterion..."
-            />
-          </div>
-        </SectionCard>
-
-        {/* Graders */}
-        <SectionCard title="Graders">
-          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "14px" }}>
-            Select which evaluators run after each dev iteration.
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {graders.map((grader) => (
-              <div
-                key={grader.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "14px 16px",
-                  background: grader.comingSoon ? "#0a0a14" : grader.enabled ? "rgba(124,58,237,0.06)" : "#0d0d18",
-                  border: `1px solid ${grader.comingSoon ? "#1e1e2e" : grader.enabled ? "rgba(124,58,237,0.3)" : "#2a2a3a"}`,
-                  borderRadius: "10px",
-                  opacity: grader.comingSoon ? 0.5 : 1,
-                }}
-              >
-                {/* Toggle */}
-                <div
-                  onClick={() => {
-                    if (grader.comingSoon) return;
-                    const updated = graders.map(g =>
-                      g.id === grader.id ? { ...g, enabled: !g.enabled } : g
-                    );
-                    setGraders(updated);
-                  }}
-                  style={{
-                    width: "36px",
-                    height: "20px",
-                    borderRadius: "10px",
-                    background: grader.enabled && !grader.comingSoon ? "#7c3aed" : "#2a2a3a",
-                    cursor: grader.comingSoon ? "not-allowed" : "pointer",
-                    position: "relative",
-                    flexShrink: 0,
-                    transition: "background 0.2s",
-                  }}
-                >
-                  <div style={{
-                    position: "absolute",
-                    top: "3px",
-                    left: grader.enabled && !grader.comingSoon ? "18px" : "3px",
-                    width: "14px",
-                    height: "14px",
-                    borderRadius: "50%",
-                    background: "white",
-                    transition: "left 0.2s",
-                  }} />
-                </div>
-
-                {/* Info */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
-                    <span style={{ fontSize: "13px", fontWeight: 600, color: grader.comingSoon ? "#555565" : "#e0e0e8" }}>
-                      {grader.name}
-                    </span>
-                    {grader.comingSoon && (
-                      <span style={{ fontSize: "10px", color: "#555565", background: "#1e1e2e", border: "1px solid #2a2a3a", borderRadius: "4px", padding: "1px 6px" }}>
-                        coming soon
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#555565" }}>
-                    {grader.description} · <span style={{ color: "#7c3aed" }}>{grader.costRange}</span>
-                  </div>
-                </div>
-
-                {/* Model selector */}
-                {!grader.comingSoon && (
-                  <select
-                    value={grader.model}
-                    onChange={(e) => {
-                      const updated = graders.map(g =>
-                        g.id === grader.id ? { ...g, model: e.target.value } : g
-                      );
-                      setGraders(updated);
-                    }}
-                    disabled={!grader.enabled}
-                    style={{
-                      background: "#0d0d18",
-                      border: "1px solid #2a2a3a",
-                      borderRadius: "6px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      color: grader.enabled ? "#e0e0e8" : "#555565",
-                      outline: "none",
-                      cursor: grader.enabled ? "pointer" : "not-allowed",
-                    }}
-                  >
-                    {MODEL_OPTIONS.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        {/* Priority Trilemma */}
-        <SectionCard title="Priority Trilemma">
-          <div style={{ marginBottom: "12px" }}>
-            {priorityOrder.map((priority, index) => {
-              const medals = ["🥇", "🥈", "🥉"];
-              return (
-                <div
-                  key={priority}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "10px 14px",
-                    background: "#0d0d18",
-                    border: "1px solid #2a2a3a",
-                    borderRadius: "8px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  <span style={{ fontSize: "20px", width: "28px", textAlign: "center" }}>{medals[index]}</span>
-                  <span style={{ flex: 1, fontSize: "14px", fontWeight: 600, color: "#e0e0e8" }}>{priority}</span>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                    <button
-                      onClick={() => movePriority(index, "up")}
-                      disabled={index === 0}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: index === 0 ? "default" : "pointer",
-                        color: index === 0 ? "#333345" : "#888898",
-                        padding: "2px",
-                        display: "flex",
-                      }}
-                    >
-                      <ChevronUp size={14} />
-                    </button>
-                    <button
-                      onClick={() => movePriority(index, "down")}
-                      disabled={index === priorityOrder.length - 1}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: index === priorityOrder.length - 1 ? "default" : "pointer",
-                        color: index === priorityOrder.length - 1 ? "#333345" : "#888898",
-                        padding: "2px",
-                        display: "flex",
-                      }}
-                    >
-                      <ChevronDown size={14} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div
-            style={{
-              background: "rgba(124,58,237,0.08)",
-              border: "1px solid rgba(124,58,237,0.2)",
-              borderRadius: "8px",
-              padding: "12px 14px",
-              fontSize: "13px",
-              color: "#888898",
-            }}
-          >
-            <span style={{ color: "#a855f7", fontWeight: 600 }}>This means: </span>
-            {PRIORITY_DESCRIPTIONS[priorityOrder[0]]}
-          </div>
-        </SectionCard>
-
-        {/* Human-in-the-Loop */}
-        <SectionCard title="Human-in-the-Loop">
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "8px" }}>Notify when</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-              {HUMAN_CHECKPOINTS.map((checkpoint) => {
-                const checked = contract.human.checkpoints.includes(checkpoint);
-                return (
-                  <label
-                    key={checkpoint}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      padding: "8px 12px",
-                      background: checked ? "rgba(124,58,237,0.1)" : "#0d0d18",
-                      border: checked ? "1px solid rgba(124,58,237,0.3)" : "1px solid #2a2a3a",
-                      borderRadius: "7px",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => {
-                        const newCheckpoints = e.target.checked
-                          ? [...contract.human.checkpoints, checkpoint]
-                          : contract.human.checkpoints.filter((c) => c !== checkpoint);
-                        updateContract({ human: { ...contract.human, checkpoints: newCheckpoints } });
-                      }}
-                      style={{ accentColor: "#7c3aed" }}
-                    />
-                    <span style={{ fontSize: "13px", color: checked ? "#e0e0e8" : "#888898" }}>
-                      {checkpoint}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Channel</label>
-              <select
-                value={contract.human.notificationChannel}
-                onChange={(e) =>
-                  updateContract({ human: { ...contract.human, notificationChannel: e.target.value } })
-                }
-                style={{
-                  width: "100%",
-                  background: "#0d0d18",
-                  border: "1px solid #2a2a3a",
-                  borderRadius: "6px",
-                  padding: "7px 10px",
-                  fontSize: "13px",
-                  color: "#e0e0e8",
-                  outline: "none",
-                }}
-              >
-                <option value="telegram">Telegram</option>
-                <option value="slack">Slack</option>
-                <option value="email">Email</option>
-                <option value="none">None</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "4px" }}>
-                Timeout (min)
-              </label>
-              <input
-                type="number"
-                value={contract.human.responseTimeoutMinutes}
-                onChange={(e) =>
-                  updateContract({
-                    human: { ...contract.human, responseTimeoutMinutes: parseInt(e.target.value) || 30 },
-                  })
-                }
-                style={{
-                  width: "100%",
-                  background: "#0d0d18",
-                  border: "1px solid #2a2a3a",
-                  borderRadius: "6px",
-                  padding: "7px 10px",
-                  fontSize: "13px",
-                  color: "#e0e0e8",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "4px" }}>On Timeout</label>
-              <select
-                value={contract.human.onTimeout}
-                onChange={(e) =>
-                  updateContract({ human: { ...contract.human, onTimeout: e.target.value } })
-                }
-                style={{
-                  width: "100%",
-                  background: "#0d0d18",
-                  border: "1px solid #2a2a3a",
-                  borderRadius: "6px",
-                  padding: "7px 10px",
-                  fontSize: "13px",
-                  color: "#e0e0e8",
-                  outline: "none",
-                }}
-              >
-                <option value="proceed">Proceed</option>
-                <option value="pause">Pause</option>
-                <option value="skip">Skip</option>
-              </select>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Cost Estimate */}
-        {costEstimate && (
-          <SectionCard title="Cost Estimate">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-              <div style={{ background: "#0d0d18", borderRadius: "8px", padding: "12px" }}>
-                <div style={{ fontSize: "11px", color: "#888898", marginBottom: "4px" }}>Dev Agent</div>
-                <div style={{ fontSize: "16px", fontWeight: 700, color: "#e0e0e8" }}>
-                  ${costEstimate.devLow.toFixed(2)}–{costEstimate.devHigh.toFixed(2)}
-                </div>
-              </div>
-              <div style={{ background: "#0d0d18", borderRadius: "8px", padding: "12px" }}>
-                <div style={{ fontSize: "11px", color: "#888898", marginBottom: "4px" }}>QA Agent</div>
-                <div style={{ fontSize: "16px", fontWeight: 700, color: "#e0e0e8" }}>
-                  ${costEstimate.qaLow.toFixed(2)}–{costEstimate.qaHigh.toFixed(2)}
-                </div>
-              </div>
-              <div style={{ background: "#0d0d18", borderRadius: "8px", padding: "12px" }}>
-                <div style={{ fontSize: "11px", color: "#888898", marginBottom: "4px" }}>Est. Iterations</div>
-                <div style={{ fontSize: "16px", fontWeight: 700, color: "#e0e0e8" }}>
-                  {costEstimate.estimatedIterations}
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                background: "rgba(124,58,237,0.08)",
-                border: "1px solid rgba(124,58,237,0.2)",
-                borderRadius: "8px",
-                padding: "12px 16px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "12px",
-              }}
-            >
-              <span style={{ fontSize: "13px", color: "#888898" }}>Total Estimate</span>
-              <span style={{ fontSize: "20px", fontWeight: 700, color: "#a855f7" }}>
-                ${costEstimate.totalLow.toFixed(2)}–${costEstimate.totalHigh.toFixed(2)}
-              </span>
-            </div>
-            {/* Visual bar */}
-            <div style={{ background: "#0d0d18", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
-              <div
-                style={{
-                  height: "100%",
-                  width: `${Math.min((costEstimate.totalHigh / 10) * 100, 100)}%`,
-                  background: "linear-gradient(90deg, #22c55e, #f59e0b, #ef4444)",
-                  borderRadius: "4px",
-                  transition: "width 0.4s ease",
-                }}
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#555565", marginTop: "4px" }}>
-              <span>$0</span>
-              <span>$10 budget</span>
-            </div>
-          </SectionCard>
-        )}
-
-        {/* Continue button */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
-          <button
-            onClick={() => {
-              setStep(3);
-              saveToStorage({ step: 3 });
-            }}
-            style={{
-              padding: "11px 24px",
-              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-              border: "none",
-              borderRadius: "8px",
-              color: "white",
-              fontSize: "14px",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            Continue to Actions
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // ─── Step 3: Actions ────────────────────────────────────────────────────────
-
-  const renderStep3 = () => {
-    if (!contract) return null;
-    return (
-      <div style={{ maxWidth: "560px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px" }}>
-          <button
-            onClick={() => setStep(2)}
-            style={{
-              background: "none",
-              border: "1px solid #2a2a3a",
-              borderRadius: "8px",
-              padding: "6px 12px",
-              color: "#888898",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-            }}
-          >
-            <ArrowLeft size={14} /> Back to Edit
-          </button>
-          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>
-            Launch Sprint
-          </h1>
-        </div>
-
-        {/* Summary card */}
-        <div
+  const renderStep2 = () => (
+    <div style={{ maxWidth: "760px", margin: "0 auto" }}>
+      <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
+        <button
+          onClick={() => setStep(1)}
           style={{
-            background: "#141420",
-            border: "1px solid #2a2a3a",
-            borderRadius: "12px",
-            padding: "20px 24px",
-            marginBottom: "16px",
+            background: "none", border: "1px solid #2a2a3a", borderRadius: "8px",
+            padding: "6px 12px", color: "#888898", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "6px", fontSize: "13px",
           }}
         >
-          <div style={{ fontSize: "11px", color: "#555565", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>
-            Contract Summary
+          <ArrowLeft size={14} /> Back
+        </button>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>
+          Review & Edit Sprints
+        </h1>
+      </div>
+
+      {/* Planner reasoning */}
+      {planReasoning && (
+        <div style={{
+          background: "rgba(124,58,237,0.06)",
+          border: "1px solid rgba(124,58,237,0.2)",
+          borderRadius: "10px",
+          padding: "14px 16px",
+          marginBottom: "20px",
+          fontSize: "13px",
+          color: "#888898",
+          lineHeight: 1.5,
+        }}>
+          <div style={{ fontWeight: 600, color: "#a855f7", marginBottom: "6px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Planner Reasoning
           </div>
-          <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>
-            {contract.name}
+          {planReasoning}
+        </div>
+      )}
+
+      {/* Sprint cards */}
+      {sprints.length === 0 ? (
+        <div style={{ textAlign: "center", color: "#555565", padding: "40px", fontSize: "14px" }}>
+          No sprints yet. Add one below or go back and re-plan.
+        </div>
+      ) : (
+        sprints.map((sprint, i) => (
+          <SprintCard
+            key={sprint.localId}
+            sprint={sprint}
+            index={i}
+            total={sprints.length}
+            onEdit={(updates) => updateSprint(sprint.localId, updates)}
+            onRemove={() => removeSprint(sprint.localId)}
+            onMoveUp={() => moveSprint(i, "up")}
+            onMoveDown={() => moveSprint(i, "down")}
+            onNegotiate={() => negotiateSprint(sprint.localId)}
+            projectRepo={(selectedProjectObj as { repo?: string })?.repo || "."}
+          />
+        ))
+      )}
+
+      {/* Add sprint */}
+      <button
+        onClick={addSprint}
+        style={{
+          width: "100%", padding: "10px",
+          background: "transparent", border: "1px dashed #2a2a3a",
+          borderRadius: "10px", color: "#555565", fontSize: "13px",
+          cursor: "pointer", display: "flex", alignItems: "center",
+          justifyContent: "center", gap: "6px", marginBottom: "20px",
+          transition: "all 0.15s",
+        }}
+      >
+        <Plus size={14} />
+        Add Sprint
+      </button>
+
+      {/* Negotiate All */}
+      {sprints.some(s => !s.negotiated) && (
+        <div style={{
+          background: "#141420",
+          border: "1px solid #2a2a3a",
+          borderRadius: "10px",
+          padding: "16px 20px",
+          marginBottom: "20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}>
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 600, color: "#e0e0e8", marginBottom: "2px" }}>
+              Negotiate Contracts
+            </div>
+            <div style={{ fontSize: "12px", color: "#555565" }}>
+              Each agent reviews the sprint and proposes their definition of done.
+              Quinn tightens pass criteria.
+            </div>
           </div>
-          <div style={{ fontSize: "13px", color: "#888898", marginBottom: "12px", lineHeight: 1.5 }}>
-            {contract.task.slice(0, 120)}{contract.task.length > 120 ? "..." : ""}
-          </div>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "11px", background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)", borderRadius: "5px", padding: "2px 8px", color: "#a855f7" }}>
-              {contract.qaBrief.tier} QA
+          <button
+            onClick={negotiateAll}
+            disabled={negotiatingAll}
+            style={{
+              padding: "9px 18px",
+              background: negotiatingAll ? "#2a2a3a" : "rgba(124,58,237,0.15)",
+              border: negotiatingAll ? "1px solid #2a2a3a" : "1px solid rgba(124,58,237,0.35)",
+              borderRadius: "8px",
+              color: negotiatingAll ? "#555565" : "#a855f7",
+              fontSize: "13px", fontWeight: 600, cursor: negotiatingAll ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", gap: "7px", whiteSpace: "nowrap",
+              flexShrink: 0, marginLeft: "16px",
+            }}
+          >
+            {negotiatingAll ? (
+              <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Negotiating…</>
+            ) : (
+              <><Handshake size={14} /> Negotiate All</>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Continue */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={() => { setStep(3); saveToStorage({ step: 3 }); }}
+          disabled={sprints.length === 0}
+          style={{
+            padding: "11px 24px",
+            background: sprints.length > 0 ? "linear-gradient(135deg, #7c3aed, #a855f7)" : "#2a2a3a",
+            border: "none", borderRadius: "8px",
+            color: sprints.length > 0 ? "white" : "#555565",
+            fontSize: "14px", fontWeight: 600,
+            cursor: sprints.length > 0 ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", gap: "8px",
+          }}
+        >
+          Continue to Launch
+          <ArrowRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+
+  // ─── Step 3: Confirm & Run ────────────────────────────────────────────────
+
+  const renderStep3 = () => (
+    <div style={{ maxWidth: "620px", margin: "0 auto" }}>
+      <div style={{ marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px" }}>
+        <button
+          onClick={() => setStep(2)}
+          style={{
+            background: "none", border: "1px solid #2a2a3a", borderRadius: "8px",
+            padding: "6px 12px", color: "#888898", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "6px", fontSize: "13px",
+          }}
+        >
+          <ArrowLeft size={14} /> Back to Edit
+        </button>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>
+          Confirm & Queue
+        </h1>
+      </div>
+
+      {/* Sprint summary */}
+      <div style={{
+        background: "#141420",
+        border: "1px solid #2a2a3a",
+        borderRadius: "12px",
+        padding: "20px",
+        marginBottom: "16px",
+      }}>
+        <div style={{ fontSize: "11px", color: "#555565", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "14px" }}>
+          {sprints.length} Sprint{sprints.length !== 1 ? "s" : ""} to Queue
+        </div>
+        {sprints.map((sprint, i) => (
+          <div
+            key={sprint.localId}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 0",
+              borderTop: i > 0 ? "1px solid #1e1e2e" : "none",
+            }}
+          >
+            <span style={{ fontSize: "12px", color: "#555565", width: "20px", flexShrink: 0 }}>
+              {i + 1}.
             </span>
-            <span style={{ fontSize: "11px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: "5px", padding: "2px 8px", color: "#22c55e" }}>
-              {contract.agents.generator.model.replace("claude-", "").replace("-", " ")}
-            </span>
-            {costEstimate && (
-              <span style={{ fontSize: "11px", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: "5px", padding: "2px 8px", color: "#a855f7" }}>
-                ${costEstimate.totalLow.toFixed(2)}–${costEstimate.totalHigh.toFixed(2)}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#e0e0e8", marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {sprint.name}
+              </div>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                <AgentBadge agentId={sprint.agent.id} agentName={sprint.agent.name} />
+                <span style={{ fontSize: "10px", color: "#888898" }}>{sprint.suggestedQaTier} QA</span>
+                {sprint.negotiated && (
+                  <span style={{ fontSize: "10px", color: "#22c55e" }}>✓ negotiated</span>
+                )}
+              </div>
+            </div>
+            {sprint.dependencies.length > 0 && (
+              <span style={{ fontSize: "10px", color: "#555565", flexShrink: 0 }}>
+                after #{sprints.findIndex(s => sprint.dependencies.includes(s.name)) + 1}
               </span>
             )}
           </div>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {/* Run Now */}
-          <button
-            onClick={() => handleSave("approved")}
-            disabled={saving}
-            style={{
-              padding: "16px 24px",
-              background: saving ? "#2a2a3a" : "linear-gradient(135deg, #7c3aed, #a855f7)",
-              border: "none",
-              borderRadius: "10px",
-              color: saving ? "#555565" : "white",
-              fontSize: "15px",
-              fontWeight: 600,
-              cursor: saving ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "10px",
-              transition: "all 0.15s",
-            }}
-          >
-            <Rocket size={18} />
-            Run Now
-            <span style={{ fontSize: "12px", opacity: 0.75, fontWeight: 400 }}>
-              — start immediately
-            </span>
-          </button>
-
-          {/* Add to Queue */}
-          <button
-            onClick={() => handleSave("enqueue")}
-            disabled={saving}
-            style={{
-              padding: "14px 24px",
-              background: saving ? "#1a1a2a" : "rgba(59,130,246,0.1)",
-              border: `1px solid ${saving ? "#2a2a3a" : "rgba(59,130,246,0.4)"}`,
-              borderRadius: "10px",
-              color: saving ? "#555565" : "#60a5fa",
-              fontSize: "14px",
-              fontWeight: 600,
-              cursor: saving ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "10px",
-              transition: "all 0.15s",
-            }}
-          >
-            <span style={{ fontSize: "16px" }}>🗂</span>
-            Add to Queue
-            <span style={{ fontSize: "12px", opacity: 0.75, fontWeight: 400 }}>
-              — run after current sprint
-            </span>
-          </button>
-
-          {/* Schedule */}
-          <div
-            style={{
-              background: "#141420",
-              border: "1px solid #2a2a3a",
-              borderRadius: "10px",
-              padding: "16px 20px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-              <Clock size={16} color="#888898" />
-              <span style={{ fontSize: "14px", fontWeight: 500, color: "#e0e0e8" }}>Schedule</span>
-            </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <input
-                type="datetime-local"
-                value={scheduledFor}
-                onChange={(e) => setScheduledFor(e.target.value)}
-                style={{
-                  flex: 1,
-                  background: "#0d0d18",
-                  border: "1px solid #2a2a3a",
-                  borderRadius: "6px",
-                  padding: "8px 12px",
-                  fontSize: "13px",
-                  color: "#e0e0e8",
-                  outline: "none",
-                  colorScheme: "dark",
-                }}
-              />
-              <button
-                onClick={() =>
-                  scheduledFor && handleSave("scheduled", new Date(scheduledFor).toISOString())
-                }
-                disabled={!scheduledFor || saving}
-                style={{
-                  padding: "8px 16px",
-                  background: scheduledFor ? "rgba(124,58,237,0.15)" : "#1a1a2a",
-                  border: scheduledFor ? "1px solid rgba(124,58,237,0.4)" : "1px solid #2a2a3a",
-                  borderRadius: "6px",
-                  color: scheduledFor ? "#a855f7" : "#555565",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  cursor: scheduledFor && !saving ? "pointer" : "not-allowed",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Set Schedule
-              </button>
-            </div>
-          </div>
-
-          {/* Save as Draft */}
-          <button
-            onClick={() => handleSave("draft")}
-            disabled={saving}
-            style={{
-              padding: "14px 24px",
-              background: "transparent",
-              border: "1px solid #2a2a3a",
-              borderRadius: "10px",
-              color: "#888898",
-              fontSize: "14px",
-              fontWeight: 500,
-              cursor: saving ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              transition: "all 0.15s",
-            }}
-          >
-            <Save size={16} />
-            Save as Draft
-          </button>
-        </div>
-
-        {/* Feedback message */}
-        {saveMsg && (
-          <div
-            style={{
-              marginTop: "16px",
-              padding: "12px 16px",
-              background: saveMsg.includes("failed")
-                ? "rgba(239,68,68,0.1)"
-                : "rgba(34,197,94,0.1)",
-              border: `1px solid ${saveMsg.includes("failed") ? "rgba(239,68,68,0.3)" : "rgba(34,197,94,0.3)"}`,
-              borderRadius: "8px",
-              fontSize: "13px",
-              color: saveMsg.includes("failed") ? "#ef4444" : "#22c55e",
-              textAlign: "center",
-            }}
-          >
-            {saveMsg}
-          </div>
-        )}
+        ))}
       </div>
-    );
-  };
 
-  // ─── Step indicator ──────────────────────────────────────────────────────────
+      {/* Actions */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {/* Queue All */}
+        <button
+          onClick={handleQueueAll}
+          disabled={saving}
+          style={{
+            padding: "16px 24px",
+            background: saving ? "#2a2a3a" : "linear-gradient(135deg, #7c3aed, #a855f7)",
+            border: "none", borderRadius: "10px",
+            color: saving ? "#555565" : "white",
+            fontSize: "15px", fontWeight: 600,
+            cursor: saving ? "not-allowed" : "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+            transition: "all 0.15s",
+          }}
+        >
+          {saving ? (
+            <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Queuing sprints…</>
+          ) : (
+            <><Rocket size={18} /> Queue All Sprints</>
+          )}
+        </button>
+
+        {/* Schedule */}
+        <div style={{
+          background: "#141420",
+          border: "1px solid #2a2a3a",
+          borderRadius: "10px",
+          padding: "16px 20px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+            <Clock size={16} color="#888898" />
+            <span style={{ fontSize: "14px", fontWeight: 500, color: "#e0e0e8" }}>Schedule First Sprint</span>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              type="datetime-local"
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              style={{
+                flex: 1, background: "#0d0d18", border: "1px solid #2a2a3a",
+                borderRadius: "6px", padding: "8px 12px", fontSize: "13px",
+                color: "#e0e0e8", outline: "none", colorScheme: "dark",
+              }}
+            />
+            <button
+              disabled={!scheduledFor || saving}
+              style={{
+                padding: "8px 16px",
+                background: scheduledFor ? "rgba(124,58,237,0.15)" : "#1a1a2a",
+                border: scheduledFor ? "1px solid rgba(124,58,237,0.4)" : "1px solid #2a2a3a",
+                borderRadius: "6px",
+                color: scheduledFor ? "#a855f7" : "#555565",
+                fontSize: "13px", fontWeight: 500,
+                cursor: scheduledFor && !saving ? "pointer" : "not-allowed",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Schedule
+            </button>
+          </div>
+        </div>
+
+        {/* Save as Draft */}
+        <button
+          onClick={() => { setSaveMsg("Draft saved (use /sprints to review)"); }}
+          disabled={saving}
+          style={{
+            padding: "14px 24px", background: "transparent", border: "1px solid #2a2a3a",
+            borderRadius: "10px", color: "#888898", fontSize: "14px", fontWeight: 500,
+            cursor: saving ? "not-allowed" : "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+          }}
+        >
+          <Save size={16} />
+          Save as Draft
+        </button>
+      </div>
+
+      {saveMsg && (
+        <div style={{
+          marginTop: "16px", padding: "12px 16px",
+          background: saveMsg.includes("failed") ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.1)",
+          border: `1px solid ${saveMsg.includes("failed") ? "rgba(239,68,68,0.3)" : "rgba(34,197,94,0.3)"}`,
+          borderRadius: "8px", fontSize: "13px",
+          color: saveMsg.includes("failed") ? "#ef4444" : "#22c55e",
+          textAlign: "center",
+        }}>
+          {saveMsg}
+        </div>
+      )}
+    </div>
+  );
+
+  // ─── Step indicator ──────────────────────────────────────────────────────
 
   const steps = [
-    { num: 1, label: "Input" },
+    { num: 1, label: "Describe" },
     { num: 2, label: "Review" },
     { num: 3, label: "Launch" },
   ];
 
   return (
     <div style={{ padding: "32px", minHeight: "100vh" }}>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
       {/* Step indicator */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          marginBottom: "32px",
-          maxWidth: "760px",
-          margin: "0 auto 32px",
-        }}
-      >
+      <div style={{
+        display: "flex", alignItems: "center", gap: "8px",
+        marginBottom: "32px", maxWidth: "760px", margin: "0 auto 32px",
+      }}>
         {steps.map((s, i) => {
           const active = step === s.num;
           const done = step > s.num;
           return (
             <div key={s.num} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "4px 12px",
-                  borderRadius: "20px",
-                  background: active
-                    ? "rgba(124,58,237,0.15)"
-                    : done
-                    ? "rgba(34,197,94,0.1)"
-                    : "transparent",
-                  border: `1px solid ${active ? "#7c3aed" : done ? "rgba(34,197,94,0.3)" : "#2a2a3a"}`,
-                }}
-              >
-                <span
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    borderRadius: "50%",
-                    background: active ? "#7c3aed" : done ? "#22c55e" : "#2a2a3a",
-                    color: "white",
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
+              <div style={{
+                display: "flex", alignItems: "center", gap: "6px",
+                padding: "4px 12px", borderRadius: "20px",
+                background: active ? "rgba(124,58,237,0.15)" : done ? "rgba(34,197,94,0.1)" : "transparent",
+                border: `1px solid ${active ? "#7c3aed" : done ? "rgba(34,197,94,0.3)" : "#2a2a3a"}`,
+              }}>
+                <span style={{
+                  width: "18px", height: "18px", borderRadius: "50%",
+                  background: active ? "#7c3aed" : done ? "#22c55e" : "#2a2a3a",
+                  color: "white", fontSize: "10px", fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
                   {done ? "✓" : s.num}
                 </span>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: active ? 600 : 400,
-                    color: active ? "#a855f7" : done ? "#22c55e" : "#888898",
-                  }}
-                >
+                <span style={{
+                  fontSize: "12px", fontWeight: active ? 600 : 400,
+                  color: active ? "#a855f7" : done ? "#22c55e" : "#888898",
+                }}>
                   {s.label}
                 </span>
               </div>
               {i < steps.length - 1 && (
-                <div
-                  style={{
-                    width: "24px",
-                    height: "1px",
-                    background: step > s.num ? "rgba(34,197,94,0.4)" : "#2a2a3a",
-                  }}
-                />
+                <div style={{ width: "24px", height: "1px", background: step > s.num ? "rgba(34,197,94,0.4)" : "#2a2a3a" }} />
               )}
             </div>
           );

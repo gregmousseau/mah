@@ -199,18 +199,21 @@ export async function runSprint(
       ? contractToDevPrompt(contract)
       : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
 
-    const devResult = await adapter.execute(devPrompt, {
+    const devExecOptions = {
       model: config.agents.generator.model,
       cwd: config.agents.generator.cwd,
       timeoutMs: 10 * 60 * 1000,
       label: `dev-${contract.id}-r${round}`,
-    })
+    }
+    const devResult = contract.agentConfig?.generator.agentId
+      ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions)
+      : await adapter.execute(devPrompt, devExecOptions)
 
     // Capture dev transcript phase
     const devTranscriptPhase: TranscriptPhase = {
       phase: 'dev',
       round,
-      actor: 'dev',
+      actor: contract.agentConfig?.generator.agentName ?? 'dev',
       model: config.agents.generator.model,
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
@@ -255,17 +258,21 @@ export async function runSprint(
         // ── Quinn (UX) grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
-        qaResult = await adapter.execute(qaPrompt, {
+        const qaExecOptions = {
           model: grader.agent.model,
           cwd: grader.agent.workspace,
           timeoutMs: 10 * 60 * 1000,
           label: `qa-${contract.id}-r${round}`,
-        })
+        }
+        const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
+        qaResult = evaluatorAgentId
+          ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId, qaExecOptions)
+          : await adapter.execute(qaPrompt, qaExecOptions)
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
           round,
-          actor: 'quinn',
+          actor: contract.agentConfig?.evaluator.agentName ?? 'quinn',
           model: grader.agent.model,
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),
@@ -490,17 +497,20 @@ export async function runExistingContract(
       ? contractToDevPrompt(contract)
       : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
 
-    const devResult = await adapter.execute(devPrompt, {
+    const devExecOptions2 = {
       model: config.agents.generator.model,
       cwd: config.agents.generator.cwd,
       timeoutMs: 10 * 60 * 1000,
       label: `dev-${contract.id}-r${round}`,
-    })
+    }
+    const devResult = contract.agentConfig?.generator.agentId
+      ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
+      : await adapter.execute(devPrompt, devExecOptions2)
 
     const devTranscriptPhase: TranscriptPhase = {
       phase: 'dev',
       round,
-      actor: 'dev',
+      actor: contract.agentConfig?.generator.agentName ?? 'dev',
       model: config.agents.generator.model,
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
@@ -543,17 +553,21 @@ export async function runExistingContract(
       if (grader.type === 'ux') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
-        qaResult = await adapter.execute(qaPrompt, {
+        const qaExecOptions2 = {
           model: grader.agent.model,
           cwd: grader.agent.workspace,
           timeoutMs: 10 * 60 * 1000,
           label: `qa-${contract.id}-r${round}`,
-        })
+        }
+        const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
+        qaResult = evaluatorAgentId2
+          ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId2, qaExecOptions2)
+          : await adapter.execute(qaPrompt, qaExecOptions2)
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
           round,
-          actor: 'quinn',
+          actor: contract.agentConfig?.evaluator.agentName ?? 'quinn',
           model: grader.agent.model,
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),

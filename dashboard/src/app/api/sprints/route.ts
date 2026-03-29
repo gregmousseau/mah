@@ -78,6 +78,8 @@ export async function GET(request: Request) {
           completedAt: contract?.completedAt || null,
           scheduledFor: contract?.scheduledFor || null,
           projectId: contract?.projectId || null,
+          agentConfig: contract?.agentConfig || null,
+          sprintType: contract?.sprintType || null,
         };
       })
       // Apply project filter if provided

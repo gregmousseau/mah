@@ -879,7 +879,35 @@ export default function SprintDetailPage() {
           {/* Task */}
           <div style={{ padding: "20px", borderBottom: "1px solid #2a2a3a" }}>
             <div style={{ fontSize: "11px", color: "#888898", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Task</div>
-            <div style={{ fontSize: "14px", color: "#e0e0e8", lineHeight: 1.6 }}>{contract.task}</div>
+            <div style={{ fontSize: "14px", color: "#e0e0e8", lineHeight: 1.6, marginBottom: "10px" }}>{contract.task}</div>
+            {/* Agent routing badges */}
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {contract.sprintType && (
+                <span style={{ fontSize: "11px", color: "#888898", background: "rgba(136,136,152,0.1)", border: "1px solid rgba(136,136,152,0.2)", borderRadius: "4px", padding: "2px 8px", fontWeight: 500, textTransform: "capitalize" as const }}>
+                  {contract.sprintType}
+                </span>
+              )}
+              {contract.agentConfig?.generator && (
+                <span style={{ fontSize: "11px", color: "#3b82f6", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)", borderRadius: "4px", padding: "2px 8px", fontWeight: 500 }}>
+                  Dev: {contract.agentConfig.generator.agentName}
+                </span>
+              )}
+              {contract.agentConfig?.evaluator && (
+                <span style={{ fontSize: "11px", color: "#a855f7", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: "4px", padding: "2px 8px", fontWeight: 500 }}>
+                  QA: {contract.agentConfig.evaluator.agentName}
+                </span>
+              )}
+              {contract.planId && (
+                <span style={{ fontSize: "11px", color: "#555565", background: "rgba(85,85,101,0.1)", border: "1px solid rgba(85,85,101,0.2)", borderRadius: "4px", padding: "2px 8px", fontFamily: "monospace" }}>
+                  Plan: {contract.planId}
+                </span>
+              )}
+            </div>
+            {contract.plannerOutput && (
+              <div style={{ marginTop: "10px", fontSize: "12px", color: "#888898", background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: "6px", padding: "8px 10px", lineHeight: 1.5 }}>
+                <span style={{ color: "#a855f7", fontWeight: 600 }}>Planner: </span>{contract.plannerOutput}
+              </div>
+            )}
           </div>
 
           {/* Dev Brief */}

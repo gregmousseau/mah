@@ -83,6 +83,11 @@ export interface Iteration {
   graderResults?: GraderResult[];
 }
 
+export interface AgentRoutingConfig {
+  agentId: string;
+  agentName: string;
+}
+
 export interface SprintContract {
   id: string;
   name: string;
@@ -94,6 +99,13 @@ export interface SprintContract {
   cancelledAt?: string;
   graders?: Grader[];
   nextSteps?: string[];
+  sprintType?: "code" | "frontend" | "research" | "content" | "fullstack";
+  agentConfig?: {
+    generator: AgentRoutingConfig;
+    evaluator: AgentRoutingConfig;
+  };
+  plannerOutput?: string;
+  planId?: string;
   devBrief: {
     repo: string;
     constraints: string[];
@@ -109,6 +121,24 @@ export interface SprintContract {
   iterations: Iteration[];
   createdAt: string;
   completedAt?: string;
+}
+
+// ─── Sprint Plan (from planner) ───────────────────────────────────────────────
+
+export interface SprintPlanItem {
+  name: string;
+  task: string;
+  sprintType: "code" | "frontend" | "research" | "content" | "fullstack";
+  agent: { id: string; name: string; reason: string };
+  evaluator: { id: string; name: string };
+  suggestedQaTier: "smoke" | "targeted" | "full";
+  dependencies: string[];
+  estimatedComplexity: "low" | "medium" | "high";
+}
+
+export interface SprintPlan {
+  reasoning: string;
+  sprints: SprintPlanItem[];
 }
 
 export interface Phase {
@@ -169,6 +199,11 @@ export interface SprintSummary {
   completedAt?: string;
   scheduledFor?: string;
   projectId?: string;
+  agentConfig?: {
+    generator: AgentRoutingConfig;
+    evaluator: AgentRoutingConfig;
+  } | null;
+  sprintType?: string | null;
 }
 
 export interface Project {

@@ -98,6 +98,13 @@ export interface SprintContract {
   task: string
   projectId?: string  // which project this sprint belongs to
   status: 'planned' | 'dev' | 'qa' | 'passed' | 'failed' | 'escalated'
+  sprintType?: 'code' | 'frontend' | 'research' | 'content' | 'fullstack'
+  agentConfig?: {
+    generator: { agentId: string; agentName: string }
+    evaluator: { agentId: string; agentName: string }
+  }
+  plannerOutput?: string  // The planner's reasoning for this sprint
+  planId?: string         // Links sprints from the same plan
   devBrief: {
     repo: string
     constraints: string[]
