@@ -4,6 +4,9 @@ import { join } from "path";
 import { spawn } from "child_process";
 import { getAgentWorkspace, getAgentName } from "@/lib/agents";
 
+const MAH_ROOT = join(process.cwd(), "..");
+const PROJECTS_DIR = join(MAH_ROOT, ".mah", "projects");
+
 function readFileSafe(path: string): string | null {
   try {
     if (existsSync(path)) return readFileSync(path, "utf-8");
@@ -78,10 +81,26 @@ interface NegotiateRequest {
 export async function POST(request: Request) {
   try {
     const body: NegotiateRequest = await request.json();
-    const { sprint } = body;
+    const { sprint, projectId } = body;
 
     if (!sprint?.name) {
       return NextResponse.json({ error: "Sprint spec required" }, { status: 400 });
+    }
+
+    // Load project repo if projectId is provided
+    let projectRepo = ".";
+    if (projectId) {
+      const projectPath = join(PROJECTS_DIR, `${projectId}.json`);
+      if (existsSync(projectPath)) {
+        try {
+          const projectData = JSON.parse(readFileSync(projectPath, "utf-8"));
+          if (projectData.repo) {
+            projectRepo = projectData.repo;
+          }
+        } catch (err) {
+          console.warn(`Failed to load project ${projectId}:`, err);
+        }
+      }
     }
 
     const generatorId = sprint.agent.id;
@@ -115,10 +134,13 @@ Respond concisely (200-400 words). Cover:
 Be specific and concrete. No fluff.`;
 
     let generatorResponse: string;
+    let generatorError: string | null = null;
     try {
       generatorResponse = await runClaude(generatorPrompt);
     } catch (err) {
-      console.error("Generator negotiation failed:", err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("Generator negotiation failed:", errMsg);
+      generatorError = errMsg;
       generatorResponse = `[Generator (${generatorName}) negotiation unavailable — claude CLI may not be accessible]`;
     }
 
@@ -146,10 +168,13 @@ Respond concisely (200-400 words). Cover:
 Be specific and actionable. No fluff.`;
 
     let evaluatorResponse: string;
+    let evaluatorError: string | null = null;
     try {
       evaluatorResponse = await runClaude(evaluatorPrompt);
     } catch (err) {
-      console.error("Evaluator negotiation failed:", err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("Evaluator negotiation failed:", errMsg);
+      evaluatorError = errMsg;
       evaluatorResponse = `[Evaluator (${evaluatorName}) negotiation unavailable — claude CLI may not be accessible]`;
     }
 
@@ -157,7 +182,7 @@ Be specific and actionable. No fluff.`;
     const negotiated: SprintSpec = {
       ...sprint,
       devBrief: {
-        repo: sprint.devBrief?.repo || ".",
+        repo: sprint.devBrief?.repo || projectRepo,
         constraints: sprint.devBrief?.constraints || ["Follow existing code patterns and conventions"],
         definitionOfDone: extractBulletPoints(generatorResponse) || [
           "Feature works as described",
@@ -178,10 +203,15 @@ Be specific and actionable. No fluff.`;
       negotiated,
       generatorBrief: generatorResponse,
       evaluatorBrief: evaluatorResponse,
+      errors: {
+        generator: generatorError,
+        evaluator: evaluatorError,
+      },
     });
   } catch (err) {
-    console.error("Negotiate API error:", err);
-    return NextResponse.json({ error: "Negotiation failed" }, { status: 500 });
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("Negotiate API error:", errMsg);
+    return NextResponse.json({ error: errMsg || "Negotiation failed" }, { status: 500 });
   }
 }
 
