@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# QA/test artifacts from agent runs
+test-results/
+playwright-report/
+*.spec.ts
+*.spec.js
+qa-*.png
+qa-*.mjs
+test-*.html
+test-*.mjs
+screenshot-*.mjs
+manual-qa-*.mjs
+expand-test-error.png
