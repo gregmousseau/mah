@@ -169,7 +169,7 @@ function GraderTab({ result }: { result: GraderResult }) {
       <div style={{ fontSize: "11px", color: "#555565", marginTop: "12px", display: "flex", gap: "16px" }}>
         <span>Model: {result.model}</span>
         <span>Duration: {result.durationMs >= 60000 ? `${Math.floor(result.durationMs / 60000)}m ${Math.round((result.durationMs % 60000) / 1000)}s` : `${Math.round(result.durationMs / 1000)}s`}</span>
-        {result.costEstimate > 0 && <span>Cost: ${result.costEstimate.toFixed(3)}</span>}
+        {result?.costEstimate > 0 && <span>Cost: ${result?.costEstimate?.toFixed(3)}</span>}
       </div>
     </div>
   );
@@ -733,7 +733,7 @@ export default function SprintDetailPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 {metrics.phases.map((phase, i) => {
                   const pct = metrics.totals.estimatedCost > 0
-                    ? (phase.costEstimate / metrics.totals.estimatedCost) * 100
+                    ? (phase?.costEstimate / metrics.totals.estimatedCost) * 100
                     : 0;
                   const phaseColor = phase.phase === "dev" ? "#3b82f6" : phase.phase === "qa" ? "#a855f7" : "#7c3aed";
                   return (
@@ -751,7 +751,7 @@ export default function SprintDetailPage() {
                         }} />
                       </div>
                       <div style={{ width: "44px", fontSize: "11px", color: "#888898", textAlign: "right" }}>
-                        ${phase.costEstimate.toFixed(2)}
+                        ${phase?.costEstimate?.toFixed(2)}
                       </div>
                       <div style={{ width: "32px", fontSize: "10px", color: "#555565", textAlign: "right" }}>
                         {Math.round(pct)}%

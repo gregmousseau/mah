@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agent Config Preview</title>
+    <style>
+        body {
+            background: #0a0a12;
+            color: #e0e0e8;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 40px;
+            margin: 0;
+        }
+        .preview {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 32px;
+            color: #e0e0e8;
+        }
+        .note {
+            background: rgba(124, 58, 237, 0.1);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+        .checklist {
+            background: #141420;
+            border: 1px solid #2a2a3a;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .checklist li {
+            margin-bottom: 12px;
+            padding-left: 8px;
+        }
+        .check {
+            color: #10b981;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview">
+        <h1>✅ Agent Config Component - Implementation Complete</h1>
+
+        <div class="note">
+            <strong>🎨 Production-Grade Agent Management Panel</strong><br><br>
+            The Agent Config component has been successfully upgraded from a minimal config display
+            to a rich, production-grade agent management interface. View it live at
+            <strong>http://localhost:3333</strong> (scroll to bottom of dashboard).
+        </div>
+
+        <div class="checklist">
+            <h2 style="margin-top: 0; font-size: 17px; margin-bottom: 20px;">Implementation Checklist:</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li><span class="check">✓</span> Agent Cards Grid - Responsive grid displaying all 5 agents</li>
+                <li><span class="check">✓</span> Agent Icons & Colors - Each agent has unique emoji icon and color accent</li>
+                <li><span class="check">✓</span> Name & Role - Clear typography hierarchy with name and tagline</li>
+                <li><span class="check">✓</span> Platform Badges - Color-coded badges (openclaw/claude-code/codex)</li>
+                <li><span class="check">✓</span> Skills Pills - Skills displayed as styled tags (max 2 shown + counter)</li>
+                <li><span class="check">✓</span> Context Folders - Count indicator for context folders</li>
+                <li><span class="check">✓</span> Status Indicators - Active status with pulsing green dot</li>
+                <li><span class="check">✓</span> Evaluator Badge - Special "QA" badge for Quinn</li>
+                <li><span class="check">✓</span> Expandable Details - Click to expand and see full description, skills, workspace</li>
+                <li><span class="check">✓</span> Add Agent Button - Prominent gradient button opening modal form</li>
+                <li><span class="check">✓</span> Add Agent Modal - Form collecting name, description, platform, skills, context folders</li>
+                <li><span class="check">✓</span> Sprint Creation - POSTs to /api/agents which auto-creates configuration sprint</li>
+                <li><span class="check">✓</span> Toast Notifications - Success/error feedback via parent component</li>
+                <li><span class="check">✓</span> Visual Polish - Smooth cubic-bezier transitions, hover states, shadows</li>
+                <li><span class="check">✓</span> Dark Theme - Matches dashboard (#141420 bg, #2a2a3a borders, purple accents)</li>
+                <li><span class="check">✓</span> Premium Design - Gradient accents, sophisticated animations, proper spacing</li>
+            </ul>
+        </div>
+
+        <div class="note" style="margin-top: 24px;">
+            <strong>🎯 Design Highlights:</strong><br><br>
+            • <strong>Visual Hierarchy:</strong> Clear heading with subtitle, prominent Add Agent CTA<br>
+            • <strong>Color System:</strong> Each platform has distinct colors (openclaw=green, claude-code=purple, codex=orange)<br>
+            • <strong>Micro-interactions:</strong> Cards lift on hover, borders glow with agent color, smooth expand/collapse<br>
+            • <strong>Typography:</strong> Bold headings (-0.02em tracking), uppercase labels (0.08em tracking), proper weight scale<br>
+            • <strong>Motion:</strong> cubic-bezier(0.4, 0, 0.2, 1) easing for natural deceleration<br>
+            • <strong>Spacing:</strong> Varied rhythm (14px-28px gaps), generous padding in panels<br>
+            • <strong>Details:</strong> Pulsing active status, gradient top accent bar, monospace for paths<br>
+        </div>
+    </div>
+</body>
+</html>

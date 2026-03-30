@@ -7,9 +7,12 @@ import VerdictBadge from "@/components/VerdictBadge";
 import ActiveSprint from "@/components/ActiveSprint";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import SprintTimelineChart from "@/components/SprintTimelineChart";
+import AgentConfig from "@/components/AgentConfig";
+import Toast from "@/components/Toast";
 import { usePolling } from "@/hooks/usePolling";
 import { PlusSquare, Clock, FileText, Radio } from "lucide-react";
 import type { SprintSummary, MahConfig, Project } from "@/types/mah";
+import type { AgentDefinition } from "@/lib/agents";
 
 interface Stats {
   totalSprints: number;
@@ -39,11 +42,13 @@ function getProjectAccent(projectId?: string | null): string {
 
 export default function DashboardPage() {
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const { data: stats } = usePolling<Stats>("/api/stats", 10000);
   const { data: allSprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
   const { data: config } = usePolling<MahConfig>("/api/config", 60000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
   const { data: drafts } = usePolling<Record<string, unknown>[]>("/api/builder/drafts", 15000);
+  const { data: agentsData, refetch: refetchAgents } = usePolling<{ agents: AgentDefinition[] }>("/api/agents", 30000);
 
   const sprints = projectFilter
     ? (allSprints || []).filter((s) => s.projectId === projectFilter)
@@ -73,6 +78,38 @@ export default function DashboardPage() {
   const queuedCount = (allSprints || []).filter((s) => s.status === "queued").length;
   const draftCount2 = (allSprints || []).filter((s) => s.status === "draft" || s.status === "approved").length;
   const activeSprint = (allSprints || []).find((s) => s.status === "running");
+
+  // Add agent handler
+  const handleAddAgent = async (data: { name: string; description: string; platform: string; skills: string; contextFolders: string }) => {
+    try {
+      const response = await fetch("/api/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          role: data.description,
+          platform: data.platform,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create agent");
+      }
+
+      const result = await response.json();
+      setToast({
+        message: `Agent configuration sprint created: ${result.sprintDir}`,
+        type: "success",
+      });
+      refetchAgents();
+    } catch (err) {
+      setToast({
+        message: err instanceof Error ? err.message : "Failed to create agent configuration sprint",
+        type: "error",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -526,30 +563,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Config summary */}
-      {config?.agents && (
-        <div style={{ marginTop: "24px", background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
-          <h2 style={{ margin: "0 0 16px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Agent Config</h2>
-          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            {Object.entries(config.agents).map(([name, agent]) => (
-              <div
-                key={name}
-                style={{
-                  background: "#0d0d18",
-                  border: "1px solid #2a2a3a",
-                  borderRadius: "8px",
-                  padding: "10px 14px",
-                  minWidth: "140px",
-                }}
-              >
-                <div style={{ fontSize: "11px", color: "#7c3aed", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{name}</div>
-                <div style={{ fontSize: "13px", color: "#e0e0e8", marginTop: "4px" }}>{agent.model}</div>
-                <div style={{ fontSize: "11px", color: "#888898", marginTop: "2px" }}>{agent.type}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Agent Config */}
+      {agentsData?.agents && (
+        <AgentConfig agents={agentsData.agents} onAddAgent={handleAddAgent} />
       )}
+
+      {/* Toast Notification */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

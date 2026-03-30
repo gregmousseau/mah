@@ -58,3 +58,15 @@
 {"ts":"2026-03-29T22:32:54.040Z","local":"18:32:54","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Agent Config UI panel with cards and add-agent flow"}
 {"ts":"2026-03-29T22:32:54.061Z","local":"18:32:54","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 019"}
 {"ts":"2026-03-29T22:32:54.068Z","local":"18:32:54","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T22:40:33.880Z","local":"18:40:33","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (7m 39s / $0.0135)"}
+{"ts":"2026-03-29T22:40:33.883Z","local":"18:40:33","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T22:42:55.482Z","local":"18:42:55","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Agent Config UI panel with cards and add-agent flow"}
+{"ts":"2026-03-29T22:42:55.511Z","local":"18:42:55","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 019"}
+{"ts":"2026-03-29T22:42:55.520Z","local":"18:42:55","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-03-29T22:51:59.850Z","local":"18:51:59","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (9m 4s)"}
+{"ts":"2026-03-29T22:51:59.852Z","local":"18:51:59","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-03-29T22:59:13.523Z","local":"18:59:13","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (7m 13s / $0.0103)"}
+{"ts":"2026-03-29T22:59:13.528Z","local":"18:59:13","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R2"}
+{"ts":"2026-03-29T22:59:13.529Z","local":"18:59:13","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R2"}
+{"ts":"2026-03-29T23:06:35.894Z","local":"19:06:35","actor":"dev","type":"output","phase":"dev","summary":"R2 complete (7m 22s / $0.0128)"}
+{"ts":"2026-03-29T23:06:35.896Z","local":"19:06:35","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R2"}

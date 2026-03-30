@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Plus, ChevronRight, Sparkles, Zap } from "lucide-react";
 import type { AgentDefinition } from "@/lib/agents";
 
 interface AgentConfigProps {
@@ -15,11 +15,12 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
   const [addForm, setAddForm] = useState({
     name: "",
     description: "",
-    platform: "openclaw" as const,
+    platform: "openclaw",
     skills: "",
     contextFolders: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   const handleAddAgent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,42 +51,66 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
   return (
     <div
       style={{
-        marginTop: "24px",
+        marginTop: "32px",
         background: "#141420",
         border: "1px solid #2a2a3a",
-        borderRadius: "12px",
-        padding: "24px",
+        borderRadius: "16px",
+        padding: "28px",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
+      {/* Subtle gradient accent */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "2px",
+          background: "linear-gradient(90deg, transparent, #7c3aed, #a855f7, transparent)",
+          opacity: 0.6,
+        }}
+      />
+
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Agent Config</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px", gap: "16px" }}>
+        <div>
+          <h2 style={{ margin: "0 0 6px 0", fontSize: "17px", fontWeight: 700, color: "#e0e0e8", letterSpacing: "-0.02em" }}>
+            Agent Config
+          </h2>
+          <p style={{ margin: 0, fontSize: "13px", color: "#666676", lineHeight: 1.5 }}>
+            {agents.length} active agent{agents.length !== 1 ? "s" : ""} in the system
+          </p>
+        </div>
         <button
           onClick={() => setShowAddModal(true)}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "6px",
-            background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+            gap: "7px",
+            background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #a855f7 100%)",
             color: "#fff",
             border: "none",
-            borderRadius: "8px",
-            padding: "8px 16px",
+            borderRadius: "10px",
+            padding: "10px 18px",
             fontSize: "13px",
             fontWeight: 600,
             cursor: "pointer",
-            transition: "transform 0.15s ease, box-shadow 0.15s ease",
+            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: "0 2px 8px rgba(124, 58, 237, 0.2)",
+            flexShrink: 0,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(124, 58, 237, 0.4)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 8px 20px rgba(124, 58, 237, 0.4)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "none";
+            e.currentTarget.style.boxShadow = "0 2px 8px rgba(124, 58, 237, 0.2)";
           }}
         >
-          <Plus size={16} />
+          <Plus size={16} strokeWidth={2.5} />
           Add Agent
         </button>
       </div>
@@ -94,284 +119,415 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: "16px",
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gap: "18px",
         }}
       >
-        {agents.map((agent) => (
-          <div key={agent.id}>
-            {/* Agent Card */}
-            <div
-              onClick={() => setExpandedAgent(expandedAgent === agent.id ? null : agent.id)}
-              style={{
-                background: "#0d0d18",
-                border: `1px solid ${expandedAgent === agent.id ? agent.color : "#2a2a3a"}`,
-                borderRadius: "12px",
-                padding: "16px",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (expandedAgent !== agent.id) {
-                  e.currentTarget.style.borderColor = agent.color + "60";
-                }
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = `0 4px 16px ${agent.color}20`;
-              }}
-              onMouseLeave={(e) => {
-                if (expandedAgent !== agent.id) {
-                  e.currentTarget.style.borderColor = "#2a2a3a";
-                }
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            >
-              {/* Icon & Name */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "12px" }}>
-                <div
-                  style={{
-                    fontSize: "32px",
-                    lineHeight: 1,
-                    filter: "drop-shadow(0 0 8px " + agent.color + "40)",
-                  }}
-                >
-                  {agent.icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "2px" }}>
-                    {agent.name}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#888898", lineHeight: 1.4 }}>{agent.role}</div>
-                </div>
-                <div style={{ color: agent.color, transition: "transform 0.2s ease" }}>
-                  {expandedAgent === agent.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                </div>
-              </div>
+        {agents.map((agent) => {
+          const isExpanded = expandedAgent === agent.id;
+          const isHovered = hoveredCard === agent.id;
 
-              {/* Platform Badge */}
+          return (
+            <div key={agent.id}>
+              {/* Agent Card */}
               <div
+                onClick={() => setExpandedAgent(isExpanded ? null : agent.id)}
+                onMouseEnter={() => setHoveredCard(agent.id)}
+                onMouseLeave={() => setHoveredCard(null)}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  background: platformColors[agent.platform] + "20",
-                  border: `1px solid ${platformColors[agent.platform]}40`,
-                  borderRadius: "6px",
-                  padding: "4px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  color: platformColors[agent.platform],
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  marginBottom: "12px",
+                  background: isExpanded ? "#0f0f1c" : "#0d0d18",
+                  border: `1px solid ${isExpanded ? agent.color : "#2a2a3a"}`,
+                  borderRadius: "14px",
+                  padding: "20px",
+                  cursor: "pointer",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  position: "relative",
+                  overflow: "hidden",
+                  transform: isHovered || isExpanded ? "translateY(-3px)" : "translateY(0)",
+                  boxShadow: isHovered || isExpanded
+                    ? `0 8px 24px ${agent.color}30, 0 0 0 1px ${agent.color}20`
+                    : "0 2px 8px rgba(0,0,0,0.1)",
                 }}
               >
-                {agent.platform}
+                {/* Colored accent bar */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: "3px",
+                    background: `linear-gradient(90deg, transparent, ${agent.color}, transparent)`,
+                    opacity: isExpanded ? 1 : isHovered ? 0.7 : 0,
+                    transition: "opacity 0.3s ease",
+                  }}
+                />
+
+                {/* Icon & Name */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", marginBottom: "16px" }}>
+                  <div
+                    style={{
+                      fontSize: "36px",
+                      lineHeight: 1,
+                      filter: `drop-shadow(0 2px 12px ${agent.color}${isHovered ? "60" : "30"})`,
+                      transition: "filter 0.3s ease",
+                    }}
+                  >
+                    {agent.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: "17px",
+                      fontWeight: 700,
+                      color: "#e0e0e8",
+                      marginBottom: "4px",
+                      letterSpacing: "-0.01em",
+                    }}>
+                      {agent.name}
+                    </div>
+                    <div style={{ fontSize: "13px", color: "#888898", lineHeight: 1.4 }}>
+                      {agent.role}
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={20}
+                    style={{
+                      color: agent.color,
+                      transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                      transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                      opacity: isHovered || isExpanded ? 1 : 0.4,
+                    }}
+                  />
+                </div>
+
+              {/* Metadata row */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px", flexWrap: "wrap" }}>
+                {/* Platform Badge */}
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    background: `${platformColors[agent.platform]}15`,
+                    border: `1px solid ${platformColors[agent.platform]}35`,
+                    borderRadius: "7px",
+                    padding: "5px 10px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: platformColors[agent.platform],
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      background: platformColors[agent.platform],
+                    }}
+                  />
+                  {agent.platform}
+                </div>
+
+                {/* Evaluator Badge */}
+                {agent.isEvaluator && (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      background: "#a855f715",
+                      border: "1px solid #a855f735",
+                      borderRadius: "7px",
+                      padding: "5px 10px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#a855f7",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    <Sparkles size={11} strokeWidth={2.5} />
+                    QA
+                  </div>
+                )}
+
+                {/* Active Status */}
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    background: "#10b98115",
+                    border: "1px solid #10b98135",
+                    borderRadius: "7px",
+                    padding: "5px 10px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#10b981",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  <div
+                    className="pulse-dot"
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      background: "#10b981",
+                      boxShadow: "0 0 10px #10b98180",
+                    }}
+                  />
+                  Active
+                </div>
               </div>
 
               {/* Skills Pills */}
               {agent.skills.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
-                  {agent.skills.slice(0, 3).map((skill, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        background: "#1a1a2a",
-                        border: "1px solid #2a2a3a",
-                        borderRadius: "4px",
-                        padding: "3px 8px",
-                        fontSize: "10px",
-                        color: "#888898",
-                      }}
-                    >
-                      {skill}
-                    </div>
-                  ))}
-                  {agent.skills.length > 3 && (
-                    <div
-                      style={{
-                        background: "#1a1a2a",
-                        border: "1px solid #2a2a3a",
-                        borderRadius: "4px",
-                        padding: "3px 8px",
-                        fontSize: "10px",
-                        color: "#888898",
-                      }}
-                    >
-                      +{agent.skills.length - 3}
-                    </div>
-                  )}
+                <div style={{ marginBottom: "14px" }}>
+                  <div style={{
+                    fontSize: "10px",
+                    color: "#555565",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    fontWeight: 700,
+                    marginBottom: "8px",
+                  }}>
+                    Skills
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {agent.skills.slice(0, 2).map((skill, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          background: "#1a1a2a",
+                          border: "1px solid #2a2a3a",
+                          borderRadius: "6px",
+                          padding: "5px 10px",
+                          fontSize: "11px",
+                          color: "#b8b8c8",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {skill}
+                      </div>
+                    ))}
+                    {agent.skills.length > 2 && (
+                      <div
+                        style={{
+                          background: `${agent.color}15`,
+                          border: `1px solid ${agent.color}30`,
+                          borderRadius: "6px",
+                          padding: "5px 10px",
+                          fontSize: "11px",
+                          color: agent.color,
+                          fontWeight: 600,
+                        }}
+                      >
+                        +{agent.skills.length - 2} more
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Context Folders & Status */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontSize: "11px", color: "#666676" }}>
-                  {agent.contextFolders.length > 0
-                    ? `${agent.contextFolders.length} context folder${agent.contextFolders.length > 1 ? "s" : ""}`
-                    : "No context folders"}
-                </div>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  {agent.isEvaluator && (
-                    <div
-                      style={{
-                        background: "#a855f720",
-                        border: "1px solid #a855f740",
-                        borderRadius: "4px",
-                        padding: "2px 6px",
-                        fontSize: "9px",
-                        fontWeight: 600,
-                        color: "#a855f7",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                      }}
-                    >
-                      Evaluator
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      background: "#10b981",
-                      boxShadow: "0 0 8px #10b98160",
-                    }}
-                    title="Active"
-                  />
-                </div>
+              {/* Context Folders Indicator */}
+              <div style={{
+                fontSize: "12px",
+                color: "#666676",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
+                <div style={{
+                  width: "4px",
+                  height: "4px",
+                  borderRadius: "50%",
+                  background: agent.contextFolders.length > 0 ? agent.color : "#3a3a4a",
+                }} />
+                {agent.contextFolders.length > 0
+                  ? `${agent.contextFolders.length} context folder${agent.contextFolders.length > 1 ? "s" : ""}`
+                  : "No context folders"}
               </div>
             </div>
 
             {/* Expanded Detail Panel */}
-            {expandedAgent === agent.id && (
+            {isExpanded && (
               <div
                 style={{
                   background: "#0a0a12",
-                  border: `1px solid ${agent.color}40`,
+                  border: `1px solid ${agent.color}50`,
                   borderTop: "none",
-                  borderRadius: "0 0 12px 12px",
-                  padding: "16px",
-                  marginTop: "-12px",
-                  animation: "expandDown 0.2s ease",
+                  borderRadius: "0 0 14px 14px",
+                  padding: "20px",
+                  marginTop: "-14px",
+                  animation: "expandDown 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                 }}
               >
-                <div style={{ fontSize: "12px", color: "#888898", marginBottom: "12px", lineHeight: 1.6 }}>
+                {/* Description */}
+                <div style={{
+                  fontSize: "13px",
+                  color: "#a8a8b8",
+                  marginBottom: "20px",
+                  lineHeight: 1.7,
+                  paddingLeft: "12px",
+                  borderLeft: `3px solid ${agent.color}40`,
+                }}>
                   {agent.description}
                 </div>
 
-                {/* Skills List */}
-                {agent.skills.length > 0 && (
-                  <div style={{ marginBottom: "12px" }}>
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#666676",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "6px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Skills
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                      {agent.skills.map((skill, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            background: "#1a1a2a",
-                            border: "1px solid #2a2a3a",
-                            borderRadius: "4px",
-                            padding: "4px 10px",
-                            fontSize: "11px",
-                            color: "#e0e0e8",
-                          }}
-                        >
-                          {skill}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Context Folders */}
-                {agent.contextFolders.length > 0 && (
-                  <div style={{ marginBottom: "12px" }}>
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#666676",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "6px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Context Folders
-                    </div>
-                    {agent.contextFolders.map((folder, i) => (
+                {/* Details Grid */}
+                <div style={{ display: "grid", gap: "16px" }}>
+                  {/* Skills List */}
+                  {agent.skills.length > 0 && (
+                    <div>
                       <div
-                        key={i}
                         style={{
-                          fontSize: "11px",
-                          color: "#888898",
-                          marginBottom: "4px",
-                          fontFamily: "monospace",
+                          fontSize: "10px",
+                          color: "#555565",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: "8px",
+                          fontWeight: 700,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
                         }}
                       >
-                        {folder.path}
+                        <Zap size={11} color={agent.color} strokeWidth={2.5} />
+                        Skills & Capabilities
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
+                        {agent.skills.map((skill, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              background: "#141420",
+                              border: "1px solid #2a2a3a",
+                              borderRadius: "7px",
+                              padding: "6px 12px",
+                              fontSize: "12px",
+                              color: "#d0d0d8",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {skill}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                {/* Workspace */}
-                <div style={{ marginBottom: "8px" }}>
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      color: "#666676",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      marginBottom: "6px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Workspace
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#888898",
-                      fontFamily: "monospace",
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {agent.workspace}
-                  </div>
-                </div>
+                  {/* Context Folders */}
+                  {agent.contextFolders.length > 0 && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          color: "#555565",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: "8px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        Context Folders
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {agent.contextFolders.map((folder, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              fontSize: "11px",
+                              color: "#888898",
+                              fontFamily: "ui-monospace, monospace",
+                              background: "#141420",
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              border: "1px solid #1a1a2a",
+                            }}
+                          >
+                            {folder.path}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                {/* Platform Info */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      color: "#666676",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      marginBottom: "6px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Platform
+                  {/* Workspace */}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#555565",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        marginBottom: "8px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Workspace Path
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#888898",
+                        fontFamily: "ui-monospace, monospace",
+                        background: "#141420",
+                        padding: "8px 12px",
+                        borderRadius: "6px",
+                        border: "1px solid #1a1a2a",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {agent.workspace}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "11px", color: agent.color, fontWeight: 600 }}>{agent.platform}</div>
+
+                  {/* Platform Details */}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#555565",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        marginBottom: "8px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Execution Platform
+                    </div>
+                    <div style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      background: `${agent.color}10`,
+                      border: `1px solid ${agent.color}30`,
+                      borderRadius: "8px",
+                      padding: "8px 14px",
+                      fontSize: "12px",
+                      color: agent.color,
+                      fontWeight: 600,
+                    }}>
+                      <div style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        background: agent.color,
+                        boxShadow: `0 0 10px ${agent.color}60`,
+                      }} />
+                      {agent.platform}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {/* Add Agent Modal */}
@@ -386,10 +542,10 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "rgba(0, 0, 0, 0.7)",
-              backdropFilter: "blur(4px)",
+              background: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(8px)",
               zIndex: 1000,
-              animation: "fadeIn 0.2s ease",
+              animation: "fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
             }}
           />
           {/* Modal */}
@@ -399,52 +555,70 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              background: "#141420",
+              background: "linear-gradient(135deg, #141420 0%, #1a1a2e 100%)",
               border: "1px solid #7c3aed",
-              borderRadius: "16px",
-              padding: "24px",
+              borderRadius: "20px",
+              padding: "28px",
               width: "90%",
-              maxWidth: "500px",
+              maxWidth: "520px",
               zIndex: 1001,
-              boxShadow: "0 20px 60px rgba(124, 58, 237, 0.3)",
-              animation: "slideUp 0.25s ease",
+              boxShadow: "0 24px 80px rgba(124, 58, 237, 0.4), 0 0 0 1px rgba(124, 58, 237, 0.2)",
+              animation: "slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             }}
           >
             {/* Modal Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 600, color: "#e0e0e8" }}>Add New Agent</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+              <div>
+                <h3 style={{ margin: "0 0 6px 0", fontSize: "20px", fontWeight: 700, color: "#e0e0e8", letterSpacing: "-0.02em" }}>
+                  Add New Agent
+                </h3>
+                <p style={{ margin: 0, fontSize: "13px", color: "#666676", lineHeight: 1.5 }}>
+                  Configure a new agent to join your team
+                </p>
+              </div>
               <button
                 onClick={() => !isSubmitting && setShowAddModal(false)}
                 disabled={isSubmitting}
                 style={{
-                  background: "transparent",
-                  border: "none",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid #2a2a3a",
+                  borderRadius: "8px",
                   color: "#888898",
                   cursor: isSubmitting ? "not-allowed" : "pointer",
-                  padding: "4px",
+                  padding: "8px",
                   display: "flex",
-                  transition: "color 0.15s ease",
+                  transition: "all 0.2s ease",
                 }}
-                onMouseEnter={(e) => !isSubmitting && (e.currentTarget.style.color = "#e0e0e8")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#888898")}
+                onMouseEnter={(e) => {
+                  if (!isSubmitting) {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+                    e.currentTarget.style.borderColor = "#7c3aed";
+                    e.currentTarget.style.color = "#e0e0e8";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                  e.currentTarget.style.borderColor = "#2a2a3a";
+                  e.currentTarget.style.color = "#888898";
+                }}
               >
-                <X size={20} />
+                <X size={18} strokeWidth={2} />
               </button>
             </div>
 
             {/* Form */}
             <form onSubmit={handleAddAgent}>
               {/* Name */}
-              <div style={{ marginBottom: "16px" }}>
+              <div style={{ marginBottom: "18px" }}>
                 <label
                   style={{
                     display: "block",
-                    fontSize: "12px",
-                    fontWeight: 600,
+                    fontSize: "11px",
+                    fontWeight: 700,
                     color: "#888898",
-                    marginBottom: "6px",
+                    marginBottom: "8px",
                     textTransform: "uppercase",
-                    letterSpacing: "0.05em",
+                    letterSpacing: "0.08em",
                   }}
                 >
                   Agent Name *
@@ -458,31 +632,38 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0d0d18",
+                    background: "#0a0a12",
                     border: "1px solid #2a2a3a",
-                    borderRadius: "8px",
-                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    padding: "12px 14px",
                     fontSize: "14px",
                     color: "#e0e0e8",
                     outline: "none",
-                    transition: "border-color 0.15s ease",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
-                  onBlur={(e) => (e.target.style.borderColor = "#2a2a3a")}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#7c3aed";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.boxShadow = "none";
+                  }}
                 />
               </div>
 
               {/* Description */}
-              <div style={{ marginBottom: "16px" }}>
+              <div style={{ marginBottom: "18px" }}>
                 <label
                   style={{
                     display: "block",
-                    fontSize: "12px",
-                    fontWeight: 600,
+                    fontSize: "11px",
+                    fontWeight: 700,
                     color: "#888898",
-                    marginBottom: "6px",
+                    marginBottom: "8px",
                     textTransform: "uppercase",
-                    letterSpacing: "0.05em",
+                    letterSpacing: "0.08em",
                   }}
                 >
                   Role/Description *
@@ -496,33 +677,41 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0d0d18",
+                    background: "#0a0a12",
                     border: "1px solid #2a2a3a",
-                    borderRadius: "8px",
-                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    padding: "12px 14px",
                     fontSize: "14px",
                     color: "#e0e0e8",
                     outline: "none",
                     resize: "vertical",
                     fontFamily: "inherit",
-                    transition: "border-color 0.15s ease",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
+                    lineHeight: 1.6,
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
-                  onBlur={(e) => (e.target.style.borderColor = "#2a2a3a")}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#7c3aed";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.boxShadow = "none";
+                  }}
                 />
               </div>
 
               {/* Platform */}
-              <div style={{ marginBottom: "16px" }}>
+              <div style={{ marginBottom: "18px" }}>
                 <label
                   style={{
                     display: "block",
-                    fontSize: "12px",
-                    fontWeight: 600,
+                    fontSize: "11px",
+                    fontWeight: 700,
                     color: "#888898",
-                    marginBottom: "6px",
+                    marginBottom: "8px",
                     textTransform: "uppercase",
-                    letterSpacing: "0.05em",
+                    letterSpacing: "0.08em",
                   }}
                 >
                   Platform *
@@ -533,18 +722,25 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0d0d18",
+                    background: "#0a0a12",
                     border: "1px solid #2a2a3a",
-                    borderRadius: "8px",
-                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    padding: "12px 14px",
                     fontSize: "14px",
                     color: "#e0e0e8",
                     outline: "none",
                     cursor: "pointer",
-                    transition: "border-color 0.15s ease",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
-                  onBlur={(e) => (e.target.style.borderColor = "#2a2a3a")}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#7c3aed";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.boxShadow = "none";
+                  }}
                 >
                   <option value="openclaw">OpenClaw</option>
                   <option value="claude-code">Claude Code</option>
@@ -553,19 +749,19 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
               </div>
 
               {/* Skills (Optional) */}
-              <div style={{ marginBottom: "16px" }}>
+              <div style={{ marginBottom: "18px" }}>
                 <label
                   style={{
                     display: "block",
-                    fontSize: "12px",
-                    fontWeight: 600,
+                    fontSize: "11px",
+                    fontWeight: 700,
                     color: "#888898",
-                    marginBottom: "6px",
+                    marginBottom: "8px",
                     textTransform: "uppercase",
-                    letterSpacing: "0.05em",
+                    letterSpacing: "0.08em",
                   }}
                 >
-                  Skills (Optional)
+                  Skills <span style={{ color: "#555565", fontWeight: 500 }}>(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -575,34 +771,41 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0d0d18",
+                    background: "#0a0a12",
                     border: "1px solid #2a2a3a",
-                    borderRadius: "8px",
-                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    padding: "12px 14px",
                     fontSize: "14px",
                     color: "#e0e0e8",
                     outline: "none",
-                    transition: "border-color 0.15s ease",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
-                  onBlur={(e) => (e.target.style.borderColor = "#2a2a3a")}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#7c3aed";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.boxShadow = "none";
+                  }}
                 />
               </div>
 
               {/* Context Folders (Optional) */}
-              <div style={{ marginBottom: "20px" }}>
+              <div style={{ marginBottom: "24px" }}>
                 <label
                   style={{
                     display: "block",
-                    fontSize: "12px",
-                    fontWeight: 600,
+                    fontSize: "11px",
+                    fontWeight: 700,
                     color: "#888898",
-                    marginBottom: "6px",
+                    marginBottom: "8px",
                     textTransform: "uppercase",
-                    letterSpacing: "0.05em",
+                    letterSpacing: "0.08em",
                   }}
                 >
-                  Context Folders (Optional)
+                  Context Folders <span style={{ color: "#555565", fontWeight: 500 }}>(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -612,42 +815,58 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0d0d18",
+                    background: "#0a0a12",
                     border: "1px solid #2a2a3a",
-                    borderRadius: "8px",
-                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    padding: "12px 14px",
                     fontSize: "14px",
                     color: "#e0e0e8",
                     outline: "none",
-                    transition: "border-color 0.15s ease",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
+                    fontFamily: "ui-monospace, monospace",
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
-                  onBlur={(e) => (e.target.style.borderColor = "#2a2a3a")}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#7c3aed";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.boxShadow = "none";
+                  }}
                 />
               </div>
 
               {/* Buttons */}
-              <div style={{ display: "flex", gap: "12px" }}>
+              <div style={{ display: "flex", gap: "10px" }}>
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
                   disabled={isSubmitting}
                   style={{
                     flex: 1,
-                    background: "#1a1a2a",
+                    background: "rgba(255,255,255,0.05)",
                     color: "#888898",
                     border: "1px solid #2a2a3a",
-                    borderRadius: "8px",
-                    padding: "10px 16px",
+                    borderRadius: "10px",
+                    padding: "12px 18px",
                     fontSize: "14px",
                     fontWeight: 600,
                     cursor: isSubmitting ? "not-allowed" : "pointer",
-                    transition: "all 0.15s ease",
+                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                   }}
-                  onMouseEnter={(e) =>
-                    !isSubmitting && ((e.currentTarget.style.background = "#252535"), (e.currentTarget.style.color = "#e0e0e8"))
-                  }
-                  onMouseLeave={(e) => ((e.currentTarget.style.background = "#1a1a2a"), (e.currentTarget.style.color = "#888898"))}
+                  onMouseEnter={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+                      e.currentTarget.style.borderColor = "#3a3a4a";
+                      e.currentTarget.style.color = "#e0e0e8";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                    e.currentTarget.style.borderColor = "#2a2a3a";
+                    e.currentTarget.style.color = "#888898";
+                  }}
                 >
                   Cancel
                 </button>
@@ -656,18 +875,28 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     flex: 1,
-                    background: isSubmitting ? "#555565" : "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                    background: isSubmitting ? "#555565" : "linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #a855f7 100%)",
                     color: "#fff",
                     border: "none",
-                    borderRadius: "8px",
-                    padding: "10px 16px",
+                    borderRadius: "10px",
+                    padding: "12px 18px",
                     fontSize: "14px",
                     fontWeight: 600,
                     cursor: isSubmitting ? "not-allowed" : "pointer",
-                    transition: "all 0.15s ease",
+                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                    boxShadow: isSubmitting ? "none" : "0 2px 12px rgba(124, 58, 237, 0.3)",
+                    opacity: isSubmitting ? 0.6 : 1,
                   }}
-                  onMouseEnter={(e) => !isSubmitting && (e.currentTarget.style.transform = "translateY(-1px)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                  onMouseEnter={(e) => {
+                    if (!isSubmitting) {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(124, 58, 237, 0.5)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 2px 12px rgba(124, 58, 237, 0.3)";
+                  }}
                 >
                   {isSubmitting ? "Creating Sprint..." : "Create Agent"}
                 </button>
@@ -677,8 +906,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
         </>
       )}
 
-      {/* Animations */}
-      <style jsx>{`
+      {/* Animations & Global Styles */}
+      <style jsx global>{`
         @keyframes fadeIn {
           from {
             opacity: 0;
@@ -687,25 +916,70 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
             opacity: 1;
           }
         }
+
         @keyframes slideUp {
           from {
             opacity: 0;
-            transform: translate(-50%, -45%);
+            transform: translate(-50%, -48%);
           }
           to {
             opacity: 1;
             transform: translate(-50%, -50%);
           }
         }
+
         @keyframes expandDown {
           from {
             opacity: 0;
             max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
           }
           to {
             opacity: 1;
-            max-height: 1000px;
+            max-height: 2000px;
+            padding-top: 20px;
+            padding-bottom: 20px;
           }
+        }
+
+        @keyframes pulse-dot {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.7;
+            transform: scale(1.1);
+          }
+        }
+
+        .pulse-dot {
+          animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Smooth scrolling for the modal */
+        .modal-content {
+          scrollbar-width: thin;
+          scrollbar-color: #2a2a3a #0d0d18;
+        }
+
+        .modal-content::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .modal-content::-webkit-scrollbar-track {
+          background: #0d0d18;
+          border-radius: 4px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb {
+          background: #2a2a3a;
+          border-radius: 4px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb:hover {
+          background: #3a3a4a;
         }
       `}</style>
     </div>

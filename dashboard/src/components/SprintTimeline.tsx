@@ -182,7 +182,7 @@ export default function SprintTimeline({ contract, metrics }: Props) {
       subtitle: iter.dev.output,
       time: formatTime(iter.dev.startTime),
       duration: devDuration,
-      cost: `$${iter.dev.costEstimate.toFixed(2)}`,
+      cost: `$${iter.dev?.costEstimate?.toFixed(2)}`,
       verdict: null,
     });
 
@@ -194,7 +194,7 @@ export default function SprintTimeline({ contract, metrics }: Props) {
       subtitle: iter.qa.output,
       time: formatTime(iter.qa.startTime),
       duration: qaDuration,
-      cost: `$${iter.qa.costEstimate.toFixed(2)}`,
+      cost: `$${iter.qa?.costEstimate?.toFixed(2)}`,
       verdict: isLastIter
         ? (contract.status === "passed" ? "pass" : "fail")
         : qaFailed

@@ -1,0 +1,350 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button [ref=e3] [cursor=pointer]:
+      - img [ref=e4]
+    - complementary [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - img [ref=e9]
+          - generic [ref=e11]:
+            - generic [ref=e12]: MAH
+            - generic [ref=e13]: Moe's AI
+        - button [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+      - navigation [ref=e18]:
+        - link "Builder" [ref=e19]:
+          - /url: /builder
+          - img [ref=e20]
+          - text: Builder
+        - link "Dashboard" [ref=e22]:
+          - /url: /
+          - img [ref=e23]
+          - text: Dashboard
+        - link "Projects" [ref=e28]:
+          - /url: /projects
+          - img [ref=e29]
+          - text: Projects
+        - link "Sprints" [ref=e31]:
+          - /url: /sprints
+          - img [ref=e32]
+          - text: Sprints
+        - link "Board" [ref=e33]:
+          - /url: /board
+          - img [ref=e34]
+          - text: Board
+        - link "Live" [ref=e35]:
+          - /url: /live
+          - img [ref=e36]
+          - text: Live
+      - generic [ref=e42]:
+        - generic [ref=e43]: Projects
+        - link "W Construction 1" [ref=e44]:
+          - /url: /projects/w-construction
+          - generic [ref=e47]: W Construction
+          - generic [ref=e48]: "1"
+        - link "MAH Build 18" [ref=e49]:
+          - /url: /projects/mah-build
+          - generic [ref=e52]: MAH Build
+          - generic [ref=e53]: "18"
+      - generic [ref=e55]:
+        - generic [ref=e58]: "Sprint: Agent Config UI panel with cards and add-agent flow"
+        - generic [ref=e59]: dev · 1m ago
+        - link "View sprint →" [ref=e61]:
+          - /url: /sprints/019
+        - generic [ref=e63]:
+          - generic [ref=e65]: Responsive
+          - generic [ref=e66]: · dev r2
+      - generic [ref=e68]:
+        - text: "Total spend:"
+        - generic [ref=e69]: $3.12
+    - main [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - heading "Moe's AI" [level=1] [ref=e75]
+              - generic [ref=e76]: Multi-Agent Harness
+            - link "New Sprint" [ref=e77]:
+              - /url: /builder
+              - img [ref=e78]
+              - text: New Sprint
+          - generic [ref=e80]:
+            - generic [ref=e81]: 🥇 Speed
+            - generic [ref=e82]: 🥈 Quality
+            - generic [ref=e83]: 🥉 Cost
+        - generic [ref=e84]:
+          - link "0 Running" [ref=e85]:
+            - /url: /live
+            - generic [ref=e86]: "0"
+            - generic [ref=e87]: Running
+          - link "0 Queued" [ref=e88]:
+            - /url: /sprints
+            - generic [ref=e89]: "0"
+            - generic [ref=e90]: Queued
+          - link "0 Drafts" [ref=e91]:
+            - /url: /sprints
+            - generic [ref=e92]: "0"
+            - generic [ref=e93]: Drafts
+        - generic [ref=e94]:
+          - button "All Projects" [ref=e95] [cursor=pointer]
+          - button "W Construction (1)" [ref=e96] [cursor=pointer]:
+            - text: W Construction
+            - generic [ref=e98]: (1)
+          - button "MAH Build (18)" [ref=e99] [cursor=pointer]:
+            - text: MAH Build
+            - generic [ref=e101]: (18)
+        - generic [ref=e107]: Ready — No active sprint
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - generic [ref=e110]: Total Sprints
+            - text: "10"
+          - generic [ref=e111]:
+            - generic [ref=e112]: Pass Rate
+            - text: 100%
+          - generic [ref=e113]:
+            - generic [ref=e114]: Avg Iterations
+            - text: "1.1"
+          - generic [ref=e115]:
+            - generic [ref=e116]: Total Cost
+            - text: $3.12
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - generic [ref=e119]:
+              - heading "Recent Sprints" [level=2] [ref=e120]
+              - link "View all →" [ref=e121]:
+                - /url: /sprints
+            - generic [ref=e122]:
+              - link "#019 Agent Config UI panel with cards and add-agent flow Mar 29 · 1 iter · $0.00 UNKNOWN" [ref=e123]:
+                - /url: /sprints/019
+                - generic [ref=e124]:
+                  - generic [ref=e125]: "#019 Agent Config UI panel with cards and add-agent flow"
+                  - generic [ref=e126]: Mar 29 · 1 iter · $0.00
+                - generic [ref=e127]: UNKNOWN
+              - link "#018 Agent registry data model and API endpoints Mar 29 · 1 iter · $0.03 ✓ PASS" [ref=e128]:
+                - /url: /sprints/018
+                - generic [ref=e129]:
+                  - generic [ref=e130]: "#018 Agent registry data model and API endpoints"
+                  - generic [ref=e131]: Mar 29 · 1 iter · $0.03
+                - generic [ref=e132]: ✓ PASS
+              - 'link "#017 Bug: Every sprint since 006 has $0 Mar 29 · 0 iter · $0.00 UNKNOWN" [ref=e133]':
+                - /url: /sprints/017
+                - generic [ref=e134]:
+                  - generic [ref=e135]: "#017 Bug: Every sprint since 006 has $0"
+                  - generic [ref=e136]: Mar 29 · 0 iter · $0.00
+                - generic [ref=e137]: UNKNOWN
+              - link "#016 Sprint Cost & Timeline Chart Mar 29 · 1 iter · $0.03 ✓ PASS" [ref=e138]:
+                - /url: /sprints/016
+                - generic [ref=e139]:
+                  - generic [ref=e140]: "#016 Sprint Cost & Timeline Chart"
+                  - generic [ref=e141]: Mar 29 · 1 iter · $0.03
+                - generic [ref=e142]: ✓ PASS
+              - link "#015 Multi-Sprint Queue Mar 29 · 0 iter · $0.00 ✓ PASS" [ref=e143]:
+                - /url: /sprints/015
+                - generic [ref=e144]:
+                  - generic [ref=e145]: "#015 Multi-Sprint Queue"
+                  - generic [ref=e146]: Mar 29 · 0 iter · $0.00
+                - generic [ref=e147]: ✓ PASS
+              - link "#014 Fix Live Monitoring Mar 29 · 0 iter · $0.00 ✓ PASS" [ref=e148]:
+                - /url: /sprints/014
+                - generic [ref=e149]:
+                  - generic [ref=e150]: "#014 Fix Live Monitoring"
+                  - generic [ref=e151]: Mar 29 · 0 iter · $0.00
+                - generic [ref=e152]: ✓ PASS
+              - link "#013 On this MAH dashboard, there are 2 issues Mar 29 · 1 iter · $0.02 ✓ PASS" [ref=e153]:
+                - /url: /sprints/013
+                - generic [ref=e154]:
+                  - generic [ref=e155]: "#013 On this MAH dashboard, there are 2 issues"
+                  - generic [ref=e156]: Mar 29 · 1 iter · $0.02
+                - generic [ref=e157]: ✓ PASS
+              - link "#012 Execution Loop — Wire Builder to Pipeline Mar 29 · 0 iter · $0.00 ✓ PASS" [ref=e158]:
+                - /url: /sprints/012
+                - generic [ref=e159]:
+                  - generic [ref=e160]: "#012 Execution Loop — Wire Builder to Pipeline"
+                  - generic [ref=e161]: Mar 29 · 0 iter · $0.00
+                - generic [ref=e162]: ✓ PASS
+              - link "#011 Sprint Management Mar 28 · 0 iter · $0.00 ✓ PASS" [ref=e163]:
+                - /url: /sprints/011
+                - generic [ref=e164]:
+                  - generic [ref=e165]: "#011 Sprint Management"
+                  - generic [ref=e166]: Mar 28 · 0 iter · $0.00
+                - generic [ref=e167]: ✓ PASS
+              - link "#010 Code Review Grader Mar 28 · 0 iter · $0.00 ✓ PASS" [ref=e168]:
+                - /url: /sprints/010
+                - generic [ref=e169]:
+                  - generic [ref=e170]: "#010 Code Review Grader"
+                  - generic [ref=e171]: Mar 28 · 0 iter · $0.00
+                - generic [ref=e172]: ✓ PASS
+              - link "#009 Sprint Builder UI Mar 28 · 0 iter · $0.00 ✓ PASS" [ref=e173]:
+                - /url: /sprints/009
+                - generic [ref=e174]:
+                  - generic [ref=e175]: "#009 Sprint Builder UI"
+                  - generic [ref=e176]: Mar 28 · 0 iter · $0.00
+                - generic [ref=e177]: ✓ PASS
+              - link "#008 Transcript Capture Mar 28 · 0 iter · $0.00 ✓ PASS" [ref=e178]:
+                - /url: /sprints/008
+                - generic [ref=e179]:
+                  - generic [ref=e180]: "#008 Transcript Capture"
+                  - generic [ref=e181]: Mar 28 · 0 iter · $0.00
+                - generic [ref=e182]: ✓ PASS
+              - link "#007 Project & Epic Grouping Mar 28 · 0 iter · $0.00 ✓ PASS" [ref=e183]:
+                - /url: /sprints/007
+                - generic [ref=e184]:
+                  - generic [ref=e185]: "#007 Project & Epic Grouping"
+                  - generic [ref=e186]: Mar 28 · 0 iter · $0.00
+                - generic [ref=e187]: ✓ PASS
+              - link "#006 Polish + Demo Mar 28 · 1 iter · $0.50 ✓ PASS" [ref=e188]:
+                - /url: /sprints/006
+                - generic [ref=e189]:
+                  - generic [ref=e190]: "#006 Polish + Demo"
+                  - generic [ref=e191]: Mar 28 · 1 iter · $0.50
+                - generic [ref=e192]: ✓ PASS
+              - link "#005 Real-time Updates Mar 28 · 1 iter · $0.49 ✓ PASS" [ref=e193]:
+                - /url: /sprints/005
+                - generic [ref=e194]:
+                  - generic [ref=e195]: "#005 Real-time Updates"
+                  - generic [ref=e196]: Mar 28 · 1 iter · $0.49
+                - generic [ref=e197]: ✓ PASS
+              - link "#004 Pipeline Executor Mar 28 · 1 iter · $0.28 ✓ PASS" [ref=e198]:
+                - /url: /sprints/004
+                - generic [ref=e199]:
+                  - generic [ref=e200]: "#004 Pipeline Executor"
+                  - generic [ref=e201]: Mar 28 · 1 iter · $0.28
+                - generic [ref=e202]: ✓ PASS
+              - link "#003 Dashboard UI Mar 28 · 1 iter · $0.45 ✓ PASS" [ref=e203]:
+                - /url: /sprints/003
+                - generic [ref=e204]:
+                  - generic [ref=e205]: "#003 Dashboard UI"
+                  - generic [ref=e206]: Mar 28 · 1 iter · $0.45
+                - generic [ref=e207]: ✓ PASS
+              - link "#002 Foundation + Types Mar 28 · 1 iter · $0.25 ✓ PASS" [ref=e208]:
+                - /url: /sprints/002
+                - generic [ref=e209]:
+                  - generic [ref=e210]: "#002 Foundation + Types"
+                  - generic [ref=e211]: Mar 28 · 1 iter · $0.25
+                - generic [ref=e212]: ✓ PASS
+              - link "#001 Dark Mode Switcher Mar 28 · 2 iter · $1.07 ✓ PASS" [ref=e213]:
+                - /url: /sprints/001
+                - generic [ref=e214]:
+                  - generic [ref=e215]: "#001 Dark Mode Switcher"
+                  - generic [ref=e216]: Mar 28 · 2 iter · $1.07
+                - generic [ref=e217]: ✓ PASS
+          - generic [ref=e218]:
+            - heading "Sprint Timeline" [level=2] [ref=e219]
+            - generic [ref=e220]: Cost over time by project
+            - img [ref=e222]:
+              - generic [ref=e224]: $0.00
+              - generic [ref=e226]: $0.27
+              - generic [ref=e228]: $0.54
+              - generic [ref=e230]: $0.80
+              - generic [ref=e232]: $1.07
+              - generic [ref=e252]: Mar 28
+              - generic [ref=e253]: Mar 29
+              - generic [ref=e254]: Date
+              - generic [ref=e255]: Cost
+        - generic [ref=e256]:
+          - generic [ref=e257]:
+            - heading "Projects" [level=2] [ref=e258]
+            - link "View all →" [ref=e259]:
+              - /url: /projects
+          - generic [ref=e260]:
+            - link "W Construction Sprints 1 Pass 100% Cost $1.07" [ref=e261]:
+              - /url: /projects/w-construction
+              - generic [ref=e264] [cursor=pointer]:
+                - generic [ref=e265]: W Construction
+                - generic [ref=e266]:
+                  - generic [ref=e267]: Sprints 1
+                  - generic [ref=e268]:
+                    - text: Pass
+                    - generic [ref=e269]: 100%
+                  - generic [ref=e270]:
+                    - text: Cost
+                    - generic [ref=e271]: $1.07
+            - link "MAH Build Sprints 18 Pass 89% Cost $2.05" [ref=e272]:
+              - /url: /projects/mah-build
+              - generic [ref=e275] [cursor=pointer]:
+                - generic [ref=e276]: MAH Build
+                - generic [ref=e277]:
+                  - generic [ref=e278]: Sprints 18
+                  - generic [ref=e279]:
+                    - text: Pass
+                    - generic [ref=e280]: 89%
+                  - generic [ref=e281]:
+                    - text: Cost
+                    - generic [ref=e282]: $2.05
+        - generic [ref=e283]:
+          - generic [ref=e285]:
+            - generic [ref=e286]:
+              - heading "Agent Config" [level=2] [ref=e287]
+              - paragraph [ref=e288]: 5 active agents in the system
+            - button "Add Agent" [ref=e289] [cursor=pointer]:
+              - img [ref=e290]
+              - text: Add Agent
+          - generic [ref=e291]:
+            - generic [ref=e293] [cursor=pointer]:
+              - generic [ref=e295]:
+                - generic [ref=e296]: 🎨
+                - generic [ref=e297]:
+                  - generic [ref=e298]: Frankie
+                  - generic [ref=e299]: Frontend UI specialist
+                - img [ref=e300]
+              - generic [ref=e302]:
+                - generic [ref=e303]: openclaw
+                - generic [ref=e305]: Active
+              - generic [ref=e307]:
+                - generic [ref=e308]: Skills
+                - generic [ref=e310]: Impeccable design skill
+              - generic [ref=e311]: No context folders
+            - generic [ref=e314] [cursor=pointer]:
+              - generic [ref=e316]:
+                - generic [ref=e317]: ⚙️
+                - generic [ref=e318]:
+                  - generic [ref=e319]: Devin
+                  - generic [ref=e320]: Backend/general developer
+                - img [ref=e321]
+              - generic [ref=e323]:
+                - generic [ref=e324]: openclaw
+                - generic [ref=e326]: Active
+              - generic [ref=e328]: No context folders
+            - generic [ref=e331] [cursor=pointer]:
+              - generic [ref=e333]:
+                - generic [ref=e334]: 🧪
+                - generic [ref=e335]:
+                  - generic [ref=e336]: Quinn
+                  - generic [ref=e337]: QA evaluator
+                - img [ref=e338]
+              - generic [ref=e340]:
+                - generic [ref=e341]: openclaw
+                - generic [ref=e343]:
+                  - img [ref=e344]
+                  - text: QA
+                - generic [ref=e347]: Active
+              - generic [ref=e349]: No context folders
+            - generic [ref=e352] [cursor=pointer]:
+              - generic [ref=e354]:
+                - generic [ref=e355]: 🔬
+                - generic [ref=e356]:
+                  - generic [ref=e357]: Reese
+                  - generic [ref=e358]: Research & analysis
+                - img [ref=e359]
+              - generic [ref=e361]:
+                - generic [ref=e362]: openclaw
+                - generic [ref=e364]: Active
+              - generic [ref=e366]: No context folders
+            - generic [ref=e369] [cursor=pointer]:
+              - generic [ref=e371]:
+                - generic [ref=e372]: ✍️
+                - generic [ref=e373]:
+                  - generic [ref=e374]: Connie
+                  - generic [ref=e375]: Content & writing
+                - img [ref=e376]
+              - generic [ref=e378]:
+                - generic [ref=e379]: openclaw
+                - generic [ref=e381]: Active
+              - generic [ref=e383]: No context folders
+  - button "Open Next.js Dev Tools" [ref=e390] [cursor=pointer]:
+    - img [ref=e391]
+  - alert [ref=e396]
+```
