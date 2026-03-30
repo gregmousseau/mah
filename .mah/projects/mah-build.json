@@ -2,6 +2,6 @@
   "id": "mah-build",
   "name": "MAH Build",
   "description": "Building the Multi-Agent Harness system itself (Inception)",
-  "repo": "~/clawd/projects/mah",
+  "repo": "https://github.com/gregmousseau/mah.git",
   "createdAt": "2026-03-28T19:40:00Z"
 }

@@ -1,0 +1,74 @@
+{
+  "id": "028",
+  "name": "Repo Name / Code lives in field is blank (re-run)",
+  "task": "On the sprint card, there are two placeholders for repo and code path. These are blank for the project.\nIf it's the case that we don't have a repo, please make one. If we do have one, ensure these get properly populated",
+  "projectId": "mah-build",
+  "status": "dev",
+  "sprintType": "fullstack",
+  "agentConfig": {
+    "generator": {
+      "agentId": "dev",
+      "agentName": "Devin"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "planId": "plan-mndffiem",
+  "plannerOutput": "The project config already has a repo field, but sprint cards don't surface it and sprint contracts default to '.'. This requires fixing the data flow: ensuring sprint creation inherits the project repo, and that the board card UI shows it. It's primarily a backend/API data-plumbing fix with a minor frontend touch on the card component — best suited for a general-purpose dev.",
+  "agents": {
+    "generator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    },
+    "evaluator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    }
+  },
+  "priorities": {
+    "speed": 2,
+    "quality": 1,
+    "cost": 3
+  },
+  "human": {
+    "checkpoints": [
+      "On completion",
+      "On escalation"
+    ],
+    "notificationChannel": "telegram",
+    "responseTimeoutMinutes": 30,
+    "onTimeout": "proceed"
+  },
+  "devBrief": {
+    "repo": "https://github.com/gregmousseau/mah.git",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [
+    {
+      "id": "ux-quinn",
+      "type": "ux",
+      "name": "Quinn (UX)",
+      "enabled": true,
+      "model": "claude-sonnet-4-5"
+    }
+  ],
+  "iterations": [],
+  "createdAt": "2026-03-30T17:22:57.739Z",
+  "savedAt": "2026-03-30T17:22:58.114Z",
+  "previousId": "377739",
+  "startedAt": "2026-03-30T17:22:58.185Z",
+  "failedAt": "2026-03-30T17:06:20.133Z",
+  "failureReason": "write EPIPE"
+}
