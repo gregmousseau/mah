@@ -8,7 +8,7 @@ import { getAgentWorkspace, getAgentName } from '../lib/agentRegistry.js'
 // Frontend design tiers — like QA tiers but for UI quality
 export type DesignTier = 'quick' | 'polished' | 'impeccable'
 
-const DESIGN_BRIEF_DIR = join(import.meta.dirname ?? __dirname, '..', 'design-briefs')
+const DESIGN_BRIEF_DIR = join(__dirname, '..', 'design-briefs')
 const IMPECCABLE_SKILLS_DIR = '/home/greg/.openclaw/skills/impeccable'
 
 const DESIGN_TIER_PATHS: Record<DesignTier, string[]> = {
