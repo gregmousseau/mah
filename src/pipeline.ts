@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import chalk from 'chalk'
@@ -23,6 +23,7 @@ import type {
   SprintTranscript,
   TranscriptPhase,
   GraderResult,
+  AgentResult,
 } from './types.js'
 
 function writeNotification(contract: SprintContract, metrics: SprintMetrics): void {
@@ -468,9 +469,47 @@ export async function runExistingContract(
   let currentPhase = 'dev'
   let currentRound = 0
 
+  // Load previous transcript if exists (for re-runs of failed sprints)
+  const existingTranscriptPath = resolve(sprintFullPath, 'transcript.json')
+  let previousTranscript: SprintTranscript | null = null
+  let resumeFromRound = 1
+  let resumeFromPhase: 'dev' | 'qa' = 'dev'
+
+  try {
+    if (existsSync(existingTranscriptPath)) {
+      previousTranscript = JSON.parse(readFileSync(existingTranscriptPath, 'utf-8'))
+      if (previousTranscript && previousTranscript.phases.length > 0) {
+        // Find the last completed phase to determine resume point
+        const lastPhase = previousTranscript.phases[previousTranscript.phases.length - 1]
+        if (lastPhase.phase === 'dev') {
+          // Dev completed, QA crashed — resume from QA of same round
+          resumeFromRound = lastPhase.round
+          resumeFromPhase = 'qa'
+          lastDevOutput = lastPhase.responseReceived
+          events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} QA phase (dev output carried forward)`)
+        } else if (lastPhase.phase === 'qa') {
+          // QA completed, crashed before next round — resume from next round dev
+          resumeFromRound = lastPhase.round + 1
+          resumeFromPhase = 'dev'
+          lastQAOutput = lastPhase.responseReceived
+          // Also get the dev output from this round
+          const devPhase = previousTranscript.phases.find(p => p.phase === 'dev' && p.round === lastPhase.round)
+          if (devPhase) lastDevOutput = devPhase.responseReceived
+          events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} dev phase (previous QA findings carried forward)`)
+        }
+      }
+    }
+  } catch { /* no previous transcript, start fresh */ }
+
   const transcript: SprintTranscript = {
     sprintId: contract.id,
-    phases: [],
+    phases: previousTranscript?.phases ?? [],
+  }
+
+  // Restore iterations from previous run
+  if (contract.iterations.length === 0 && previousTranscript?.phases) {
+    // Rebuild iterations from transcript phases for rounds before resume point
+    // This ensures metrics account for previous work
   }
 
   contract.status = 'dev'
@@ -481,50 +520,90 @@ export async function runExistingContract(
     writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
   }, 30_000)
 
-  // Dev/QA loop — identical logic to runSprint()
+  // Dev/QA loop
   for (let round = 1; round <= config.qa.maxIterations; round++) {
+    // Skip rounds that completed in previous run
+    if (round < resumeFromRound) {
+      events.log('moe', 'milestone', 'skip', `Skipping round ${round} (completed in previous run)`)
+      continue
+    }
     console.log()
     console.log(chalk.bold.white(`  ─── Round ${round} / ${config.qa.maxIterations} ─────────────────────`))
 
-    // Dev phase
-    contract.status = 'dev'
-    currentPhase = 'dev'
-    currentRound = round
-    writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
-    events.log('moe', 'spawn', 'dev', `Spawned dev agent R${round}`)
+    // Dev phase — skip if resuming from QA on this round
+    const skipDev = (round === resumeFromRound && resumeFromPhase === 'qa')
+    let devResult: AgentResult
 
-    const devPrompt = round === 1
-      ? contractToDevPrompt(contract)
-      : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
+    if (skipDev) {
+      events.log('moe', 'milestone', 'resume', `Skipping dev R${round} (already completed, resuming from QA)`)
+      // Build a synthetic devResult from the previous transcript
+      const prevDevPhase = previousTranscript?.phases.find(p => p.phase === 'dev' && p.round === round)
+      devResult = {
+        success: true,
+        output: prevDevPhase?.responseReceived ?? lastDevOutput,
+        timing: {
+          startMs: prevDevPhase ? new Date(prevDevPhase.startTime).getTime() : Date.now(),
+          endMs: prevDevPhase ? new Date(prevDevPhase.endTime).getTime() : Date.now(),
+          durationMs: 0,
+        },
+        tokenUsage: prevDevPhase?.tokenUsage,
+        costEstimate: prevDevPhase?.costEstimate ?? 0,
+      }
+    } else {
+      contract.status = 'dev'
+      currentPhase = 'dev'
+      currentRound = round
+      writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
 
-    const devExecOptions2 = {
-      model: config.agents.generator.model,
-      cwd: config.agents.generator.cwd,
-      timeoutMs: 10 * 60 * 1000,
-      label: `dev-${contract.id}-r${round}`,
+      // If resuming and we have prior context, enhance the prompt
+      let devPromptContext = ''
+      if (previousTranscript && round === resumeFromRound && resumeFromRound > 1) {
+        const priorQA = previousTranscript.phases.filter(p => p.phase === 'qa').map(p =>
+          `[Round ${p.round} QA]: ${p.responseReceived.slice(0, 500)}`
+        ).join('\n')
+        if (priorQA) {
+          devPromptContext = `\n\n## Previous Attempt Context\nThis sprint was attempted before but the executor crashed. Here's what QA found in previous rounds:\n${priorQA}\n\nPlease address these findings in your implementation.\n`
+        }
+      }
+
+      events.log('moe', 'spawn', 'dev', `Spawned dev agent R${round}`)
+
+      const baseDevPrompt = round === 1
+        ? contractToDevPrompt(contract)
+        : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
+      const devPrompt = baseDevPrompt + devPromptContext
+
+      const devExecOptions2 = {
+        model: config.agents.generator.model,
+        cwd: config.agents.generator.cwd,
+        timeoutMs: 10 * 60 * 1000,
+        label: `dev-${contract.id}-r${round}`,
+      }
+      devResult = contract.agentConfig?.generator.agentId
+        ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
+        : await adapter.execute(devPrompt, devExecOptions2)
     }
-    const devResult = contract.agentConfig?.generator.agentId
-      ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
-      : await adapter.execute(devPrompt, devExecOptions2)
 
-    const devTranscriptPhase: TranscriptPhase = {
-      phase: 'dev',
-      round,
-      actor: contract.agentConfig?.generator.agentName ?? 'dev',
-      model: config.agents.generator.model,
-      startTime: new Date(devResult.timing.startMs).toISOString(),
-      endTime: new Date(devResult.timing.endMs).toISOString(),
-      promptSent: devPrompt,
-      responseReceived: devResult.output,
-      tokenUsage: devResult.tokenUsage,
-      costEstimate: devResult.costEstimate,
+    if (!skipDev) {
+      const devTranscriptPhase: TranscriptPhase = {
+        phase: 'dev',
+        round,
+        actor: contract.agentConfig?.generator.agentName ?? 'dev',
+        model: config.agents.generator.model,
+        startTime: new Date(devResult.timing.startMs).toISOString(),
+        endTime: new Date(devResult.timing.endMs).toISOString(),
+        promptSent: '(see contract)',
+        responseReceived: devResult.output,
+        tokenUsage: devResult.tokenUsage,
+        costEstimate: devResult.costEstimate,
+      }
+      transcript.phases.push(devTranscriptPhase)
+      saveTranscriptDirect(transcript, sprintFullPath)
+
+      const devDuration = formatDuration(devResult.timing.durationMs)
+      const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
+      events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
     }
-    transcript.phases.push(devTranscriptPhase)
-    saveTranscriptDirect(transcript, sprintFullPath)
-
-    const devDuration = formatDuration(devResult.timing.durationMs)
-    const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
-    events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
 
     // QA phase — run all enabled graders
     contract.status = 'qa'

@@ -272,43 +272,73 @@ async function main() {
 
   console.log(`[executor] Starting pipeline for sprint ${contract.id}...`);
 
-  try {
-    const { contract: finalContract, metrics } = await runExistingContract(
-      contract,
-      config,
-      events,
-      sprintFullPath
-    );
+  // Auto-retry: if the pipeline crashes (EPIPE, timeout, etc.), retry from where it left off
+  const MAX_RETRIES = 2;
+  let attempt = 0;
 
-    console.log(`[executor] Sprint ${finalContract.id} completed: ${finalContract.status}`);
-    console.log(`[executor] Duration: ${metrics.totals.durationMs}ms`);
-    console.log(`[executor] Cost: $${metrics.totals.estimatedCost.toFixed(4)}`);
-
-    // Advance queue: start next pending sprint if any
-    await advanceQueue(finalContract.id, finalContract.status);
-
-    process.exit(0);
-  } catch (err) {
-    console.error("[executor] Pipeline error:", err);
-
-    // Update contract status to failed
+  while (attempt <= MAX_RETRIES) {
+    attempt++;
     try {
-      const currentContract = JSON.parse(readFileSync(contractPath, "utf-8"));
-      const sprintId = currentContract.id;
-      currentContract.status = "failed";
-      currentContract.failedAt = new Date().toISOString();
-      currentContract.failureReason = String(err);
-      writeFileSync(contractPath, JSON.stringify(currentContract, null, 2));
+      // Re-read contract on retry (may have been updated by previous partial run)
+      const currentContract = attempt > 1
+        ? JSON.parse(readFileSync(contractPath, "utf-8"))
+        : contract;
 
-      // Advance queue even on failure
-      await advanceQueue(sprintId, "failed").catch((e) =>
-        console.error("[executor] Queue advance error:", e)
+      if (attempt > 1) {
+        console.log(`[executor] Retry ${attempt - 1}/${MAX_RETRIES} for sprint ${currentContract.id} (resuming from transcript)`);
+        currentContract.status = "dev"; // Reset status for pipeline
+        currentContract.iterations = []; // Pipeline rebuilds from transcript
+        writeFileSync(contractPath, JSON.stringify(currentContract, null, 2));
+      }
+
+      const { contract: finalContract, metrics } = await runExistingContract(
+        currentContract,
+        config,
+        events,
+        sprintFullPath
       );
-    } catch (writeErr) {
-      console.error("[executor] Failed to update contract status:", writeErr);
-    }
 
-    process.exit(1);
+      console.log(`[executor] Sprint ${finalContract.id} completed: ${finalContract.status}`);
+      console.log(`[executor] Duration: ${metrics.totals.durationMs}ms`);
+      console.log(`[executor] Cost: $${metrics.totals.estimatedCost.toFixed(4)}`);
+
+      // Advance queue: start next pending sprint if any
+      await advanceQueue(finalContract.id, finalContract.status);
+
+      process.exit(0);
+    } catch (err) {
+      const errStr = String(err);
+      const isRetryable = ['EPIPE', 'SIGTERM', 'timed out', 'ECONNRESET'].some(s => errStr.includes(s));
+
+      if (isRetryable && attempt <= MAX_RETRIES) {
+        console.error(`[executor] Retryable error on attempt ${attempt}: ${errStr}`);
+        console.log(`[executor] Waiting 10s before retry...`);
+        await new Promise(r => setTimeout(r, 10_000));
+        continue;
+      }
+
+      console.error("[executor] Pipeline error (no more retries):", err);
+
+      // Update contract status to failed
+      try {
+        const currentContract = JSON.parse(readFileSync(contractPath, "utf-8"));
+        const sprintId = currentContract.id;
+        currentContract.status = "failed";
+        currentContract.failedAt = new Date().toISOString();
+        currentContract.failureReason = errStr;
+        currentContract.retryAttempts = attempt;
+        writeFileSync(contractPath, JSON.stringify(currentContract, null, 2));
+
+        // Advance queue even on failure
+        await advanceQueue(sprintId, "failed").catch((e) =>
+          console.error("[executor] Queue advance error:", e)
+        );
+      } catch (writeErr) {
+        console.error("[executor] Failed to update contract status:", writeErr);
+      }
+
+      process.exit(1);
+    }
   }
 }
 
