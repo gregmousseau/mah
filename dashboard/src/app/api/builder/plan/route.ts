@@ -62,6 +62,7 @@ Return ONLY a JSON object (no markdown, no explanation outside the JSON) with th
         "name": "Quinn"
       },
       "suggestedQaTier": "smoke|targeted|full",
+      "suggestedDesignTier": "quick|polished|impeccable (frontend sprints only — quick=fast with theme tokens, polished=full design skill, impeccable=pixel perfect with animations. Default quick unless user asks for quality)",
       "dependencies": ["Name of sprint that must complete first, or empty array"],
       "estimatedComplexity": "low|medium|high"
     }

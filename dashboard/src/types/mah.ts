@@ -132,6 +132,7 @@ export interface SprintPlanItem {
   agent: { id: string; name: string; reason: string };
   evaluator: { id: string; name: string };
   suggestedQaTier: "smoke" | "targeted" | "full";
+  suggestedDesignTier?: "quick" | "polished" | "impeccable";
   dependencies: string[];
   estimatedComplexity: "low" | "medium" | "high";
 }

@@ -5,7 +5,21 @@ import { join } from 'node:path'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
 import { getAgentWorkspace, getAgentName } from '../lib/agentRegistry.js'
 
-const IMPECCABLE_SKILL_PATH = '/home/greg/.openclaw/skills/impeccable/frontend-design/SKILL.md'
+// Frontend design tiers — like QA tiers but for UI quality
+export type DesignTier = 'quick' | 'polished' | 'impeccable'
+
+const DESIGN_BRIEF_DIR = join(import.meta.dirname ?? __dirname, '..', 'design-briefs')
+const IMPECCABLE_SKILLS_DIR = '/home/greg/.openclaw/skills/impeccable'
+
+const DESIGN_TIER_PATHS: Record<DesignTier, string[]> = {
+  quick: [join(DESIGN_BRIEF_DIR, 'quick.md')],
+  polished: [join(IMPECCABLE_SKILLS_DIR, 'frontend-design', 'SKILL.md')],
+  impeccable: [
+    join(IMPECCABLE_SKILLS_DIR, 'frontend-design', 'SKILL.md'),
+    join(IMPECCABLE_SKILLS_DIR, 'polish', 'SKILL.md'),
+    join(IMPECCABLE_SKILLS_DIR, 'animate', 'SKILL.md'),
+  ],
+}
 
 function readFileSafe(path: string): string | null {
   try {
@@ -14,7 +28,16 @@ function readFileSafe(path: string): string | null {
   return null
 }
 
-function buildAgentContext(agentId: string, task: string): string {
+function inferDesignTier(task: string): DesignTier {
+  const lower = task.toLowerCase()
+  const impeccableSignals = ['pixel perfect', 'production-ready', 'flagship', 'impeccable', 'world-class']
+  const polishedSignals = ['make it nice', 'take your time', 'polished', 'high quality', 'beautiful', 'prioritize quality']
+  if (impeccableSignals.some(s => lower.includes(s))) return 'impeccable'
+  if (polishedSignals.some(s => lower.includes(s))) return 'polished'
+  return 'quick'
+}
+
+function buildAgentContext(agentId: string, task: string, designTier?: DesignTier): string {
   const workspace = getAgentWorkspace(agentId)
   const agentName = getAgentName(agentId) || agentId
 
@@ -27,11 +50,14 @@ function buildAgentContext(agentId: string, task: string): string {
 
   let context = `You are ${agentName}. ${soul}\n\n---\n\nTask:\n${task}`
 
-  // For Frankie: also load Impeccable frontend-design skill
+  // For Frankie: load design brief based on tier
   if (agentId === 'frontend-dev') {
-    const impeccable = readFileSafe(IMPECCABLE_SKILL_PATH)
-    if (impeccable) {
-      context = `You are ${agentName}. ${soul}\n\n---\n\n## Impeccable Frontend Design Skill\n\n${impeccable}\n\n---\n\nTask:\n${task}`
+    const tier = designTier || inferDesignTier(task)
+    const paths = DESIGN_TIER_PATHS[tier]
+    const briefs = paths.map(p => readFileSafe(p)).filter(Boolean)
+    if (briefs.length > 0) {
+      const tierLabel = tier === 'quick' ? 'Quick' : tier === 'polished' ? 'Polished' : 'Impeccable'
+      context = `You are ${agentName}. ${soul}\n\n---\n\n## Design Brief (${tierLabel} tier)\n\n${briefs.join('\n\n---\n\n')}\n\n---\n\nTask:\n${task}`
     }
   }
 
@@ -86,8 +112,8 @@ export class OpenClawAdapter implements AgentAdapter {
    * Execute a task with an agent's SOUL.md prepended as context.
    * Falls back to plain execute() if the agent workspace doesn't exist.
    */
-  async executeWithAgent(task: string, agentId: string, options: ExecuteOptions): Promise<AgentResult> {
-    const enrichedTask = buildAgentContext(agentId, task)
+  async executeWithAgent(task: string, agentId: string, options: ExecuteOptions & { designTier?: DesignTier } = {}): Promise<AgentResult> {
+    const enrichedTask = buildAgentContext(agentId, task, options.designTier)
     return this.execute(enrichedTask, options)
   }
 
