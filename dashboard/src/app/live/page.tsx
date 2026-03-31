@@ -26,17 +26,17 @@ interface QueueEntry {
 function actorColor(actor: string): string {
   switch (actor) {
     case "dev": return "#3b82f6";
-    case "quinn": return "#a855f7";
+    case "quinn": return "#fb923c";
     case "moe": return "#22c55e";
-    case "system": return "#888898";
-    default: return "#888898";
+    case "system": return "#9ca3af";
+    default: return "#9ca3af";
   }
 }
 
 function actorBorderColor(actor: string): string {
   switch (actor) {
     case "dev": return "rgba(59,130,246,0.5)";
-    case "quinn": return "rgba(168,85,247,0.5)";
+    case "quinn": return "rgba(20,184,166,0.5)";
     case "moe": return "rgba(34,197,94,0.5)";
     case "system": return "rgba(136,136,152,0.3)";
     default: return "rgba(136,136,152,0.3)";
@@ -100,10 +100,10 @@ function HeartbeatStatus({ heartbeat }: { heartbeat: Heartbeat | null }) {
   let cls = "hb-green";
 
   if (age > 180) { color = "#ef4444"; label = "Agent may be stuck"; cls = "hb-red"; }
-  else if (age > 60) { color = "#f59e0b"; label = "Agent slow"; cls = "hb-yellow"; }
+  else if (age > 60) { color = "#eab308"; label = "Agent slow"; cls = "hb-yellow"; }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#888898" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#9ca3af" }}>
       <div className={cls} style={{ width: "7px", height: "7px", borderRadius: "50%", background: color, flexShrink: 0 }} />
       <span>{label}</span>
       {heartbeat.phase && (
@@ -196,7 +196,7 @@ export default function LivePage() {
     <div style={{ padding: "32px", maxWidth: "900px" }}>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>Live</h1>
-        <div style={{ fontSize: "13px", color: "#888898" }}>Mission control · auto-updates every 3–5s</div>
+        <div style={{ fontSize: "13px", color: "#9ca3af" }}>Mission control · auto-updates every 3–5s</div>
       </div>
 
       {/* ─── RUNNING STATE ─── */}
@@ -204,25 +204,25 @@ export default function LivePage() {
         <>
           {/* Sprint name banner */}
           <div style={{
-            background: "rgba(124,58,237,0.1)",
-            border: "1px solid rgba(168,85,247,0.4)",
+            background: "rgba(20,184,166,0.1)",
+            border: "1px solid rgba(20,184,166,0.4)",
             borderRadius: "12px",
             padding: "20px 24px",
             marginBottom: "16px",
           }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <div className="dot-pulse" style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />
+                <div className="dot-pulse" style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#fb923c", flexShrink: 0 }} />
                 <div>
                   <div style={{ fontSize: "18px", fontWeight: 700, color: "#e0e0e8", marginBottom: "4px" }}>
                     {activeSprint.name}
                   </div>
-                  <div style={{ fontSize: "12px", color: "#888898", display: "flex", gap: "14px", flexWrap: "wrap" }}>
-                    <span style={{ color: "#a855f7", fontWeight: 600, textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.06em" }}>
+                  <div style={{ fontSize: "12px", color: "#9ca3af", display: "flex", gap: "14px", flexWrap: "wrap" }}>
+                    <span style={{ color: "#fb923c", fontWeight: 600, textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.06em" }}>
                       RUNNING
                     </span>
                     {heartbeat?.phase && (
-                      <span>Phase: <span style={{ color: heartbeat.phase === "dev" ? "#3b82f6" : "#a855f7" }}>{heartbeat.phase}</span> · Round {heartbeat.round}</span>
+                      <span>Phase: <span style={{ color: heartbeat.phase === "dev" ? "#3b82f6" : "#fb923c" }}>{heartbeat.phase}</span> · Round {heartbeat.round}</span>
                     )}
                     {heartbeat?.lastUpdate && (
                       <span>Running for: <ElapsedTime startMs={activeSprint.createdAt ? new Date(activeSprint.createdAt).getTime() : Date.now()} /></span>
@@ -232,7 +232,7 @@ export default function LivePage() {
               </div>
               <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                 {runningCost > 0 && (
-                  <div style={{ fontSize: "13px", color: "#7c3aed", fontWeight: 600, background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.25)", borderRadius: "6px", padding: "4px 10px" }}>
+                  <div style={{ fontSize: "13px", color: "#fb923c", fontWeight: 600, background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.25)", borderRadius: "6px", padding: "4px 10px" }}>
                     💰 ${runningCost.toFixed(3)}
                   </div>
                 )}
@@ -259,8 +259,8 @@ export default function LivePage() {
 
           {/* Grader progress */}
           <div style={{
-            background: "#141420",
-            border: "1px solid #2a2a3a",
+            background: "#0f1116",
+            border: "1px solid #1c1d26",
             borderRadius: "10px",
             padding: "14px 20px",
             marginBottom: "16px",
@@ -273,10 +273,10 @@ export default function LivePage() {
               <div key={g.name} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}>
                 <div style={{
                   width: "6px", height: "6px", borderRadius: "50%",
-                  background: g.status === "Running" ? "#a855f7" : "#333345",
+                  background: g.status === "Running" ? "#fb923c" : "#333345",
                 }} className={g.status === "Running" ? "dot-pulse" : ""} />
-                <span style={{ color: "#888898" }}>{g.name}:</span>
-                <span style={{ color: g.status === "Running" ? "#a855f7" : "#555565" }}>{g.status}</span>
+                <span style={{ color: "#9ca3af" }}>{g.name}:</span>
+                <span style={{ color: g.status === "Running" ? "#fb923c" : "#555565" }}>{g.status}</span>
               </div>
             ))}
             <div style={{ marginLeft: "auto" }}>
@@ -287,14 +287,14 @@ export default function LivePage() {
       ) : isActive && heartbeat?.alive ? (
         /* ─── HEARTBEAT-ONLY RUNNING STATE (activeSprint not loaded yet) ─── */
         <div style={{
-          background: "rgba(124,58,237,0.1)",
-          border: "1px solid rgba(168,85,247,0.4)",
+          background: "rgba(20,184,166,0.1)",
+          border: "1px solid rgba(20,184,166,0.4)",
           borderRadius: "12px",
           padding: "20px 24px",
           marginBottom: "16px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <div className="dot-pulse" style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />
+            <div className="dot-pulse" style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#fb923c", flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: "16px", fontWeight: 700, color: "#e0e0e8", marginBottom: "4px" }}>
                 {heartbeat.sprintName
@@ -303,10 +303,10 @@ export default function LivePage() {
                   ? `Sprint #${heartbeat.sprintId}`
                   : "Sprint Running"}
               </div>
-              <div style={{ fontSize: "12px", color: "#888898", display: "flex", gap: "14px", flexWrap: "wrap" }}>
-                <span style={{ color: "#a855f7", fontWeight: 600, textTransform: "uppercase", fontSize: "11px" }}>RUNNING</span>
+              <div style={{ fontSize: "12px", color: "#9ca3af", display: "flex", gap: "14px", flexWrap: "wrap" }}>
+                <span style={{ color: "#fb923c", fontWeight: 600, textTransform: "uppercase", fontSize: "11px" }}>RUNNING</span>
                 {heartbeat.phase && (
-                  <span>Phase: <span style={{ color: heartbeat.phase === "dev" ? "#3b82f6" : "#a855f7" }}>{heartbeat.phase}</span> · Round {heartbeat.round}</span>
+                  <span>Phase: <span style={{ color: heartbeat.phase === "dev" ? "#3b82f6" : "#fb923c" }}>{heartbeat.phase}</span> · Round {heartbeat.round}</span>
                 )}
               </div>
             </div>
@@ -315,10 +315,10 @@ export default function LivePage() {
                 href={`/sprints/${heartbeat.sprintId}`}
                 style={{
                   padding: "7px 14px",
-                  background: "rgba(168,85,247,0.1)",
-                  border: "1px solid rgba(168,85,247,0.3)",
+                  background: "rgba(20,184,166,0.1)",
+                  border: "1px solid rgba(20,184,166,0.3)",
                   borderRadius: "7px",
-                  color: "#a855f7",
+                  color: "#fb923c",
                   textDecoration: "none",
                   fontSize: "13px",
                   fontWeight: 500,
@@ -335,8 +335,8 @@ export default function LivePage() {
       ) : queuedSprints.length > 0 ? (
         /* ─── QUEUE STATE ─── */
         <div style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "#0f1116",
+          border: "1px solid #1c1d26",
           borderRadius: "12px",
           padding: "20px 24px",
           marginBottom: "16px",
@@ -354,7 +354,7 @@ export default function LivePage() {
               onClick={handleStartNext}
               style={{
                 padding: "10px 20px",
-                background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                background: "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)",
                 border: "none",
                 borderRadius: "8px",
                 color: "white",
@@ -367,11 +367,11 @@ export default function LivePage() {
             </button>
           </div>
           {queuedSprints.length > 1 && (
-            <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #2a2a3a" }}>
+            <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #1c1d26" }}>
               <div style={{ fontSize: "11px", color: "#555565", marginBottom: "8px" }}>Queue ({queuedSprints.length} items)</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 {queuedSprints.map((q, i) => (
-                  <div key={q.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#888898" }}>
+                  <div key={q.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#9ca3af" }}>
                     <span style={{ fontSize: "11px", color: "#555565" }}>#{i + 1}</span>
                     <span style={{ color: "#e0e0e8" }}>{q.name}</span>
                     <span style={{ fontSize: "10px", color: "#555565" }}>{q.status}</span>
@@ -384,8 +384,8 @@ export default function LivePage() {
       ) : (
         /* ─── IDLE STATE ─── */
         <div style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "#0f1116",
+          border: "1px solid #1c1d26",
           borderRadius: "12px",
           padding: "24px",
           marginBottom: "16px",
@@ -393,7 +393,7 @@ export default function LivePage() {
         }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>✨</div>
           <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>Ready for sprints</div>
-          <div style={{ fontSize: "13px", color: "#888898", marginBottom: "20px" }}>MAH is idle. No active or queued sprints.</div>
+          <div style={{ fontSize: "13px", color: "#9ca3af", marginBottom: "20px" }}>MAH is idle. No active or queued sprints.</div>
           <Link
             href="/builder"
             style={{
@@ -401,7 +401,7 @@ export default function LivePage() {
               alignItems: "center",
               gap: "8px",
               padding: "10px 20px",
-              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+              background: "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)",
               borderRadius: "8px",
               textDecoration: "none",
               color: "white",
@@ -412,7 +412,7 @@ export default function LivePage() {
             🚀 Create a Sprint
           </Link>
           {recentCompleted.length > 0 && (
-            <div style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid #2a2a3a", textAlign: "left" }}>
+            <div style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid #1c1d26", textAlign: "left" }}>
               <div style={{ fontSize: "12px", color: "#555565", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>Recent Completions</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 {recentCompleted.map((s) => (
@@ -425,7 +425,7 @@ export default function LivePage() {
                       justifyContent: "space-between",
                       padding: "8px 12px",
                       background: "#0d0d18",
-                      border: "1px solid #2a2a3a",
+                      border: "1px solid #1c1d26",
                       borderRadius: "8px",
                       textDecoration: "none",
                       gap: "8px",
@@ -451,10 +451,10 @@ export default function LivePage() {
       )}
 
       {/* Event stream */}
-      <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", overflow: "hidden" }}>
+      <div style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", overflow: "hidden" }}>
         <div style={{
           padding: "12px 20px",
-          borderBottom: "1px solid #2a2a3a",
+          borderBottom: "1px solid #1c1d26",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -473,7 +473,7 @@ export default function LivePage() {
               }}>LIVE</span>
             )}
           </div>
-          <div style={{ fontSize: "11px", color: "#888898" }}>
+          <div style={{ fontSize: "11px", color: "#9ca3af" }}>
             {sortedEvents.length} events · newest first
           </div>
         </div>
@@ -481,12 +481,12 @@ export default function LivePage() {
         {sortedEvents.length === 0 ? (
           <div style={{ padding: "40px", textAlign: "center" }}>
             <div style={{ fontSize: "28px", marginBottom: "10px" }}>📡</div>
-            <div style={{ fontSize: "14px", color: "#888898", marginBottom: "6px" }}>Waiting for events...</div>
+            <div style={{ fontSize: "14px", color: "#9ca3af", marginBottom: "6px" }}>Waiting for events...</div>
             <div style={{ fontSize: "12px", color: "#555565" }}>
               Start a sprint from the{" "}
-              <Link href="/builder" style={{ color: "#a855f7", textDecoration: "none" }}>Builder</Link>
+              <Link href="/builder" style={{ color: "#fb923c", textDecoration: "none" }}>Builder</Link>
               {" "}or run{" "}
-              <code style={{ background: "#0d0d18", padding: "1px 5px", borderRadius: "4px", color: "#a855f7" }}>mah run</code>
+              <code style={{ background: "#0d0d18", padding: "1px 5px", borderRadius: "4px", color: "#fb923c" }}>mah run</code>
             </div>
           </div>
         ) : (
@@ -523,7 +523,7 @@ export default function LivePage() {
                       <span style={{ fontSize: "13px", color: "#e0e0e8", lineHeight: 1.4 }}>{event.summary}</span>
                     </div>
                     {event.detail && (
-                      <div style={{ fontSize: "12px", color: "#888898", marginTop: "3px", marginLeft: "20px", lineHeight: 1.4 }}>
+                      <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "3px", marginLeft: "20px", lineHeight: 1.4 }}>
                         {event.detail}
                       </div>
                     )}
@@ -532,9 +532,9 @@ export default function LivePage() {
                     <span style={{
                       fontSize: "10px",
                       fontWeight: 600,
-                      color: event.phase === "dev" ? "#3b82f6" : event.phase === "qa" ? "#a855f7" : "#555565",
-                      background: event.phase === "dev" ? "rgba(59,130,246,0.1)" : event.phase === "qa" ? "rgba(168,85,247,0.1)" : "rgba(136,136,152,0.06)",
-                      border: `1px solid ${event.phase === "dev" ? "rgba(59,130,246,0.25)" : event.phase === "qa" ? "rgba(168,85,247,0.25)" : "rgba(136,136,152,0.15)"}`,
+                      color: event.phase === "dev" ? "#3b82f6" : event.phase === "qa" ? "#fb923c" : "#555565",
+                      background: event.phase === "dev" ? "rgba(59,130,246,0.1)" : event.phase === "qa" ? "rgba(20,184,166,0.1)" : "rgba(136,136,152,0.06)",
+                      border: `1px solid ${event.phase === "dev" ? "rgba(59,130,246,0.25)" : event.phase === "qa" ? "rgba(20,184,166,0.25)" : "rgba(136,136,152,0.15)"}`,
                       borderRadius: "4px",
                       padding: "1px 5px",
                       letterSpacing: "0.05em",
@@ -558,7 +558,7 @@ export default function LivePage() {
           { actor: "moe", label: "Moe (orchestrator)" },
           { actor: "system", label: "System" },
         ].map(({ actor, label }) => (
-          <div key={actor} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#888898" }}>
+          <div key={actor} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#9ca3af" }}>
             <div style={{ width: "3px", height: "14px", borderRadius: "2px", background: actorBorderColor(actor) }} />
             <span style={{ color: actorColor(actor) }}>{actor}</span>
             <span>{label}</span>

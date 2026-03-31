@@ -1,0 +1,65 @@
+{
+  "sprintId": "025",
+  "projectName": "MAH Build",
+  "task": "Enhance the KanBan board (src/app/board/page.tsx) to support the full sprint lifecycle:\n\n1. **Card Creation** — Add a '+ New Card' button at the top or bottom of the Draft column. Clicking opens an inline form (or modal) with fields: name, task description, project selector. On save, POST to /api/board/create-draft and add the card to the Draft column.\n\n2. **Inline Card Actions** — Add contextual action buttons to cards based on their column/status:\n   - **Draft cards**: 'Plan' button (calls /api/board/plan-sprint to get agent assignment + refined plan), 'Edit' button (inline edit name/task), 'Delete' button\n   - **Planned cards**: 'Negotiate Contract' button (calls /api/builder/negotiate), shows agent assignment badge\n   - **Approved cards**: 'Run Now' button (calls /api/sprints/run), 'Schedule' button (date picker → calls /api/sprints/run with scheduledFor)\n   - Running/Passed/Failed cards: keep existing behavior (link to detail page)\n\n3. **New/Updated Columns** — Reorganize columns to match the lifecycle flow:\n   - Draft (gray) → Planned (blue) → Approved/Negotiated (gold) → Queued (blue) → Running (orange) → Passed (green) / Failed (red)\n   - The 'Planned' column holds sprints that have been through the planner but not yet negotiated\n   - The 'Approved' column holds sprints with negotiated contracts ready to run\n\n4. **Visual Polish** — Card action buttons should be subtle (icon buttons or small text) that appear on hover. Use existing theme colors and patterns from globals.css. Add a subtle loading state on cards when an action is in progress. Toast notifications for success/error.\n\n5. **Auto-refresh** — After any action (create, plan, negotiate, run), refetch the board data so cards move between columns automatically.\n\nReference the existing board page for column styling, the builder page for the negotiate/plan API call patterns, and the Toast component for notifications.",
+  "startTime": "2026-03-30T15:38:25.711Z",
+  "endTime": "2026-03-30T15:59:47.361Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 567760,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.008223
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 263645,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.029141999999999998
+    },
+    {
+      "phase": "dev",
+      "round": 2,
+      "durationMs": 215994,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.040362
+    },
+    {
+      "phase": "qa",
+      "round": 2,
+      "durationMs": 233646,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.028983
+    }
+  ],
+  "totals": {
+    "durationMs": 1281650,
+    "estimatedCost": 0.10670999999999999,
+    "iterations": 2,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 2,
+      "p1": 4,
+      "p2": 3,
+      "p3": 1
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 2,
+      "p1": 4,
+      "p2": 3,
+      "p3": 1
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}

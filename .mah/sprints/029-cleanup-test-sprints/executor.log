@@ -1,0 +1,15 @@
+[executor] Running sprint: Cleanup Test sprints (029)
+[executor] Working directory: /home/greg/clawd/projects/mah
+[executor] Loaded project config: /home/greg/clawd/projects/mah/.mah/projects/mah-build.json
+[executor] Starting pipeline for sprint 029...
+  🏁 moe    [contract] Starting sprint: Cleanup Test sprints
+  🏁 moe    [contract] Sprint ID: 029
+
+  ─── Round 1 / 3 ─────────────────────
+  🚀 moe    [dev] Spawned dev agent R1
+  📄 dev    [dev] R1 complete (202ms / $0.0053)
+  🏁 system [metrics] Sprint PASSED in 1 iteration(s) [all graders passed]
+[executor] Sprint 029 completed: passed
+[executor] Duration: 193091ms
+[executor] Cost: $0.0053
+[executor] Queue empty — no next sprint to start

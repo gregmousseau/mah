@@ -1,0 +1,79 @@
+{
+  "sprintId": "026",
+  "projectName": "MAH Build",
+  "task": "Two related issues to fix:\n\n## 1. Debug & fix 'Failed to negotiate contract' from board\n\nWhen clicking Negotiate on a planned card in the board (src/app/board/page.tsx handleNegotiate ~line 838), it calls /api/builder/negotiate but fails. The negotiate API (src/app/api/builder/negotiate/route.ts) spawns `claude --print` which may fail if already inside a Claude session. Investigate:\n- Check if the runClaude spawn is failing (CLAUDECODE env issue, path issue, timeout)\n- Compare the payload shape the board sends vs what the builder sends — the builder sends the full DraftSprint object while the board constructs a partial one\n- Add better error logging so the actual failure reason surfaces in the toast (not just generic 'Failed to negotiate contract')\n- Fix whatever is causing the failure\n\n## 2. Add fallback: load planned cards into builder Review page\n\nWhen a card is in 'planned' status on the board, add an option to open it in the builder's Review (Step 2) page where negotiation is known to work:\n- Add a button/link on planned cards in the board that navigates to /builder with the sprint pre-loaded at Step 2\n- The builder page (src/app/builder/page.tsx) needs to accept a query param like ?sprintId=draft-xxx to load an existing planned sprint into its Review step\n- Fetch the contract from /api/sprints/{id}, convert it to the builder's DraftSprint format, and set step=2\n- This gives users a reliable fallback when board-inline negotiation has issues\n\n## Testing note\nYou can test with card '#draft-mnddo59z-k6ifk'. However, be careful not to actually kick off a sprint. If you need to test the negotiate call, schedule it 1 hour in the future rather than running immediately. The contract is at ../.mah/sprints/draft-mnddo59z-k6ifk/contract.json\n\n## Key files\n- src/app/board/page.tsx (handleNegotiate, card actions for planned status)\n- src/app/builder/page.tsx (negotiate flow, step management, DraftSprint type)\n- src/app/api/builder/negotiate/route.ts (negotiate API)\n- src/app/api/sprints/[id]/route.ts (contract fetch)\n- src/types/mah.ts (SprintContract type)",
+  "startTime": "2026-03-30T16:21:21.685Z",
+  "endTime": "2026-03-30T16:37:17.623Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 264839,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.023628000000000003
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 226486,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.030338999999999998
+    },
+    {
+      "phase": "dev",
+      "round": 2,
+      "durationMs": 122320,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.032094
+    },
+    {
+      "phase": "qa",
+      "round": 2,
+      "durationMs": 105410,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.026361
+    },
+    {
+      "phase": "dev",
+      "round": 3,
+      "durationMs": 17389,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.014442
+    },
+    {
+      "phase": "qa",
+      "round": 3,
+      "durationMs": 218959,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.021084
+    }
+  ],
+  "totals": {
+    "durationMs": 955938,
+    "estimatedCost": 0.147948,
+    "iterations": 3,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 2,
+      "p2": 1,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 2,
+      "p2": 1,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}

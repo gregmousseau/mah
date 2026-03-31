@@ -1,0 +1,65 @@
+{
+  "sprintId": "019",
+  "projectName": "MAH Build",
+  "task": "Replace the minimal Agent Config section on the main dashboard page (src/app/page.tsx lines 529-552) with a rich, production-grade agent management panel. Import agents from the new centralized registry (src/lib/agents.ts) and the GET /api/agents endpoint.\n\n1. **Agent Cards Grid**: Display all 5 agents as styled cards in a responsive grid. Each card shows:\n   - Agent avatar/icon with their color accent\n   - Name and role tagline\n   - Platform badge (openclaw/claude-code/codex)\n   - Skills as small pill tags\n   - Context folders count/indicator\n   - Status indicator (active/configured)\n   - isEvaluator badge for Quinn\n\n2. **Agent Detail Expand**: Clicking a card expands or opens a detail panel showing full description, skills list, context folders, workspace path, and platform details. This is read-only — editing happens via sprints.\n\n3. **Add Agent Button**: A prominent '+ Add Agent' button that opens a minimal form/modal collecting: name, description, platform (dropdown: openclaw/claude-code/codex), optional skills, optional context folders. On submit, POST to /api/agents which creates the agent AND auto-creates a sprint to fully configure it. Show a toast/notification confirming the sprint was created.\n\n4. **Visual polish**: Match the existing dark theme (#141420 backgrounds, #2a2a3a borders, purple accents). Use smooth transitions, hover states, and the same design language as the rest of the dashboard. Make it look premium.\n\n5. Keep the section title 'Agent Config' but make it feel like a proper management panel, not just a config dump.",
+  "startTime": "2026-03-29T21:36:47.178Z",
+  "endTime": "2026-03-30T03:19:06.136Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 2,
+      "durationMs": 0,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.012795
+    },
+    {
+      "phase": "qa",
+      "round": 2,
+      "durationMs": 546208,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0
+    },
+    {
+      "phase": "dev",
+      "round": 3,
+      "durationMs": 548806,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0
+    },
+    {
+      "phase": "qa",
+      "round": 3,
+      "durationMs": 306916,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.016056
+    }
+  ],
+  "totals": {
+    "durationMs": 20538958,
+    "estimatedCost": 0.028851,
+    "iterations": 2,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 1
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 1
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r3"
+}

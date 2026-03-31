@@ -1,0 +1,38 @@
+{
+  "id": "draft-mndbdvtr-yim0e",
+  "name": "Test Draft QA",
+  "task": "Test task description for QA",
+  "status": "planned",
+  "sprintType": "code",
+  "devBrief": {
+    "repo": ".",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [],
+  "createdAt": "2026-03-30T14:59:47.680Z",
+  "agentConfig": {
+    "generator": {
+      "agentId": "dev",
+      "agentName": "Devin"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "plannerOutput": "This is a generic test task with no specific frontend, research, or content requirements. Devin as the general-purpose developer is the best fit for an unspecified test task.",
+  "estimatedComplexity": "low",
+  "suggestedDesignTier": "quick",
+  "updatedAt": "2026-03-30T15:49:24.000Z"
+}

@@ -1,17 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0a0f;
-  --card: #141420;
-  --border: #2a2a3a;
-  --text: #e0e0e8;
-  --text-muted: #888898;
-  --accent: #7c3aed;
+  --bg: #0a0a0e;
+  --card: #0f1116;
+  --card-elevated: #14151b;
+  --border: #1c1d26;
+  --border-hover: #26272f;
+  --text: #eff1f5;
+  --text-muted: #9ca3af;
+  --accent: #fb923c;
+  --accent-hover: #f97316;
+  --accent-glow: rgba(251, 146, 60, 0.12);
+  --secondary: #10b981;
   --success: #22c55e;
   --fail: #ef4444;
-  --warning: #f59e0b;
+  --warning: #eab308;
   --dev: #3b82f6;
-  --qa: #a855f7;
+  --qa: #10b981;
 }
 
 * {
@@ -21,37 +26,59 @@
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   margin: 0;
   padding: 0;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Hover interactions */
 .nav-link:hover {
-  background: rgba(124, 58, 237, 0.1) !important;
-  color: #e0e0e8 !important;
+  background: var(--accent-glow) !important;
+  color: var(--text) !important;
+}
+
+.metrics-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .metrics-card:hover {
-  border-color: #3a3a4a !important;
-  background: #181828 !important;
+  border-color: var(--border-hover) !important;
+  background: var(--card-elevated) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sprint-link {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .sprint-link:hover {
-  border-color: #3a3a4a !important;
+  border-color: var(--border-hover) !important;
+  background: var(--card-elevated) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
 .sprint-row:hover {
-  background: rgba(255, 255, 255, 0.02) !important;
+  background: rgba(251, 146, 60, 0.03) !important;
 }
 
 .project-card:hover {
-  border-color: #3a3a4a !important;
-  transform: translateY(-1px);
+  border-color: var(--accent) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(251, 146, 60, 0.12);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .project-mini-card:hover {
-  border-color: #3a3a4a !important;
+  border-color: var(--border-hover) !important;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
 }
 
 /* ── Animations ───────────────────────────────── */
@@ -61,8 +88,8 @@ body {
 }
 
 @keyframes dotPulse {
-  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); }
-  50% { opacity: 0.7; transform: scale(1.15); box-shadow: 0 0 0 4px rgba(168, 85, 247, 0); }
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.4); }
+  50% { opacity: 0.7; transform: scale(1.15); box-shadow: 0 0 0 4px rgba(251, 146, 60, 0); }
 }
 
 @keyframes hbGreen {
@@ -86,8 +113,8 @@ body {
 }
 
 @keyframes phasePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.5); }
-  50% { box-shadow: 0 0 0 6px rgba(168, 85, 247, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(251, 146, 60, 0); }
 }
 
 .dot-pulse {
@@ -121,7 +148,7 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #141420 25%, #1e1e30 50%, #141420 75%) !important;
+  background: linear-gradient(90deg, var(--card) 25%, var(--card-elevated) 50%, var(--card) 75%) !important;
   background-size: 200% 100% !important;
   animation: shimmer 1.5s infinite !important;
 }
@@ -192,5 +219,5 @@ body {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a4a;
+  background: var(--border-hover);
 }

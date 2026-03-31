@@ -16,8 +16,8 @@ function formatDate(iso: string) {
 }
 
 function getProjectAccent(id: string): string {
-  if (id === "w-construction") return "#f59e0b";
-  if (id === "mah-build") return "#a855f7";
+  if (id === "w-construction") return "#eab308";
+  if (id === "mah-build") return "#fb923c";
   const hash = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   return `hsl(${hash % 360}, 70%, 65%)`;
 }
@@ -36,11 +36,11 @@ export default function ProjectDetailPage() {
   if (loading && !data) {
     return (
       <div style={{ padding: "32px", maxWidth: "900px" }}>
-        <div style={{ height: "14px", width: "200px", background: "#141420", borderRadius: "4px", marginBottom: "24px" }} className="skeleton" />
-        <div style={{ height: "32px", width: "300px", background: "#141420", borderRadius: "6px", marginBottom: "32px" }} className="skeleton" />
+        <div style={{ height: "14px", width: "200px", background: "#0f1116", borderRadius: "4px", marginBottom: "24px" }} className="skeleton" />
+        <div style={{ height: "32px", width: "300px", background: "#0f1116", borderRadius: "6px", marginBottom: "32px" }} className="skeleton" />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "28px" }}>
           {[0,1,2,3].map(i => (
-            <div key={i} style={{ height: "76px", background: "#141420", borderRadius: "10px" }} className="skeleton" />
+            <div key={i} style={{ height: "76px", background: "#0f1116", borderRadius: "10px" }} className="skeleton" />
           ))}
         </div>
       </div>
@@ -50,7 +50,7 @@ export default function ProjectDetailPage() {
   if (error || !data) {
     return (
       <div style={{ padding: "32px" }}>
-        <Link href="/projects" style={{ color: "#7c3aed", textDecoration: "none", fontSize: "13px" }}>← Back to Projects</Link>
+        <Link href="/projects" style={{ color: "#fb923c", textDecoration: "none", fontSize: "13px" }}>← Back to Projects</Link>
         <div style={{ marginTop: "24px", color: "#ef4444", fontSize: "14px" }}>Project not found.</div>
       </div>
     );
@@ -62,16 +62,16 @@ export default function ProjectDetailPage() {
   return (
     <div style={{ padding: "32px", maxWidth: "900px" }}>
       {/* Breadcrumb */}
-      <div style={{ marginBottom: "24px", fontSize: "13px", color: "#888898" }}>
-        <Link href="/projects" style={{ color: "#7c3aed", textDecoration: "none" }}>Projects</Link>
+      <div style={{ marginBottom: "24px", fontSize: "13px", color: "#9ca3af" }}>
+        <Link href="/projects" style={{ color: "#fb923c", textDecoration: "none" }}>Projects</Link>
         <span style={{ margin: "0 8px" }}>→</span>
         <span style={{ color: accent }}>{data.name}</span>
       </div>
 
       {/* Header */}
       <div style={{
-        background: "#141420",
-        border: "1px solid #2a2a3a",
+        background: "#0f1116",
+        border: "1px solid #1c1d26",
         borderRadius: "14px",
         padding: "28px",
         marginBottom: "24px",
@@ -93,7 +93,7 @@ export default function ProjectDetailPage() {
             {data.name}
           </h1>
           {data.description && (
-            <p style={{ margin: "0 0 12px", fontSize: "14px", color: "#888898", lineHeight: 1.5 }}>
+            <p style={{ margin: "0 0 12px", fontSize: "14px", color: "#9ca3af", lineHeight: 1.5 }}>
               {data.description}
             </p>
           )}
@@ -101,7 +101,7 @@ export default function ProjectDetailPage() {
             {data.repo && (
               <span>
                 Repo:{" "}
-                <code style={{ background: "#0d0d18", padding: "1px 6px", borderRadius: "4px", color: "#888898" }}>
+                <code style={{ background: "#0d0d18", padding: "1px 6px", borderRadius: "4px", color: "#9ca3af" }}>
                   {data.repo}
                 </code>
               </span>
@@ -123,13 +123,13 @@ export default function ProjectDetailPage() {
             <div
               key={label}
               style={{
-                background: "#141420",
-                border: "1px solid #2a2a3a",
+                background: "#0f1116",
+                border: "1px solid #1c1d26",
                 borderRadius: "10px",
                 padding: "16px 18px",
               }}
             >
-              <div style={{ fontSize: "11px", color: "#888898", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+              <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
               <div style={{ fontSize: "26px", fontWeight: 700, color }}>{value}</div>
             </div>
           ))}
@@ -142,26 +142,26 @@ export default function ProjectDetailPage() {
 
         {(!data.sprints || data.sprints.length === 0) ? (
           <div style={{
-            background: "#141420",
-            border: "1px solid #2a2a3a",
+            background: "#0f1116",
+            border: "1px solid #1c1d26",
             borderRadius: "12px",
             padding: "32px",
             textAlign: "center",
-            color: "#888898",
+            color: "#9ca3af",
             fontSize: "14px",
           }}>
             No sprints in this project yet.
           </div>
         ) : (
-          <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", overflow: "hidden" }}>
+          <div style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", overflow: "hidden" }}>
             <div style={{
               display: "grid",
               gridTemplateColumns: "60px 1fr 120px 80px 80px 100px",
               gap: "16px",
               padding: "10px 20px",
-              borderBottom: "1px solid #2a2a3a",
+              borderBottom: "1px solid #1c1d26",
               fontSize: "11px",
-              color: "#888898",
+              color: "#9ca3af",
               fontWeight: 600,
               letterSpacing: "0.05em",
               textTransform: "uppercase",
@@ -191,9 +191,9 @@ export default function ProjectDetailPage() {
                 }}
                 className="sprint-row"
               >
-                <div style={{ fontSize: "12px", color: "#888898", fontFamily: "monospace" }}>#{sprint.id}</div>
+                <div style={{ fontSize: "12px", color: "#9ca3af", fontFamily: "monospace" }}>#{sprint.id}</div>
                 <div style={{ fontSize: "13px", fontWeight: 500, color: "#e0e0e8" }}>{sprint.name}</div>
-                <div style={{ fontSize: "12px", color: "#888898" }}>
+                <div style={{ fontSize: "12px", color: "#9ca3af" }}>
                   {sprint.createdAt ? formatDate(sprint.createdAt) : "—"}
                 </div>
                 <div style={{ fontSize: "13px", color: "#e0e0e8", textAlign: "center" }}>{sprint.iterations || "—"}</div>
@@ -207,12 +207,12 @@ export default function ProjectDetailPage() {
 
       {/* Project config */}
       {data.config && (
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
+        <div style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", padding: "24px" }}>
           <h2 style={{ margin: "0 0 16px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Project Config</h2>
           <pre style={{
             margin: 0,
             fontSize: "12px",
-            color: "#888898",
+            color: "#9ca3af",
             background: "#0d0d18",
             borderRadius: "8px",
             padding: "16px",

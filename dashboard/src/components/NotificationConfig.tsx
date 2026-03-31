@@ -49,7 +49,7 @@ export default function NotificationConfig({
     <div>
       {/* Channel selector */}
       <div style={{ marginBottom: compact ? "10px" : "14px" }}>
-        <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px" }}>
+        <label style={{ display: "block", fontSize: "12px", color: "#9ca3af", marginBottom: "6px" }}>
           Notification channel
         </label>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
@@ -62,9 +62,9 @@ export default function NotificationConfig({
                 style={{
                   padding: "5px 12px",
                   borderRadius: "6px",
-                  border: `1px solid ${selected ? "#7c3aed" : "#2a2a3a"}`,
-                  background: selected ? "rgba(124,58,237,0.15)" : "transparent",
-                  color: selected ? "#a855f7" : "#888898",
+                  border: `1px solid ${selected ? "#fb923c" : "#1c1d26"}`,
+                  background: selected ? "rgba(20,184,166,0.15)" : "transparent",
+                  color: selected ? "#fb923c" : "#9ca3af",
                   fontSize: "12px",
                   fontWeight: selected ? 600 : 400,
                   cursor: "pointer",
@@ -86,7 +86,7 @@ export default function NotificationConfig({
         <>
           {/* Event checkboxes */}
           <div style={{ marginBottom: compact ? "10px" : "14px" }}>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px" }}>
+            <label style={{ display: "block", fontSize: "12px", color: "#9ca3af", marginBottom: "6px" }}>
               Notify when
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
@@ -100,8 +100,8 @@ export default function NotificationConfig({
                       alignItems: "center",
                       gap: "8px",
                       padding: "7px 10px",
-                      background: checked ? "rgba(124,58,237,0.08)" : "transparent",
-                      border: `1px solid ${checked ? "rgba(124,58,237,0.25)" : "#2a2a3a"}`,
+                      background: checked ? "rgba(20,184,166,0.08)" : "transparent",
+                      border: `1px solid ${checked ? "rgba(20,184,166,0.25)" : "#1c1d26"}`,
                       borderRadius: "6px",
                       cursor: "pointer",
                       transition: "all 0.15s",
@@ -111,9 +111,9 @@ export default function NotificationConfig({
                       type="checkbox"
                       checked={checked}
                       onChange={(e) => update({ [key]: e.target.checked })}
-                      style={{ accentColor: "#7c3aed", flexShrink: 0 }}
+                      style={{ accentColor: "#fb923c", flexShrink: 0 }}
                     />
-                    <span style={{ fontSize: "12px", color: checked ? "#e0e0e8" : "#888898" }}>
+                    <span style={{ fontSize: "12px", color: checked ? "#e0e0e8" : "#9ca3af" }}>
                       {label}
                     </span>
                   </label>
@@ -124,7 +124,7 @@ export default function NotificationConfig({
 
           {/* Response timeout */}
           <div>
-            <label style={{ display: "block", fontSize: "12px", color: "#888898", marginBottom: "6px" }}>
+            <label style={{ display: "block", fontSize: "12px", color: "#9ca3af", marginBottom: "6px" }}>
               Response timeout (minutes)
             </label>
             <input
@@ -138,7 +138,7 @@ export default function NotificationConfig({
               style={{
                 width: "120px",
                 background: "#0d0d18",
-                border: "1px solid #2a2a3a",
+                border: "1px solid #1c1d26",
                 borderRadius: "6px",
                 padding: "6px 10px",
                 fontSize: "13px",

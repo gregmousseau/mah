@@ -1,10 +1,10 @@
 {
   "type": "sprint_complete",
-  "sprintId": "018",
-  "name": "Agent registry data model and API endpoints",
+  "sprintId": "029",
+  "name": "Cleanup Test sprints",
   "verdict": "passed",
   "iterations": 1,
-  "cost": 0.028305000000000004,
-  "duration": 3367299,
-  "timestamp": "2026-03-29T22:32:53.855Z"
+  "cost": 0.005319000000000001,
+  "duration": 193091,
+  "timestamp": "2026-03-31T17:56:07.078Z"
 }

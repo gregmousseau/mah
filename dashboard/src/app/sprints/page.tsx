@@ -44,8 +44,8 @@ function formatDuration(start?: string, end?: string) {
 }
 
 function getProjectAccent(projectId?: string | null): { color: string } {
-  if (projectId === "w-construction") return { color: "#f59e0b" };
-  if (projectId === "mah-build") return { color: "#a855f7" };
+  if (projectId === "w-construction") return { color: "#eab308" };
+  if (projectId === "mah-build") return { color: "#fb923c" };
   if (!projectId) return { color: "#555565" };
   const hash = projectId.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   return { color: `hsl(${hash % 360}, 70%, 65%)` };
@@ -104,7 +104,7 @@ export default function SprintsPage() {
       <div style={{ marginBottom: "28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
         <div>
           <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>Sprints</h1>
-          <div style={{ fontSize: "13px", color: "#888898" }}>
+          <div style={{ fontSize: "13px", color: "#9ca3af" }}>
             {filtered.length} sprint{filtered.length !== 1 ? "s" : ""}
             {projectFilter !== "all" && " (filtered)"}
           </div>
@@ -116,15 +116,16 @@ export default function SprintsPage() {
             <button
               onClick={() => setProjectFilter("all")}
               style={{
-                padding: "6px 12px",
-                borderRadius: "6px",
+                padding: "7px 14px",
+                borderRadius: "7px",
                 border: "1px solid",
-                borderColor: projectFilter === "all" ? "#7c3aed" : "#2a2a3a",
-                background: projectFilter === "all" ? "rgba(124,58,237,0.15)" : "transparent",
-                color: projectFilter === "all" ? "#a855f7" : "#888898",
+                borderColor: projectFilter === "all" ? "#fb923c" : "var(--border)",
+                background: projectFilter === "all" ? "rgba(20,184,166,0.12)" : "transparent",
+                color: projectFilter === "all" ? "#fb923c" : "#9ca3af",
                 fontSize: "12px",
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: "pointer",
+                transition: "all 0.2s ease",
               }}
             >
               All
@@ -140,9 +141,9 @@ export default function SprintsPage() {
                     padding: "6px 12px",
                     borderRadius: "6px",
                     border: "1px solid",
-                    borderColor: active ? accent.color : "#2a2a3a",
+                    borderColor: active ? accent.color : "#1c1d26",
                     background: active ? `${accent.color}18` : "transparent",
-                    color: active ? accent.color : "#888898",
+                    color: active ? accent.color : "#9ca3af",
                     fontSize: "12px",
                     fontWeight: 500,
                     cursor: "pointer",
@@ -159,12 +160,12 @@ export default function SprintsPage() {
 
       {displaySprints.length === 0 ? (
         <div style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "#0f1116",
+          border: "1px solid #1c1d26",
           borderRadius: "12px",
           padding: "48px",
           textAlign: "center",
-          color: "#888898",
+          color: "#9ca3af",
         }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>⚡</div>
           <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>
@@ -174,22 +175,22 @@ export default function SprintsPage() {
             {projectFilter !== "all" ? "Try selecting a different project filter." : "Run your first sprint to get started."}
           </div>
           {projectFilter === "all" && (
-            <code style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "6px 12px", fontSize: "13px", color: "#a855f7" }}>
+            <code style={{ background: "var(--card-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 12px", fontSize: "13px", color: "#fb923c", fontWeight: 600 }}>
               mah run
             </code>
           )}
         </div>
       ) : (
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", overflow: "hidden" }}>
+        <div style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", overflow: "hidden" }}>
           {/* Header */}
           <div style={{
             display: "grid",
             gridTemplateColumns: "60px 1fr 140px 120px 80px 80px 100px",
             gap: "12px",
             padding: "12px 20px",
-            borderBottom: "1px solid #2a2a3a",
+            borderBottom: "1px solid #1c1d26",
             fontSize: "11px",
-            color: "#888898",
+            color: "#9ca3af",
             fontWeight: 600,
             letterSpacing: "0.05em",
             textTransform: "uppercase",
@@ -221,19 +222,19 @@ export default function SprintsPage() {
               }}
               className="sprint-row"
             >
-              <div style={{ fontSize: "12px", color: "#888898", fontFamily: "monospace" }}>
+              <div style={{ fontSize: "12px", color: "#9ca3af", fontFamily: "monospace" }}>
                 #{sprint.id}
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                   {sprint.status === "scheduled" && <span title="Scheduled">🕐</span>}
-                  {sprint.status === "running" && <div className="dot-pulse" style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />}
+                  {sprint.status === "running" && <div className="dot-pulse" style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#fb923c", flexShrink: 0 }} />}
                   {sprint.status === "queued" && <span title="Queued">⏳</span>}
                   <span style={{ fontSize: "14px", color: "#e0e0e8", fontWeight: 500 }}>{sprint.name}</span>
                   {sprint.iterations > 0 && (
                     <span style={{
                       fontSize: "10px",
-                      color: sprint.iterations > 1 ? "#f59e0b" : "#22c55e",
+                      color: sprint.iterations > 1 ? "#eab308" : "#22c55e",
                       background: sprint.iterations > 1 ? "rgba(245,158,11,0.1)" : "rgba(34,197,94,0.1)",
                       border: `1px solid ${sprint.iterations > 1 ? "rgba(245,158,11,0.25)" : "rgba(34,197,94,0.25)"}`,
                       borderRadius: "4px",
@@ -251,7 +252,7 @@ export default function SprintsPage() {
               <div>
                 <ProjectBadge projectId={sprint.projectId} projects={allProjects} />
               </div>
-              <div style={{ fontSize: "12px", color: "#888898" }}>
+              <div style={{ fontSize: "12px", color: "#9ca3af" }}>
                 {sprint.createdAt ? formatDate(sprint.createdAt) : "—"}
                 <div style={{ fontSize: "11px", color: "#555565", marginTop: "2px" }}>
                   {sprint.scheduledFor
@@ -262,7 +263,7 @@ export default function SprintsPage() {
               <div style={{ fontSize: "13px", color: "#e0e0e8", textAlign: "center" }}>
                 {sprint.iterations || "—"}
               </div>
-              <div style={{ fontSize: "13px", color: "#a855f7" }}>
+              <div style={{ fontSize: "13px", color: "#fb923c", fontWeight: 600 }}>
                 ${sprint.totalCost.toFixed(2)}
               </div>
               <div>

@@ -33,8 +33,8 @@ function formatDate(iso: string) {
 }
 
 function getProjectAccent(projectId?: string | null): string {
-  if (projectId === "w-construction") return "#f59e0b";
-  if (projectId === "mah-build") return "#a855f7";
+  if (projectId === "w-construction") return "#eab308";
+  if (projectId === "mah-build") return "#fb923c";
   if (!projectId) return "#555565";
   const hash = (projectId || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   return `hsl(${hash % 360}, 70%, 65%)`;
@@ -115,17 +115,17 @@ export default function DashboardPage() {
     return (
       <div style={{ padding: "32px", maxWidth: "1100px" }}>
         <div style={{ marginBottom: "24px" }}>
-          <div style={{ height: "28px", width: "200px", background: "#141420", borderRadius: "6px", marginBottom: "8px" }} className="skeleton" />
-          <div style={{ height: "14px", width: "300px", background: "#141420", borderRadius: "4px" }} className="skeleton" />
+          <div style={{ height: "28px", width: "200px", background: "#0f1116", borderRadius: "6px", marginBottom: "8px" }} className="skeleton" />
+          <div style={{ height: "14px", width: "300px", background: "#0f1116", borderRadius: "4px" }} className="skeleton" />
         </div>
         <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px" }}>
           {[0,1,2,3].map(i => (
-            <div key={i} style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px", height: "88px" }} className="skeleton" />
+            <div key={i} style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", padding: "20px 24px", height: "88px" }} className="skeleton" />
           ))}
         </div>
         <div className="two-col-layout" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
-          <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", height: "240px" }} className="skeleton" />
-          <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", height: "240px" }} className="skeleton" />
+          <div style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", height: "240px" }} className="skeleton" />
+          <div style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", height: "240px" }} className="skeleton" />
         </div>
       </div>
     );
@@ -141,13 +141,14 @@ export default function DashboardPage() {
               {config?.project?.name || "MAH Project"}
             </h1>
             <span style={{
-              background: "rgba(124, 58, 237, 0.15)",
-              color: "#a855f7",
-              border: "1px solid rgba(168, 85, 247, 0.3)",
+              background: "rgba(251, 146, 60, 0.12)",
+              color: "#fb923c",
+              border: "1px solid rgba(251, 146, 60, 0.25)",
               borderRadius: "6px",
               padding: "2px 8px",
               fontSize: "12px",
-              fontWeight: 500,
+              fontWeight: 600,
+              letterSpacing: "0.02em",
             }}>
               Multi-Agent Harness
             </span>
@@ -158,22 +159,24 @@ export default function DashboardPage() {
               display: "flex",
               alignItems: "center",
               gap: "7px",
-              padding: "8px 16px",
-              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+              padding: "9px 18px",
+              background: "linear-gradient(135deg, #fb923c, #f97316)",
               borderRadius: "8px",
               textDecoration: "none",
               color: "white",
               fontSize: "13px",
               fontWeight: 600,
               flexShrink: 0,
+              boxShadow: "0 2px 8px rgba(251, 146, 60, 0.25)",
+              transition: "all 0.2s ease",
             }}
           >
-            <PlusSquare size={15} />
+            <PlusSquare size={15} strokeWidth={2.5} />
             New Sprint
           </Link>
         </div>
         {priorities.length > 0 && (
-          <div style={{ fontSize: "13px", color: "#888898", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ fontSize: "13px", color: "#9ca3af", display: "flex", gap: "12px", flexWrap: "wrap" }}>
             {priorities.map((p) => (
               <span key={p}>{p}</span>
             ))}
@@ -184,9 +187,9 @@ export default function DashboardPage() {
       {/* Quick stats bar */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
         {[
-          { label: "Running", value: runningCount, color: runningCount > 0 ? "#a855f7" : "#555565", active: runningCount > 0, href: "/live" },
-          { label: "Queued", value: queuedCount, color: queuedCount > 0 ? "#3b82f6" : "#555565", active: false, href: "/sprints" },
-          { label: "Drafts", value: draftCount2, color: draftCount2 > 0 ? "#f59e0b" : "#555565", active: false, href: "/sprints" },
+          { label: "Running", value: runningCount, color: runningCount > 0 ? "#fb923c" : "#555565", active: runningCount > 0, href: "/live" },
+          { label: "Queued", value: queuedCount, color: queuedCount > 0 ? "#10b981" : "#555565", active: false, href: "/sprints" },
+          { label: "Drafts", value: draftCount2, color: draftCount2 > 0 ? "#eab308" : "#555565", active: false, href: "/sprints" },
         ].map(({ label, value, color, active, href }) => (
           <Link
             key={label}
@@ -197,11 +200,11 @@ export default function DashboardPage() {
               gap: "6px",
               padding: "5px 12px",
               background: active ? `${color}18` : "transparent",
-              border: `1px solid ${active ? `${color}40` : "#2a2a3a"}`,
+              border: `1px solid ${active ? `${color}40` : "#1c1d26"}`,
               borderRadius: "6px",
               textDecoration: "none",
               fontSize: "12px",
-              color: "#888898",
+              color: "#9ca3af",
               transition: "all 0.15s",
             }}
           >
@@ -221,21 +224,22 @@ export default function DashboardPage() {
             alignItems: "center",
             gap: "14px",
             padding: "14px 20px",
-            background: "rgba(124,58,237,0.1)",
-            border: "1px solid rgba(168,85,247,0.4)",
+            background: "rgba(251, 146, 60, 0.08)",
+            border: "1px solid rgba(251, 146, 60, 0.3)",
             borderRadius: "12px",
             marginBottom: "20px",
             textDecoration: "none",
+            transition: "all 0.2s ease",
           }}
         >
-          <div className="dot-pulse" style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />
+          <div className="dot-pulse" style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#fb923c", flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: "13px", fontWeight: 600, color: "#e0e0e8" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "#e6e8f0" }}>
               Sprint running: {activeSprint.name}
             </div>
-            <div style={{ fontSize: "11px", color: "#888898", marginTop: "2px" }}>Click to watch live</div>
+            <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>Click to watch live</div>
           </div>
-          <Radio size={16} color="#a855f7" />
+          <Radio size={16} color="#fb923c" />
         </Link>
       )}
 
@@ -245,16 +249,16 @@ export default function DashboardPage() {
           <button
             onClick={() => setProjectFilter(null)}
             style={{
-              padding: "6px 14px",
+              padding: "7px 16px",
               borderRadius: "8px",
               border: "1px solid",
-              borderColor: !projectFilter ? "#7c3aed" : "#2a2a3a",
-              background: !projectFilter ? "rgba(124,58,237,0.15)" : "transparent",
-              color: !projectFilter ? "#a855f7" : "#888898",
+              borderColor: !projectFilter ? "#fb923c" : "#1c1d26",
+              background: !projectFilter ? "rgba(251, 146, 60, 0.12)" : "transparent",
+              color: !projectFilter ? "#fb923c" : "#9ca3af",
               fontSize: "13px",
-              fontWeight: 500,
+              fontWeight: 600,
               cursor: "pointer",
-              transition: "all 0.15s",
+              transition: "all 0.2s ease",
             }}
           >
             All Projects
@@ -267,19 +271,19 @@ export default function DashboardPage() {
                 key={project.id}
                 onClick={() => setProjectFilter(active ? null : project.id)}
                 style={{
-                  padding: "6px 14px",
+                  padding: "7px 16px",
                   borderRadius: "8px",
                   border: "1px solid",
-                  borderColor: active ? accentColor : "#2a2a3a",
-                  background: active ? `${accentColor}18` : "transparent",
-                  color: active ? accentColor : "#888898",
+                  borderColor: active ? accentColor : "#1c1d26",
+                  background: active ? `${accentColor}15` : "transparent",
+                  color: active ? accentColor : "#9ca3af",
                   fontSize: "13px",
-                  fontWeight: 500,
+                  fontWeight: 600,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  transition: "all 0.15s",
+                  transition: "all 0.2s ease",
                 }}
               >
                 <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: accentColor, display: "inline-block" }} />
@@ -298,35 +302,35 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px" }}>
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
-          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Total Sprints</div>
-          <AnimatedNumber value={s.totalSprints} style={{ fontSize: "32px", fontWeight: 700, color: "#e0e0e8" }} />
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "22px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "10px", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>Total Sprints</div>
+          <AnimatedNumber value={s.totalSprints} style={{ fontSize: "34px", fontWeight: 700, color: "#e6e8f0", letterSpacing: "-0.02em" }} />
         </div>
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
-          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Pass Rate</div>
-          <AnimatedNumber value={s.passRate} format={(n) => `${Math.round(n)}%`} style={{ fontSize: "32px", fontWeight: 700, color: "#22c55e" }} />
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "22px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "10px", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>Pass Rate</div>
+          <AnimatedNumber value={s.passRate} format={(n) => `${Math.round(n)}%`} style={{ fontSize: "34px", fontWeight: 700, color: "#22c55e", letterSpacing: "-0.02em" }} />
         </div>
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
-          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Avg Iterations</div>
-          <AnimatedNumber value={s.avgIterations} format={(n) => n.toFixed(1)} style={{ fontSize: "32px", fontWeight: 700, color: "#e0e0e8" }} />
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "22px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "10px", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>Avg Iterations</div>
+          <AnimatedNumber value={s.avgIterations} format={(n) => n.toFixed(1)} style={{ fontSize: "34px", fontWeight: 700, color: "#e6e8f0", letterSpacing: "-0.02em" }} />
         </div>
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "20px 24px" }} className="metrics-card">
-          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Total Cost</div>
-          <AnimatedNumber value={s.totalCost} format={(n) => `$${n.toFixed(2)}`} style={{ fontSize: "32px", fontWeight: 700, color: "#7c3aed" }} />
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "22px 24px" }} className="metrics-card">
+          <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "10px", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>Total Cost</div>
+          <AnimatedNumber value={s.totalCost} format={(n) => `$${n.toFixed(2)}`} style={{ fontSize: "34px", fontWeight: 700, color: "#fb923c", letterSpacing: "-0.02em" }} />
         </div>
       </div>
 
       {/* Two-column layout */}
       <div className="two-col-layout" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
         {/* Recent Sprints */}
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Recent Sprints</h2>
-            <Link href="/sprints" style={{ fontSize: "12px", color: "#7c3aed", textDecoration: "none" }}>View all →</Link>
+            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#e6e8f0" }}>Recent Sprints</h2>
+            <Link href="/sprints" style={{ fontSize: "12px", color: "#fb923c", textDecoration: "none", fontWeight: 600 }}>View all →</Link>
           </div>
 
           {recentSprints.length === 0 ? (
-            <div style={{ color: "#888898", fontSize: "14px", padding: "16px 0" }}>
+            <div style={{ color: "#9ca3af", fontSize: "14px", padding: "16px 0" }}>
               <div style={{ fontSize: "24px", marginBottom: "8px" }}>⚡</div>
               <div style={{ fontWeight: 500, color: "#e0e0e8", marginBottom: "4px" }}>No sprints yet</div>
               <div style={{ fontSize: "12px" }}>Run your first sprint with <code style={{ background: "#0d0d18", padding: "1px 5px", borderRadius: "4px" }}>mah run</code></div>
@@ -341,12 +345,12 @@ export default function DashboardPage() {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    padding: "10px 12px",
-                    background: "#0d0d18",
-                    border: "1px solid #2a2a3a",
+                    padding: "12px 14px",
+                    background: "var(--card-elevated)",
+                    border: "1px solid var(--border)",
                     borderRadius: "8px",
                     textDecoration: "none",
-                    transition: "border-color 0.15s",
+                    transition: "all 0.2s ease",
                     gap: "8px",
                     flexWrap: "wrap",
                   }}
@@ -356,7 +360,7 @@ export default function DashboardPage() {
                     <div style={{ fontSize: "13px", fontWeight: 500, color: "#e0e0e8" }}>
                       #{sprint.id} {sprint.name}
                     </div>
-                    <div style={{ fontSize: "11px", color: "#888898", marginTop: "2px" }}>
+                    <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>
                       {sprint.createdAt ? formatDate(sprint.createdAt) : "—"} · {sprint.iterations} iter · ${sprint.totalCost.toFixed(2)}
                     </div>
                   </div>
@@ -368,23 +372,23 @@ export default function DashboardPage() {
         </div>
 
         {/* Sprint Timeline Chart */}
-        <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
-          <h2 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Sprint Timeline</h2>
-          <div style={{ fontSize: "12px", color: "#888898", marginBottom: "4px" }}>Cost over time by project</div>
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px" }}>
+          <h2 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 700, color: "#e6e8f0" }}>Sprint Timeline</h2>
+          <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "4px" }}>Cost over time by project</div>
           {sprints.length > 0 ? (
             <SprintTimelineChart sprints={sprints} getProjectAccent={getProjectAccent} />
           ) : (
-            <div style={{ color: "#888898", fontSize: "14px", padding: "24px 0" }}>No data yet.</div>
+            <div style={{ color: "#9ca3af", fontSize: "14px", padding: "24px 0" }}>No data yet.</div>
           )}
         </div>
       </div>
 
       {/* Project breakdown */}
       {!projectFilter && projects && projects.length > 0 && (
-        <div style={{ marginTop: "24px", background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
+        <div style={{ marginTop: "24px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>Projects</h2>
-            <Link href="/projects" style={{ fontSize: "12px", color: "#7c3aed", textDecoration: "none" }}>View all →</Link>
+            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#e6e8f0" }}>Projects</h2>
+            <Link href="/projects" style={{ fontSize: "12px", color: "#fb923c", textDecoration: "none", fontWeight: 600 }}>View all →</Link>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "12px" }}>
             {projects.map((project) => {
@@ -397,14 +401,14 @@ export default function DashboardPage() {
                 >
                   <div
                     style={{
-                      background: "#0d0d18",
-                      border: `1px solid #2a2a3a`,
+                      background: "var(--card-elevated)",
+                      border: `1px solid var(--border)`,
                       borderRadius: "10px",
-                      padding: "16px",
+                      padding: "18px",
                       cursor: "pointer",
                       position: "relative",
                       overflow: "hidden",
-                      transition: "border-color 0.15s",
+                      transition: "all 0.25s ease",
                     }}
                     className="project-mini-card"
                   >
@@ -444,23 +448,23 @@ export default function DashboardPage() {
 
       {/* Drafts section */}
       {drafts && drafts.length > 0 && (
-        <div style={{ marginTop: "24px", background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "24px" }}>
+        <div style={{ marginTop: "24px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#e0e0e8" }}>
+            <h2 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#e6e8f0" }}>
               Drafts & Scheduled
               <span style={{
                 marginLeft: "8px",
-                background: "#7c3aed",
+                background: "#fb923c",
                 color: "white",
                 fontSize: "10px",
                 fontWeight: 700,
                 borderRadius: "10px",
-                padding: "1px 7px",
+                padding: "2px 8px",
               }}>
                 {drafts.length}
               </span>
             </h2>
-            <Link href="/builder" style={{ fontSize: "12px", color: "#7c3aed", textDecoration: "none" }}>
+            <Link href="/builder" style={{ fontSize: "12px", color: "#fb923c", textDecoration: "none", fontWeight: 600 }}>
               + New Sprint
             </Link>
           </div>
@@ -478,9 +482,9 @@ export default function DashboardPage() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "12px 14px",
-                    background: "#0d0d18",
-                    border: "1px solid #2a2a3a",
+                    padding: "14px 16px",
+                    background: "var(--card-elevated)",
+                    border: "1px solid var(--border)",
                     borderRadius: "8px",
                     gap: "12px",
                     flexWrap: "wrap",
@@ -491,17 +495,18 @@ export default function DashboardPage() {
                       {status === "scheduled" ? (
                         <Clock size={13} color="#60a5fa" />
                       ) : (
-                        <FileText size={13} color="#888898" />
+                        <FileText size={13} color="#9ca3af" />
                       )}
                       <span style={{ fontSize: "13px", fontWeight: 500, color: "#e0e0e8" }}>{name || id}</span>
                       <span style={{
                         fontSize: "10px",
-                        fontWeight: 600,
-                        borderRadius: "4px",
-                        padding: "1px 6px",
-                        background: status === "scheduled" ? "rgba(59,130,246,0.1)" : status === "approved" ? "rgba(124,58,237,0.1)" : "rgba(85,85,101,0.1)",
-                        color: status === "scheduled" ? "#60a5fa" : status === "approved" ? "#a855f7" : "#888898",
-                        border: `1px solid ${status === "scheduled" ? "rgba(59,130,246,0.25)" : status === "approved" ? "rgba(124,58,237,0.25)" : "rgba(85,85,101,0.25)"}`,
+                        fontWeight: 700,
+                        borderRadius: "5px",
+                        padding: "3px 8px",
+                        background: status === "scheduled" ? "rgba(16, 185, 129, 0.12)" : status === "approved" ? "rgba(251, 146, 60, 0.12)" : "rgba(85,85,101,0.1)",
+                        color: status === "scheduled" ? "#10b981" : status === "approved" ? "#fb923c" : "#9ca3af",
+                        border: `1px solid ${status === "scheduled" ? "rgba(16, 185, 129, 0.25)" : status === "approved" ? "rgba(251, 146, 60, 0.25)" : "rgba(85,85,101,0.25)"}`,
+                        letterSpacing: "0.03em",
                       }}>
                         {status?.toUpperCase()}
                       </span>
@@ -515,13 +520,14 @@ export default function DashboardPage() {
                       href={`/builder?resume=${id}`}
                       style={{
                         fontSize: "12px",
-                        padding: "5px 12px",
-                        background: "rgba(124,58,237,0.1)",
-                        border: "1px solid rgba(124,58,237,0.25)",
-                        borderRadius: "6px",
-                        color: "#a855f7",
+                        padding: "6px 14px",
+                        background: "rgba(251, 146, 60, 0.1)",
+                        border: "1px solid rgba(251, 146, 60, 0.25)",
+                        borderRadius: "7px",
+                        color: "#fb923c",
                         textDecoration: "none",
-                        fontWeight: 500,
+                        fontWeight: 600,
+                        transition: "all 0.2s ease",
                       }}
                     >
                       Resume
@@ -544,13 +550,15 @@ export default function DashboardPage() {
                       }}
                       style={{
                         fontSize: "12px",
-                        padding: "5px 12px",
-                        background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                        padding: "6px 14px",
+                        background: "linear-gradient(135deg, #fb923c, #f97316)",
                         border: "none",
-                        borderRadius: "6px",
+                        borderRadius: "7px",
                         color: "white",
                         cursor: "pointer",
-                        fontWeight: 500,
+                        fontWeight: 600,
+                        boxShadow: "0 2px 8px rgba(251, 146, 60, 0.25)",
+                        transition: "all 0.2s ease",
                       }}
                     >
                       Run Now

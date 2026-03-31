@@ -49,14 +49,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 const SEVERITY_CONFIG: Record<GraderFinding["severity"], { label: string; color: string; bg: string; border: string }> = {
   critical: { label: "Critical", color: "#ef4444", bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.25)" },
-  major:    { label: "Major",    color: "#f59e0b", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)" },
+  major:    { label: "Major",    color: "#eab308", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)" },
   minor:    { label: "Minor",    color: "#3b82f6", bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)" },
-  info:     { label: "Info",     color: "#888898", bg: "rgba(136,136,152,0.08)", border: "rgba(136,136,152,0.2)" },
+  info:     { label: "Info",     color: "#9ca3af", bg: "rgba(136,136,152,0.08)", border: "rgba(136,136,152,0.2)" },
 };
 
 const VERDICT_CONFIG: Record<GraderResult["verdict"], { label: string; color: string; bg: string }> = {
   pass:        { label: "PASS",        color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
-  conditional: { label: "CONDITIONAL", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+  conditional: { label: "CONDITIONAL", color: "#eab308", bg: "rgba(245,158,11,0.1)" },
   fail:        { label: "FAIL",        color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
 };
 
@@ -87,9 +87,9 @@ function GraderFindingRow({ finding }: { finding: GraderFinding }) {
         </span>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: finding.file || finding.suggestion ? "4px" : "0" }}>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#888898" }}>{finding.id}</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#9ca3af" }}>{finding.id}</span>
             {finding.file && (
-              <code style={{ fontSize: "11px", color: "#a855f7", background: "rgba(168,85,247,0.1)", padding: "1px 5px", borderRadius: "3px" }}>
+              <code style={{ fontSize: "11px", color: "#fb923c", background: "rgba(20,184,166,0.1)", padding: "1px 5px", borderRadius: "3px" }}>
                 {finding.file}{finding.line ? `:${finding.line}` : ""}
               </code>
             )}
@@ -99,7 +99,7 @@ function GraderFindingRow({ finding }: { finding: GraderFinding }) {
           </div>
           <div style={{ fontSize: "13px", color: "#e0e0e8", lineHeight: 1.5 }}>{finding.description}</div>
           {finding.suggestion && (
-            <div style={{ marginTop: "5px", fontSize: "12px", color: "#888898", fontStyle: "italic" }}>
+            <div style={{ marginTop: "5px", fontSize: "12px", color: "#9ca3af", fontStyle: "italic" }}>
               💡 {finding.suggestion}
             </div>
           )}
@@ -143,7 +143,7 @@ function GraderTab({ result }: { result: GraderResult }) {
         }}>
           {vcfg.label}
         </span>
-        <span style={{ fontSize: "13px", color: "#888898", flex: 1 }}>{result.summary}</span>
+        <span style={{ fontSize: "13px", color: "#9ca3af", flex: 1 }}>{result.summary}</span>
       </div>
 
       {/* Findings by severity */}
@@ -197,7 +197,7 @@ function GraderResultsPanel({ results }: { results: GraderResult[] }) {
         border: `1px solid ${avcfg.color}30`,
         borderRadius: "8px",
       }}>
-        <span style={{ fontSize: "12px", color: "#888898" }}>Aggregate verdict:</span>
+        <span style={{ fontSize: "12px", color: "#9ca3af" }}>Aggregate verdict:</span>
         <span style={{ fontSize: "13px", fontWeight: 700, color: avcfg.color }}>
           {avcfg.label}
         </span>
@@ -205,7 +205,7 @@ function GraderResultsPanel({ results }: { results: GraderResult[] }) {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "1px solid #2a2a3a", paddingBottom: "0" }}>
+      <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "1px solid #1c1d26", paddingBottom: "0" }}>
         {results.map((r, i) => {
           const active = activeTab === i;
           const vc = VERDICT_CONFIG[r.verdict];
@@ -215,11 +215,11 @@ function GraderResultsPanel({ results }: { results: GraderResult[] }) {
               onClick={() => setActiveTab(i)}
               style={{
                 padding: "8px 16px",
-                background: active ? "#141420" : "transparent",
-                border: `1px solid ${active ? "#2a2a3a" : "transparent"}`,
-                borderBottom: active ? "1px solid #141420" : "1px solid transparent",
+                background: active ? "#0f1116" : "transparent",
+                border: `1px solid ${active ? "#1c1d26" : "transparent"}`,
+                borderBottom: active ? "1px solid #0f1116" : "1px solid transparent",
                 borderRadius: "8px 8px 0 0",
-                color: active ? "#e0e0e8" : "#888898",
+                color: active ? "#e0e0e8" : "#9ca3af",
                 fontSize: "13px",
                 fontWeight: active ? 600 : 400,
                 cursor: "pointer",
@@ -245,8 +245,8 @@ function GraderResultsPanel({ results }: { results: GraderResult[] }) {
 
       {/* Active tab content */}
       <div style={{
-        background: "#141420",
-        border: "1px solid #2a2a3a",
+        background: "#0f1116",
+        border: "1px solid #1c1d26",
         borderRadius: "12px",
         padding: "20px",
       }}>
@@ -403,7 +403,7 @@ function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
           disabled={busy}
           style={{
             padding: "7px 16px",
-            background: isDestructive ? "#ef4444" : "#7c3aed",
+            background: isDestructive ? "#ef4444" : "#fb923c",
             border: "none",
             borderRadius: "6px",
             color: "white",
@@ -419,9 +419,9 @@ function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
           style={{
             padding: "7px 16px",
             background: "transparent",
-            border: "1px solid #2a2a3a",
+            border: "1px solid #1c1d26",
             borderRadius: "6px",
-            color: "#888898",
+            color: "#9ca3af",
             fontSize: "13px",
             cursor: "pointer",
           }}
@@ -435,16 +435,16 @@ function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
   const btnStyle = (variant: "primary" | "secondary" | "danger" | "ghost") => ({
     padding: "7px 14px",
     border: "1px solid",
-    borderColor: variant === "primary" ? "transparent" : variant === "danger" ? "rgba(239,68,68,0.4)" : "#2a2a3a",
+    borderColor: variant === "primary" ? "transparent" : variant === "danger" ? "rgba(239,68,68,0.4)" : "#1c1d26",
     borderRadius: "7px",
     background:
-      variant === "primary" ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+      variant === "primary" ? "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)"
       : variant === "danger" ? "rgba(239,68,68,0.1)"
       : "transparent",
     color:
       variant === "primary" ? "white"
       : variant === "danger" ? "#ef4444"
-      : "#888898",
+      : "#9ca3af",
     fontSize: "13px",
     fontWeight: variant === "primary" ? 600 : 400,
     cursor: busy ? "not-allowed" : "pointer" as "pointer",
@@ -506,8 +506,8 @@ function ActionBar({ contract, sprintId, onRefresh }: ActionBarProps) {
     <div style={{
       marginBottom: "20px",
       padding: "12px 16px",
-      background: "#141420",
-      border: "1px solid #2a2a3a",
+      background: "#0f1116",
+      border: "1px solid #1c1d26",
       borderRadius: "10px",
       display: "flex",
       alignItems: "center",
@@ -552,15 +552,15 @@ export default function SprintDetailPage() {
   if (loading && !data) {
     return (
       <div style={{ padding: "32px", maxWidth: "900px" }}>
-        <div style={{ height: "14px", width: "160px", background: "#141420", borderRadius: "4px", marginBottom: "24px" }} className="skeleton" />
-        <div style={{ height: "32px", width: "340px", background: "#141420", borderRadius: "6px", marginBottom: "16px" }} className="skeleton" />
-        <div style={{ height: "8px", width: "100%", background: "#141420", borderRadius: "4px", marginBottom: "32px" }} className="skeleton" />
+        <div style={{ height: "14px", width: "160px", background: "#0f1116", borderRadius: "4px", marginBottom: "24px" }} className="skeleton" />
+        <div style={{ height: "32px", width: "340px", background: "#0f1116", borderRadius: "6px", marginBottom: "16px" }} className="skeleton" />
+        <div style={{ height: "8px", width: "100%", background: "#0f1116", borderRadius: "4px", marginBottom: "32px" }} className="skeleton" />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "28px" }}>
           {[0,1,2,3].map(i => (
-            <div key={i} style={{ height: "76px", background: "#141420", borderRadius: "10px" }} className="skeleton" />
+            <div key={i} style={{ height: "76px", background: "#0f1116", borderRadius: "10px" }} className="skeleton" />
           ))}
         </div>
-        <div style={{ height: "320px", background: "#141420", borderRadius: "12px" }} className="skeleton" />
+        <div style={{ height: "320px", background: "#0f1116", borderRadius: "12px" }} className="skeleton" />
       </div>
     );
   }
@@ -568,7 +568,7 @@ export default function SprintDetailPage() {
   if (error || !data || !data.contract) {
     return (
       <div style={{ padding: "32px" }}>
-        <Link href="/sprints" style={{ color: "#7c3aed", textDecoration: "none", fontSize: "13px" }}>← Back to Sprints</Link>
+        <Link href="/sprints" style={{ color: "#fb923c", textDecoration: "none", fontSize: "13px" }}>← Back to Sprints</Link>
         <div style={{ marginTop: "24px", color: "#ef4444", fontSize: "14px" }}>Sprint not found.</div>
       </div>
     );
@@ -591,18 +591,18 @@ export default function SprintDetailPage() {
     : 0;
 
   function getAccent(pid?: string) {
-    if (pid === "w-construction") return "#f59e0b";
-    if (pid === "mah-build") return "#a855f7";
-    return "#7c3aed";
+    if (pid === "w-construction") return "#eab308";
+    if (pid === "mah-build") return "#fb923c";
+    return "#fb923c";
   }
 
   return (
     <div style={{ padding: "32px", maxWidth: "900px" }}>
       {/* Breadcrumb */}
-      <div style={{ marginBottom: "24px", fontSize: "13px", color: "#888898", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+      <div style={{ marginBottom: "24px", fontSize: "13px", color: "#9ca3af", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
         {project ? (
           <>
-            <Link href="/projects" style={{ color: "#7c3aed", textDecoration: "none" }}>Projects</Link>
+            <Link href="/projects" style={{ color: "#fb923c", textDecoration: "none" }}>Projects</Link>
             <span>→</span>
             <Link
               href={`/projects/${project.id}`}
@@ -615,7 +615,7 @@ export default function SprintDetailPage() {
           </>
         ) : (
           <>
-            <Link href="/sprints" style={{ color: "#7c3aed", textDecoration: "none" }}>Sprints</Link>
+            <Link href="/sprints" style={{ color: "#fb923c", textDecoration: "none" }}>Sprints</Link>
             <span>→</span>
             <span>Sprint #{contract.id}</span>
           </>
@@ -642,7 +642,7 @@ export default function SprintDetailPage() {
             <div style={{ fontSize: "14px", fontWeight: 600, color: "#60a5fa" }}>
               {queuePosition > 0 ? `Queued — Position #${queuePosition}` : "Queued"}
             </div>
-            <div style={{ fontSize: "12px", color: "#888898", marginTop: "2px" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>
               Waiting for the current sprint to finish. Will start automatically.
             </div>
           </div>
@@ -672,7 +672,7 @@ export default function SprintDetailPage() {
           </h1>
           <VerdictBadge verdict={metrics?.verdict || contract.status} />
         </div>
-        <div style={{ fontSize: "13px", color: "#888898", display: "flex", gap: "20px", flexWrap: "wrap" }}>
+        <div style={{ fontSize: "13px", color: "#9ca3af", display: "flex", gap: "20px", flexWrap: "wrap" }}>
           <span>Started: {formatDateTime(contract.createdAt)}</span>
           {contract.completedAt && <span>Completed: {formatDateTime(contract.completedAt)}</span>}
         </div>
@@ -691,20 +691,20 @@ export default function SprintDetailPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px" }}>
             {[
               { label: "Total Time", value: formatDuration(metrics.totals.durationMs) },
-              { label: "Total Cost", value: `$${metrics.totals.estimatedCost.toFixed(2)}`, accent: "#7c3aed" },
+              { label: "Total Cost", value: `$${metrics.totals.estimatedCost.toFixed(2)}`, accent: "#fb923c" },
               { label: "Iterations", value: metrics.totals.iterations },
               { label: "Defects Found", value: Object.values(metrics.quality.defectsFound).reduce((a, b) => a + b, 0) },
             ].map(({ label, value, accent }) => (
               <div
                 key={label}
                 style={{
-                  background: "#141420",
-                  border: "1px solid #2a2a3a",
+                  background: "#0f1116",
+                  border: "1px solid #1c1d26",
                   borderRadius: "10px",
                   padding: "14px 16px",
                 }}
               >
-                <div style={{ fontSize: "11px", color: "#888898", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+                <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
                 <div style={{ fontSize: "24px", fontWeight: 700, color: accent || "#e0e0e8" }}>{value}</div>
               </div>
             ))}
@@ -717,9 +717,9 @@ export default function SprintDetailPage() {
               border: "1px solid rgba(245, 158, 11, 0.2)",
               borderRadius: "8px",
               fontSize: "13px",
-              color: "#888898",
+              color: "#9ca3af",
             }}>
-              <span style={{ color: "#f59e0b", fontWeight: 600 }}>⚡ Bottleneck: </span>
+              <span style={{ color: "#eab308", fontWeight: 600 }}>⚡ Bottleneck: </span>
               {metrics.bottleneck}
             </div>
           )}
@@ -727,7 +727,7 @@ export default function SprintDetailPage() {
           {/* Cost breakdown per phase */}
           {metrics.phases && metrics.phases.length > 0 && (
             <div style={{ marginTop: "16px" }}>
-              <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Cost breakdown by phase
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -735,7 +735,7 @@ export default function SprintDetailPage() {
                   const pct = metrics.totals.estimatedCost > 0
                     ? (phase?.costEstimate / metrics.totals.estimatedCost) * 100
                     : 0;
-                  const phaseColor = phase.phase === "dev" ? "#3b82f6" : phase.phase === "qa" ? "#a855f7" : "#7c3aed";
+                  const phaseColor = phase.phase === "dev" ? "#3b82f6" : phase.phase === "qa" ? "#fb923c" : "#fb923c";
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <div style={{ width: "60px", fontSize: "11px", color: phaseColor, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -750,7 +750,7 @@ export default function SprintDetailPage() {
                           transition: "width 0.4s ease",
                         }} />
                       </div>
-                      <div style={{ width: "44px", fontSize: "11px", color: "#888898", textAlign: "right" }}>
+                      <div style={{ width: "44px", fontSize: "11px", color: "#9ca3af", textAlign: "right" }}>
                         ${phase?.costEstimate?.toFixed(2)}
                       </div>
                       <div style={{ width: "32px", fontSize: "10px", color: "#555565", textAlign: "right" }}>
@@ -829,8 +829,8 @@ export default function SprintDetailPage() {
         return (
           <Section title="Next Steps / Human Actions">
             <div style={{
-              background: "#141420",
-              border: "1px solid #2a2a3a",
+              background: "#0f1116",
+              border: "1px solid #1c1d26",
               borderRadius: "12px",
               overflow: "hidden",
             }}>
@@ -843,14 +843,14 @@ export default function SprintDetailPage() {
                         width: "20px",
                         height: "20px",
                         borderRadius: "50%",
-                        background: "rgba(124,58,237,0.2)",
-                        border: "1px solid rgba(124,58,237,0.4)",
+                        background: "rgba(20,184,166,0.2)",
+                        border: "1px solid rgba(20,184,166,0.4)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         fontSize: "11px",
                         fontWeight: 700,
-                        color: "#a855f7",
+                        color: "#fb923c",
                         marginTop: "1px",
                       }}>{i + 1}</span>
                       <span style={{ fontSize: "13px", color: "#e0e0e8", lineHeight: 1.6 }}>{step}</span>
@@ -871,19 +871,19 @@ export default function SprintDetailPage() {
       {/* Sprint Contract */}
       <Section title="Sprint Contract">
         <div style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "#0f1116",
+          border: "1px solid #1c1d26",
           borderRadius: "12px",
           overflow: "hidden",
         }}>
           {/* Task */}
-          <div style={{ padding: "20px", borderBottom: "1px solid #2a2a3a" }}>
-            <div style={{ fontSize: "11px", color: "#888898", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Task</div>
+          <div style={{ padding: "20px", borderBottom: "1px solid #1c1d26" }}>
+            <div style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Task</div>
             <div style={{ fontSize: "14px", color: "#e0e0e8", lineHeight: 1.6, marginBottom: "10px" }}>{contract.task}</div>
             {/* Agent routing badges */}
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               {contract.sprintType && (
-                <span style={{ fontSize: "11px", color: "#888898", background: "rgba(136,136,152,0.1)", border: "1px solid rgba(136,136,152,0.2)", borderRadius: "4px", padding: "2px 8px", fontWeight: 500, textTransform: "capitalize" as const }}>
+                <span style={{ fontSize: "11px", color: "#9ca3af", background: "rgba(136,136,152,0.1)", border: "1px solid rgba(136,136,152,0.2)", borderRadius: "4px", padding: "2px 8px", fontWeight: 500, textTransform: "capitalize" as const }}>
                   {contract.sprintType}
                 </span>
               )}
@@ -893,7 +893,7 @@ export default function SprintDetailPage() {
                 </span>
               )}
               {contract.agentConfig?.evaluator && (
-                <span style={{ fontSize: "11px", color: "#a855f7", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: "4px", padding: "2px 8px", fontWeight: 500 }}>
+                <span style={{ fontSize: "11px", color: "#fb923c", background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.25)", borderRadius: "4px", padding: "2px 8px", fontWeight: 500 }}>
                   QA: {contract.agentConfig.evaluator.agentName}
                 </span>
               )}
@@ -904,20 +904,20 @@ export default function SprintDetailPage() {
               )}
             </div>
             {contract.plannerOutput && (
-              <div style={{ marginTop: "10px", fontSize: "12px", color: "#888898", background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: "6px", padding: "8px 10px", lineHeight: 1.5 }}>
-                <span style={{ color: "#a855f7", fontWeight: 600 }}>Planner: </span>{contract.plannerOutput}
+              <div style={{ marginTop: "10px", fontSize: "12px", color: "#9ca3af", background: "rgba(20,184,166,0.06)", border: "1px solid rgba(20,184,166,0.15)", borderRadius: "6px", padding: "8px 10px", lineHeight: 1.5 }}>
+                <span style={{ color: "#fb923c", fontWeight: 600 }}>Planner: </span>{contract.plannerOutput}
               </div>
             )}
           </div>
 
           {/* Dev Brief */}
-          <div style={{ padding: "20px", borderBottom: "1px solid #2a2a3a" }}>
+          <div style={{ padding: "20px", borderBottom: "1px solid #1c1d26" }}>
             <div style={{ fontSize: "11px", color: "#3b82f6", marginBottom: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Dev Brief</div>
-            <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "8px" }}>
               Repo: <code style={{ color: "#e0e0e8", background: "#0d0d18", padding: "1px 5px", borderRadius: "4px" }}>{contract.devBrief.repo}</code>
             </div>
             <div style={{ marginBottom: "12px" }}>
-              <div style={{ fontSize: "12px", color: "#888898", marginBottom: "6px" }}>Constraints:</div>
+              <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "6px" }}>Constraints:</div>
               <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "4px" }}>
                 {contract.devBrief.constraints.map((c, i) => (
                   <li key={i} style={{ fontSize: "13px", color: "#e0e0e8" }}>{c}</li>
@@ -925,7 +925,7 @@ export default function SprintDetailPage() {
               </ul>
             </div>
             <div>
-              <div style={{ fontSize: "12px", color: "#888898", marginBottom: "6px" }}>Definition of Done:</div>
+              <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "6px" }}>Definition of Done:</div>
               <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "4px" }}>
                 {contract.devBrief.definitionOfDone.map((d, i) => (
                   <li key={i} style={{ fontSize: "13px", color: "#e0e0e8" }}>{d}</li>
@@ -936,14 +936,14 @@ export default function SprintDetailPage() {
 
           {/* QA Brief */}
           <div style={{ padding: "20px" }}>
-            <div style={{ fontSize: "11px", color: "#a855f7", marginBottom: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>QA Brief</div>
-            <div style={{ fontSize: "12px", color: "#888898", marginBottom: "8px" }}>
+            <div style={{ fontSize: "11px", color: "#fb923c", marginBottom: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>QA Brief</div>
+            <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "8px" }}>
               Tier: <span style={{ color: "#e0e0e8" }}>{contract.qaBrief.tier}</span>
               {" · "}
               Test URL: <code style={{ color: "#e0e0e8", background: "#0d0d18", padding: "1px 5px", borderRadius: "4px" }}>{contract.qaBrief.testUrl}</code>
             </div>
             <div style={{ marginBottom: "12px" }}>
-              <div style={{ fontSize: "12px", color: "#888898", marginBottom: "6px" }}>Pass Criteria:</div>
+              <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "6px" }}>Pass Criteria:</div>
               <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "4px" }}>
                 {contract.qaBrief.passCriteria.map((c, i) => (
                   <li key={i} style={{ fontSize: "13px", color: "#e0e0e8" }}>{c}</li>

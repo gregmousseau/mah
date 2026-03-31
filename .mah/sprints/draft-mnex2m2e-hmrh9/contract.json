@@ -1,0 +1,38 @@
+{
+  "id": "draft-mnex2m2e-hmrh9",
+  "name": "Check on prices",
+  "task": "The early runs looked like they were accurate: $1.07 for 001 - dark mode switcher. Makes sense. $0.04 cents to build the YOLO mode seems too cheap. Please verify the numbers and assumptions made here",
+  "projectId": "mah-build",
+  "status": "planned",
+  "sprintType": "research",
+  "devBrief": {
+    "repo": "https://github.com/gregmousseau/mah.git",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [],
+  "createdAt": "2026-03-31T17:54:39.542Z",
+  "agentConfig": {
+    "generator": {
+      "agentId": "research",
+      "agentName": "Reese"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "plannerOutput": "This is a data analysis task — verify cost metrics across sprints, check assumptions in the cost estimation logic, and determine if sprint 001's $1.07 and sprint 022's $0.04 are accurate. Sprint 001 appears to have manually-seeded round-number estimates (e.g. $0.25, $0.35) while later sprints have precise API-derived costs. Reese is the right agent to investigate the cost calculation methodology, compare across sprints, and report findings.",
+  "estimatedComplexity": "low",
+  "updatedAt": "2026-03-31T17:56:47.117Z"
+}

@@ -37,7 +37,7 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
       <div
         style={{
           padding: "24px 20px 20px",
-          borderBottom: "1px solid #2a2a3a",
+          borderBottom: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -49,18 +49,19 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
               width: "28px",
               height: "28px",
               borderRadius: "8px",
-              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+              background: "linear-gradient(135deg, #fb923c, #f97316)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
+              boxShadow: "0 2px 8px rgba(251, 146, 60, 0.25)",
             }}
           >
-            <Zap size={14} color="white" />
+            <Zap size={14} color="white" strokeWidth={2.5} />
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: "14px", color: "#e0e0e8", letterSpacing: "0.05em" }}>MAH</div>
-            <div style={{ fontSize: "11px", color: "#888898" }}>
+            <div style={{ fontSize: "11px", color: "#9ca3af" }}>
               {config?.project?.name || "Multi-Agent Harness"}
             </div>
           </div>
@@ -68,7 +69,7 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
         {onClose && (
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#888898", padding: "4px" }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: "4px" }}
           >
             <X size={18} />
           </button>
@@ -85,34 +86,37 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
             display: "flex",
             alignItems: "center",
             gap: "10px",
-            padding: "9px 12px",
+            padding: "10px 14px",
             borderRadius: "8px",
-            marginBottom: "8px",
+            marginBottom: "10px",
             textDecoration: "none",
             fontSize: "14px",
             fontWeight: 600,
-            color: pathname.startsWith("/builder") ? "white" : "#e0e0e8",
+            color: pathname.startsWith("/builder") ? "white" : "#e6e8f0",
             background: pathname.startsWith("/builder")
-              ? "linear-gradient(135deg, #7c3aed, #a855f7)"
-              : "rgba(124, 58, 237, 0.18)",
-            border: "1px solid rgba(124,58,237,0.3)",
-            transition: "all 0.15s ease",
+              ? "linear-gradient(135deg, #fb923c, #10b981)"
+              : "rgba(251, 146, 60, 0.12)",
+            border: pathname.startsWith("/builder")
+              ? "1px solid rgba(251, 146, 60, 0.4)"
+              : "1px solid rgba(251, 146, 60, 0.25)",
+            transition: "all 0.2s ease",
             position: "relative",
+            boxShadow: pathname.startsWith("/builder") ? "0 2px 8px rgba(251, 146, 60, 0.25)" : "none",
           }}
           className="nav-link"
         >
-          <PlusSquare size={16} color={pathname.startsWith("/builder") ? "white" : "#a855f7"} />
+          <PlusSquare size={16} strokeWidth={2.5} color={pathname.startsWith("/builder") ? "white" : "#fb923c"} />
           Builder
           {draftCount > 0 && (
             <span
               style={{
                 marginLeft: "auto",
-                background: "#7c3aed",
+                background: "#fb923c",
                 color: "white",
                 fontSize: "10px",
                 fontWeight: 700,
                 borderRadius: "10px",
-                padding: "1px 6px",
+                padding: "2px 7px",
                 minWidth: "18px",
                 textAlign: "center",
               }}
@@ -140,19 +144,19 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
                 marginBottom: "2px",
                 textDecoration: "none",
                 fontSize: "14px",
-                fontWeight: active ? 500 : 400,
-                color: active ? "#e0e0e8" : "#888898",
-                background: active ? "rgba(124, 58, 237, 0.15)" : "transparent",
-                transition: "all 0.15s ease",
+                fontWeight: active ? 600 : 400,
+                color: active ? "#e6e8f0" : "#9ca3af",
+                background: active ? "rgba(251, 146, 60, 0.12)" : "transparent",
+                transition: "all 0.2s ease",
               }}
               className="nav-link"
             >
-              <Icon size={16} color={active ? "#a855f7" : "#888898"} />
+              <Icon size={16} strokeWidth={active ? 2 : 1.5} color={active ? "#fb923c" : "#9ca3af"} />
               {label}
               {isLiveItem && isLive && (
                 <div
                   className="dot-pulse"
-                  style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#a855f7", marginLeft: "2px" }}
+                  style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#fb923c", marginLeft: "2px" }}
                 />
               )}
               {isSprintsItem && queuedCount > 0 && (
@@ -177,12 +181,12 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
 
       {/* Project list under nav */}
       {projects && projects.length > 0 && (
-        <div style={{ padding: "0 10px 8px", borderBottom: "1px solid #2a2a3a" }}>
+        <div style={{ padding: "0 10px 8px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: "10px", color: "#555565", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "8px 12px 4px" }}>
             Projects
           </div>
           {projects.map((project) => {
-            const accent = project.id === "w-construction" ? "#f59e0b" : "#a855f7";
+            const accent = project.id === "w-construction" ? "#eab308" : "#fb923c";
             const isActive = pathname === `/projects/${project.id}`;
             return (
               <Link
@@ -204,7 +208,7 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: accent, flexShrink: 0 }} />
-                  <span style={{ fontSize: "13px", color: isActive ? "#e0e0e8" : "#888898", fontWeight: isActive ? 500 : 400 }}>
+                  <span style={{ fontSize: "13px", color: isActive ? "#e0e0e8" : "#9ca3af", fontWeight: isActive ? 500 : 400 }}>
                     {project.name}
                   </span>
                 </div>
@@ -216,21 +220,21 @@ function SidebarContent({ pathname, onClose }: { pathname: string; onClose?: () 
       )}
 
       {/* Active sprint indicator */}
-      <div style={{ borderTop: "1px solid #2a2a3a", paddingTop: "8px", paddingBottom: "8px" }}>
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: "8px", paddingBottom: "8px" }}>
         <ActiveSprint compact />
       </div>
 
       {/* Footer */}
-      <div style={{ padding: "12px 20px", borderTop: "1px solid #2a2a3a" }}>
+      <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)" }}>
         {stats && stats.totalCost > 0 ? (
-          <div style={{ fontSize: "11px", color: "#555565" }}>
+          <div style={{ fontSize: "11px", color: "#6b7280" }}>
             Total spend:{" "}
-            <span style={{ color: "#7c3aed", fontWeight: 600 }}>
+            <span style={{ color: "#fb923c", fontWeight: 700 }}>
               ${stats.totalCost.toFixed(2)}
             </span>
           </div>
         ) : (
-          <div style={{ fontSize: "11px", color: "#555565" }}>v0.1.0 — local dev</div>
+          <div style={{ fontSize: "11px", color: "#6b7280" }}>v0.1.0 — local dev</div>
         )}
       </div>
     </>
@@ -253,12 +257,12 @@ export default function Sidebar() {
           top: "16px",
           left: "16px",
           zIndex: 100,
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "var(--card)",
+          border: "1px solid var(--border)",
           borderRadius: "8px",
           padding: "8px",
           cursor: "pointer",
-          color: "#e0e0e8",
+          color: "#e6e8f0",
         }}
       >
         <Menu size={18} />
@@ -282,8 +286,8 @@ export default function Sidebar() {
       <aside
         className={`sidebar-root${mobileOpen ? " sidebar-open" : ""}`}
         style={{
-          background: "#0d0d18",
-          borderRight: "1px solid #2a2a3a",
+          background: "var(--card)",
+          borderRight: "1px solid var(--border)",
           width: "220px",
           flexShrink: 0,
           display: "flex",

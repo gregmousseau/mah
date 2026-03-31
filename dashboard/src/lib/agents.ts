@@ -64,7 +64,7 @@ export const AGENT_REGISTRY: Record<string, AgentDefinition> = {
     skills: [],
     contextFolders: [],
     workspace: '/home/greg/.openclaw/workspace-qa',
-    color: '#a855f7',
+    color: '#fb923c',
     icon: '🧪',
     isEvaluator: true,
   },
@@ -142,7 +142,7 @@ export function getAgentName(agentId: string): string | undefined {
  * Helper: Get agent color
  */
 export function getAgentColor(agentId: string): string {
-  return AGENT_REGISTRY[agentId]?.color || '#888898';
+  return AGENT_REGISTRY[agentId]?.color || '#9ca3af';
 }
 
 /**

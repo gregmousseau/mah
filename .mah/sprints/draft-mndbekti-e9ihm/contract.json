@@ -1,0 +1,26 @@
+{
+  "id": "draft-mndbekti-e9ihm",
+  "name": "Updated Name",
+  "task": "Test multiple field updates",
+  "projectId": "test-project",
+  "status": "draft",
+  "sprintType": "fullstack",
+  "devBrief": {
+    "repo": ".",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [],
+  "createdAt": "2026-03-30T15:00:20.070Z",
+  "updatedAt": "2026-03-30T15:00:20.093Z"
+}

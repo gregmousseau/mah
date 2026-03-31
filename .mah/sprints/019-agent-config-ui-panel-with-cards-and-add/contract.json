@@ -3,7 +3,7 @@
   "name": "Agent Config UI panel with cards and add-agent flow",
   "task": "Replace the minimal Agent Config section on the main dashboard page (src/app/page.tsx lines 529-552) with a rich, production-grade agent management panel. Import agents from the new centralized registry (src/lib/agents.ts) and the GET /api/agents endpoint.\n\n1. **Agent Cards Grid**: Display all 5 agents as styled cards in a responsive grid. Each card shows:\n   - Agent avatar/icon with their color accent\n   - Name and role tagline\n   - Platform badge (openclaw/claude-code/codex)\n   - Skills as small pill tags\n   - Context folders count/indicator\n   - Status indicator (active/configured)\n   - isEvaluator badge for Quinn\n\n2. **Agent Detail Expand**: Clicking a card expands or opens a detail panel showing full description, skills list, context folders, workspace path, and platform details. This is read-only — editing happens via sprints.\n\n3. **Add Agent Button**: A prominent '+ Add Agent' button that opens a minimal form/modal collecting: name, description, platform (dropdown: openclaw/claude-code/codex), optional skills, optional context folders. On submit, POST to /api/agents which creates the agent AND auto-creates a sprint to fully configure it. Show a toast/notification confirming the sprint was created.\n\n4. **Visual polish**: Match the existing dark theme (#141420 backgrounds, #2a2a3a borders, purple accents). Use smooth transitions, hover states, and the same design language as the rest of the dashboard. Make it look premium.\n\n5. Keep the section title 'Agent Config' but make it feel like a proper management panel, not just a config dump.",
   "projectId": "mah-build",
-  "status": "failed",
+  "status": "passed",
   "sprintType": "frontend",
   "agentConfig": {
     "generator": {
@@ -77,25 +77,25 @@
   ],
   "iterations": [
     {
-      "round": 1,
+      "round": 2,
       "dev": {
-        "output": "[Timeout after 600s]",
-        "startTime": "2026-03-29T22:42:55.522Z",
-        "endTime": "2026-03-29T22:51:59.849Z",
-        "durationMs": 544327,
-        "model": "claude-sonnet-4-5"
-      },
-      "qa": {
-        "output": "Perfect - the manual verification script confirms all key findings from my QA report:\n\n**✅ Passed Manual Checks:**\n- Agent Management section visible\n- All 5 agent cards found (Frankie, Devin, Quinn, Reese, Connie)\n- Add Agent button visible and functional\n- Modal opens correctly\n- All form fields present (name, description, platform)\n- Validation blocks empty submission\n\n**❌ Test Infrastructure Issue:**\n- Expand/collapse test failed because the modal was still open and intercepting clicks (test sequencing issue, not a product defect)\n\nThis aligns perfectly with the QA report findings. The Agent Config UI implementation is functionally complete with one P2 cosmetic issue (section title) that can be addressed or accepted as-is. All core functionality works correctly.\n",
-        "startTime": "2026-03-29T22:51:59.853Z",
-        "endTime": "2026-03-29T22:59:13.522Z",
-        "durationMs": 433669,
+        "output": "Perfect! This confirms the successful fix:\n\n```\n✓ Agent Config section visible: true  ← Fixed! ✅\n✓ Agent cards found: 5/5 - Frankie, Devin, Quinn, Reese, Connie\n✓ Add Agent button visible: true\n✓ Add Agent modal opens: true\n✓ Form fields present: name=true, desc=true, platform=true\n✓ Validation blocks empty submission: true\n✓ Card expand works: true\n✓ Quinn evaluator badge visible: true\n\n✅ Manual QA check complete\n```\n\n**Round 2 Fix Confirmed Complete:**\n- Changed section title from \"Agent Management\" → \"Agent Config\" ✅\n- All functional checks pass ✅\n- Visual verification confirms production-ready quality ✅\n- Implementation matches specification ✅\n\nThe P2 cosmetic defect has been resolved. The Agent Config UI is ready for production.\n",
+        "startTime": "2026-03-29T22:59:13.529Z",
+        "endTime": "2026-03-29T23:06:35.894Z",
+        "durationMs": 0,
         "model": "claude-sonnet-4-5",
         "tokenUsage": {
-          "input": 2457,
-          "output": 195
+          "input": 3335,
+          "output": 186
         },
-        "costEstimate": 0.010296
+        "costEstimate": 0.012795
+      },
+      "qa": {
+        "output": "[Timeout after 600s]",
+        "startTime": "2026-03-30T02:55:44.192Z",
+        "endTime": "2026-03-30T03:04:50.400Z",
+        "durationMs": 546208,
+        "model": "claude-sonnet-4-5"
       },
       "defects": [],
       "graderResults": [
@@ -105,10 +105,60 @@
           "graderName": "Quinn (UX)",
           "verdict": "fail",
           "findings": [],
-          "summary": "Perfect - the manual verification script confirms all key findings from my QA report:",
+          "summary": "",
           "model": "claude-sonnet-4-5",
-          "durationMs": 433669,
-          "costEstimate": 0.010296
+          "durationMs": 546208,
+          "costEstimate": 0
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "dev": {
+        "output": "[Timeout after 600s]",
+        "startTime": "2026-03-30T03:04:50.408Z",
+        "endTime": "2026-03-30T03:13:59.214Z",
+        "durationMs": 548806,
+        "model": "claude-sonnet-4-5"
+      },
+      "qa": {
+        "output": "Excellent! The implementation has been thoroughly verified. Here's my final assessment:\n\n---\n\n# QA Report: Sprint 019 - Agent Config UI\n\n## Verdict: ✅ **PASS**\n\n## Summary\n\nThe Agent Config UI implementation is **production-ready and exceeds expectations**. Live testing on localhost:3333 confirms all 5 agent cards render correctly with complete metadata (icons, names, roles, platform badges, skills, status indicators, and Quinn's QA evaluator badge). The Add Agent modal functions properly with validation that blocks empty submissions. Theme consistency is excellent with perfect use of #141420 backgrounds, #2a2a3a borders, and purple accents throughout. Visual polish is exceptional with smooth animations and hover states. All pass criteria met with only one minor P3 cosmetic finding.\n\n## Defects Found\n\n**P3-01:** Form validation uses browser-native styling rather than custom error messages\n- **Location:** `dashboard/src/components/AgentConfig.tsx:628, 673`\n- **Impact:** Functional but could be more polished. Browser validation messages work correctly but don't match the dark theme aesthetic as well as custom-styled errors would.\n- **Recommendation:** Optional enhancement for future iteration. Not blocking for production release.\n\n## Test Results Summary\n\n✅ **All Pass Criteria Met:**\n- Card grid renders all 5 agents with correct data\n- Quinn shows isEvaluator \"QA\" badge  \n- Add Agent modal validation blocks empty submission\n- Theme colors match specification perfectly\n- Expand/collapse works on all interactions\n- Toast notifications implemented correctly\n\n✅ **Live Testing Verified:**\n- GET /api/agents returns all 5 agents correctly\n- Agent Config section visible on dashboard\n- All agent cards present: Frankie, Devin, Quinn, Reese, Connie\n- Add Agent button functional\n- Modal opens and displays all form fields\n- Validation prevents empty form submission\n\n✅ **Visual Quality:**\n- Premium dark theme implementation\n- Smooth animations and transitions\n- Excellent hover states\n- Responsive grid layout\n- Professional color scheme and typography\n\n## Recommendation\n\n**SHIP TO PRODUCTION** ✅\n\nThis is high-quality work that meets all requirements and demonstrates excellent attention to visual design and user experience. The P3 finding is purely cosmetic and does not impact functionality.\n",
+        "startTime": "2026-03-30T03:13:59.216Z",
+        "endTime": "2026-03-30T03:19:06.132Z",
+        "durationMs": 306916,
+        "model": "claude-sonnet-4-5",
+        "tokenUsage": {
+          "input": 2457,
+          "output": 579
+        },
+        "costEstimate": 0.016056
+      },
+      "defects": [
+        {
+          "id": "P3-01",
+          "severity": "p3",
+          "description": "** Form validation uses browser-native styling rather than custom error messages",
+          "fixed": false
+        }
+      ],
+      "graderResults": [
+        {
+          "graderId": "ux-quinn",
+          "graderType": "ux",
+          "graderName": "Quinn (UX)",
+          "verdict": "pass",
+          "findings": [
+            {
+              "id": "P3-01",
+              "severity": "info",
+              "category": "ux",
+              "description": "** Form validation uses browser-native styling rather than custom error messages"
+            }
+          ],
+          "summary": "The Agent Config UI implementation is **production-ready and exceeds expectations**. Live testing on localhost:3333 confirms all 5 agent cards render correctly with complete metadata (icons, names, roles, platform badges, skills, status indicators, and Quinn's QA evaluator badge). The Add Agent modal functions properly with validation that blocks empty submissions. Theme consistency is excellent with perfect use of #141420 backgrounds, #2a2a3a borders, and purple accents throughout. Visual polish is exceptional with smooth animations and hover states. All pass criteria met with only one minor P3 cosmetic finding.",
+          "model": "claude-sonnet-4-5",
+          "durationMs": 306916,
+          "costEstimate": 0.016056
         }
       ]
     }
@@ -116,8 +166,7 @@
   "createdAt": "2026-03-29T21:36:47.178Z",
   "savedAt": "2026-03-29T21:36:48.025Z",
   "previousId": "draft-mnca4kei-yr05c",
-  "queuedAt": "2026-03-29T21:36:48.049Z",
-  "startedAt": "2026-03-29T22:42:55.124Z",
-  "failedAt": "2026-03-29T23:06:35.902Z",
-  "failureReason": "write EPIPE"
+  "queuedAt": "2026-03-30T02:55:35.308Z",
+  "startedAt": "2026-03-30T02:55:43.979Z",
+  "completedAt": "2026-03-30T03:19:06.136Z"
 }

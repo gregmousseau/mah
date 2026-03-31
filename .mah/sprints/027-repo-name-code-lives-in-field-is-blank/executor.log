@@ -1,0 +1,11 @@
+[executor] Running sprint: Repo Name / Code lives in field is blank (027)
+[executor] Working directory: /home/greg/clawd/projects/mah
+[executor] Loaded project config: /home/greg/clawd/projects/mah/.mah/projects/mah-build.json
+[executor] Starting pipeline for sprint 027...
+  🏁 moe    [contract] Starting sprint: Repo Name / Code lives in field is blank
+  🏁 moe    [contract] Sprint ID: 027
+
+  ─── Round 1 / 3 ─────────────────────
+  🚀 moe    [dev] Spawned dev agent R1
+  📄 dev    [dev] R1 complete (3m 22s / $0.0103)
+  🚀 moe    [qa] Spawned Quinn (UX) for QA R1

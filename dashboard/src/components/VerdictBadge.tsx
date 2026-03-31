@@ -41,7 +41,7 @@ export default function VerdictBadge({ verdict }: { verdict: string }) {
     return (
       <span style={{
         background: "rgba(245, 158, 11, 0.15)",
-        color: "#f59e0b",
+        color: "#eab308",
         border: "1px solid rgba(245, 158, 11, 0.3)",
         borderRadius: "6px",
         padding: "2px 8px",
@@ -59,7 +59,7 @@ export default function VerdictBadge({ verdict }: { verdict: string }) {
     return (
       <span style={{
         background: "rgba(85, 85, 101, 0.15)",
-        color: "#888898",
+        color: "#9ca3af",
         border: "1px solid rgba(85, 85, 101, 0.3)",
         borderRadius: "6px",
         padding: "2px 8px",
@@ -92,9 +92,9 @@ export default function VerdictBadge({ verdict }: { verdict: string }) {
   if (v === "approved") {
     return (
       <span style={{
-        background: "rgba(124, 58, 237, 0.15)",
-        color: "#a855f7",
-        border: "1px solid rgba(124, 58, 237, 0.3)",
+        background: "rgba(20, 184, 166, 0.15)",
+        color: "#fb923c",
+        border: "1px solid rgba(20, 184, 166, 0.3)",
         borderRadius: "6px",
         padding: "2px 8px",
         fontSize: "12px",
@@ -109,7 +109,7 @@ export default function VerdictBadge({ verdict }: { verdict: string }) {
   return (
     <span style={{
       background: "rgba(136, 136, 152, 0.15)",
-      color: "#888898",
+      color: "#9ca3af",
       border: "1px solid rgba(136, 136, 152, 0.3)",
       borderRadius: "6px",
       padding: "2px 8px",

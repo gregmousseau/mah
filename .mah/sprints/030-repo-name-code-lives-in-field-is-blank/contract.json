@@ -1,0 +1,44 @@
+{
+  "id": "030",
+  "name": "Repo Name / Code lives in field is blank",
+  "task": "On the sprint card, there are two placeholders for repo and code path. These are blank for the project.\nIf it's the case that we don't have a repo, please make one. If we do have one, ensure these get properly populated",
+  "projectId": "mah-build",
+  "status": "queued",
+  "sprintType": "fullstack",
+  "devBrief": {
+    "repo": "https://github.com/gregmousseau/mah.git",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [],
+  "createdAt": "2026-03-30T16:03:45.719Z",
+  "agentConfig": {
+    "generator": {
+      "agentId": "dev",
+      "agentName": "Devin"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "plannerOutput": "The project config already has a repo field, but sprint cards don't surface it and sprint contracts default to '.'. This requires fixing the data flow: ensuring sprint creation inherits the project repo, and that the board card UI shows it. It's primarily a backend/API data-plumbing fix with a minor frontend touch on the card component — best suited for a general-purpose dev.",
+  "estimatedComplexity": "low",
+  "suggestedDesignTier": "quick",
+  "updatedAt": "2026-03-30T16:05:42.625Z",
+  "generatorBrief": "[Generator (Devin) negotiation unavailable — claude CLI may not be accessible]",
+  "evaluatorBrief": "[Evaluator (Quinn) negotiation unavailable — claude CLI may not be accessible]",
+  "savedAt": "2026-03-31T17:58:25.392Z",
+  "previousId": "draft-mnddo59z-k6ifk",
+  "queuedAt": "2026-03-31T17:59:07.219Z"
+}

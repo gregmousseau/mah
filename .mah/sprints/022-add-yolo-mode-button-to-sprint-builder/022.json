@@ -1,0 +1,51 @@
+{
+  "sprintId": "022",
+  "projectName": "MAH Build",
+  "task": "Add a 'Start Now (YOLO)' button to the /builder page (src/app/builder/page.tsx) on Step 1, next to or below the existing 'Plan Sprints' button. When clicked, it should:\n\n1. Run the same planning flow as handlePlan (POST /api/builder/plan)\n2. Once sprints are returned, auto-negotiate ALL contracts sequentially (POST /api/builder/negotiate for each sprint, same as negotiateAll)\n3. Once all negotiated, auto-queue ALL sprints (same logic as handleQueueAll — POST /api/builder/save then POST /api/sprints/run for each)\n4. Show a progress indicator during the whole flow (e.g. 'Planning…' → 'Negotiating contracts…' → 'Queuing sprints…')\n5. On success, clear localStorage and redirect to /live\n6. On error at any stage, show an error message and allow the user to fall back to the normal review flow (dump them on Step 2 with whatever sprints were planned)\n\nButton styling: Use a secondary/bold style to differentiate from 'Plan Sprints'. Use the Rocket icon from lucide-react. Label: 'Start Now (YOLO)'. The button should be disabled when no prompt is entered or when either flow is in progress.\n\nThis is a self-contained change in the builder page component — reuse the existing handlePlan, negotiateSprint, negotiateAll, and handleQueueAll logic by extracting/refactoring as needed within the same file. Keep it simple — no new API routes needed.",
+  "startTime": "2026-03-30T14:29:29.656Z",
+  "endTime": "2026-03-30T14:36:25.562Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 256053,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.02034
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 159336,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.024576
+    }
+  ],
+  "totals": {
+    "durationMs": 415906,
+    "estimatedCost": 0.044916,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}

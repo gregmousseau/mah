@@ -44,16 +44,16 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
 
   const platformColors: Record<string, string> = {
     openclaw: "#10b981",
-    "claude-code": "#7c3aed",
-    codex: "#f59e0b",
+    "claude-code": "#fb923c",
+    codex: "#eab308",
   };
 
   return (
     <div
       style={{
         marginTop: "32px",
-        background: "#141420",
-        border: "1px solid #2a2a3a",
+        background: "var(--card)",
+        border: "1px solid var(--border)",
         borderRadius: "16px",
         padding: "28px",
         position: "relative",
@@ -68,8 +68,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
           left: 0,
           right: 0,
           height: "2px",
-          background: "linear-gradient(90deg, transparent, #7c3aed, #a855f7, transparent)",
-          opacity: 0.6,
+          background: "linear-gradient(90deg, transparent, #fb923c, #10b981, transparent)",
+          opacity: 0.7,
         }}
       />
 
@@ -89,7 +89,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
             display: "flex",
             alignItems: "center",
             gap: "7px",
-            background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #a855f7 100%)",
+            background: "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)",
             color: "#fff",
             border: "none",
             borderRadius: "10px",
@@ -98,16 +98,16 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
             fontWeight: 600,
             cursor: "pointer",
             transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: "0 2px 8px rgba(124, 58, 237, 0.2)",
+            boxShadow: "0 2px 8px rgba(20, 184, 166, 0.25)",
             flexShrink: 0,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = "0 8px 20px rgba(124, 58, 237, 0.4)";
+            e.currentTarget.style.boxShadow = "0 8px 20px rgba(20, 184, 166, 0.4)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(124, 58, 237, 0.2)";
+            e.currentTarget.style.boxShadow = "0 2px 8px rgba(20, 184, 166, 0.25)";
           }}
         >
           <Plus size={16} strokeWidth={2.5} />
@@ -135,8 +135,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                 onMouseEnter={() => setHoveredCard(agent.id)}
                 onMouseLeave={() => setHoveredCard(null)}
                 style={{
-                  background: isExpanded ? "#0f0f1c" : "#0d0d18",
-                  border: `1px solid ${isExpanded ? agent.color : "#2a2a3a"}`,
+                  background: isExpanded ? "var(--bg)" : "var(--card-elevated)",
+                  border: `1px solid ${isExpanded ? agent.color : "var(--border)"}`,
                   borderRadius: "14px",
                   padding: "20px",
                   cursor: "pointer",
@@ -185,7 +185,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     }}>
                       {agent.name}
                     </div>
-                    <div style={{ fontSize: "13px", color: "#888898", lineHeight: 1.4 }}>
+                    <div style={{ fontSize: "13px", color: "#9ca3af", lineHeight: 1.4 }}>
                       {agent.role}
                     </div>
                   </div>
@@ -237,13 +237,13 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: "4px",
-                      background: "#a855f715",
-                      border: "1px solid #a855f735",
+                      background: "#fb923c15",
+                      border: "1px solid #fb923c35",
                       borderRadius: "7px",
                       padding: "5px 10px",
                       fontSize: "11px",
                       fontWeight: 700,
-                      color: "#a855f7",
+                      color: "#fb923c",
                       textTransform: "uppercase",
                       letterSpacing: "0.06em",
                     }}
@@ -303,7 +303,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                         key={i}
                         style={{
                           background: "#1a1a2a",
-                          border: "1px solid #2a2a3a",
+                          border: "1px solid #1c1d26",
                           borderRadius: "6px",
                           padding: "5px 10px",
                           fontSize: "11px",
@@ -357,7 +357,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
             {isExpanded && (
               <div
                 style={{
-                  background: "#0a0a12",
+                  background: "var(--bg)",
                   border: `1px solid ${agent.color}50`,
                   borderTop: "none",
                   borderRadius: "0 0 14px 14px",
@@ -404,8 +404,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                           <div
                             key={i}
                             style={{
-                              background: "#141420",
-                              border: "1px solid #2a2a3a",
+                              background: "#0f1116",
+                              border: "1px solid #1c1d26",
                               borderRadius: "7px",
                               padding: "6px 12px",
                               fontSize: "12px",
@@ -441,9 +441,9 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                             key={i}
                             style={{
                               fontSize: "11px",
-                              color: "#888898",
+                              color: "#9ca3af",
                               fontFamily: "ui-monospace, monospace",
-                              background: "#141420",
+                              background: "#0f1116",
                               padding: "8px 12px",
                               borderRadius: "6px",
                               border: "1px solid #1a1a2a",
@@ -473,9 +473,9 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     <div
                       style={{
                         fontSize: "11px",
-                        color: "#888898",
+                        color: "#9ca3af",
                         fontFamily: "ui-monospace, monospace",
-                        background: "#141420",
+                        background: "#0f1116",
                         padding: "8px 12px",
                         borderRadius: "6px",
                         border: "1px solid #1a1a2a",
@@ -555,14 +555,14 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              background: "linear-gradient(135deg, #141420 0%, #1a1a2e 100%)",
-              border: "1px solid #7c3aed",
+              background: "linear-gradient(135deg, var(--card) 0%, var(--card-elevated) 100%)",
+              border: "1px solid #fb923c",
               borderRadius: "20px",
               padding: "28px",
               width: "90%",
               maxWidth: "520px",
               zIndex: 1001,
-              boxShadow: "0 24px 80px rgba(124, 58, 237, 0.4), 0 0 0 1px rgba(124, 58, 237, 0.2)",
+              boxShadow: "0 24px 80px rgba(20, 184, 166, 0.4), 0 0 0 1px rgba(20, 184, 166, 0.2)",
               animation: "slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             }}
           >
@@ -581,9 +581,9 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                 disabled={isSubmitting}
                 style={{
                   background: "rgba(255,255,255,0.05)",
-                  border: "1px solid #2a2a3a",
+                  border: "1px solid #1c1d26",
                   borderRadius: "8px",
-                  color: "#888898",
+                  color: "#9ca3af",
                   cursor: isSubmitting ? "not-allowed" : "pointer",
                   padding: "8px",
                   display: "flex",
@@ -592,14 +592,14 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                 onMouseEnter={(e) => {
                   if (!isSubmitting) {
                     e.currentTarget.style.background = "rgba(255,255,255,0.1)";
-                    e.currentTarget.style.borderColor = "#7c3aed";
+                    e.currentTarget.style.borderColor = "#fb923c";
                     e.currentTarget.style.color = "#e0e0e8";
                   }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                  e.currentTarget.style.borderColor = "#2a2a3a";
-                  e.currentTarget.style.color = "#888898";
+                  e.currentTarget.style.borderColor = "#1c1d26";
+                  e.currentTarget.style.color = "#9ca3af";
                 }}
               >
                 <X size={18} strokeWidth={2} />
@@ -615,7 +615,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     display: "block",
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "#888898",
+                    color: "#9ca3af",
                     marginBottom: "8px",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
@@ -632,8 +632,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0a0a12",
-                    border: "1px solid #2a2a3a",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
                     borderRadius: "10px",
                     padding: "12px 14px",
                     fontSize: "14px",
@@ -643,11 +643,11 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     fontWeight: 500,
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = "#7c3aed";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                    e.target.style.borderColor = "#fb923c";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(20, 184, 166, 0.12)";
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.borderColor = "var(--border)";
                     e.target.style.boxShadow = "none";
                   }}
                 />
@@ -660,7 +660,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     display: "block",
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "#888898",
+                    color: "#9ca3af",
                     marginBottom: "8px",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
@@ -677,8 +677,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0a0a12",
-                    border: "1px solid #2a2a3a",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
                     borderRadius: "10px",
                     padding: "12px 14px",
                     fontSize: "14px",
@@ -691,11 +691,11 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     lineHeight: 1.6,
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = "#7c3aed";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                    e.target.style.borderColor = "#fb923c";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(20, 184, 166, 0.12)";
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.borderColor = "var(--border)";
                     e.target.style.boxShadow = "none";
                   }}
                 />
@@ -708,7 +708,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     display: "block",
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "#888898",
+                    color: "#9ca3af",
                     marginBottom: "8px",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
@@ -722,8 +722,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0a0a12",
-                    border: "1px solid #2a2a3a",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
                     borderRadius: "10px",
                     padding: "12px 14px",
                     fontSize: "14px",
@@ -734,11 +734,11 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     fontWeight: 500,
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = "#7c3aed";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                    e.target.style.borderColor = "#fb923c";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(20, 184, 166, 0.12)";
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.borderColor = "var(--border)";
                     e.target.style.boxShadow = "none";
                   }}
                 >
@@ -755,7 +755,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     display: "block",
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "#888898",
+                    color: "#9ca3af",
                     marginBottom: "8px",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
@@ -771,8 +771,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0a0a12",
-                    border: "1px solid #2a2a3a",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
                     borderRadius: "10px",
                     padding: "12px 14px",
                     fontSize: "14px",
@@ -782,11 +782,11 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     fontWeight: 500,
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = "#7c3aed";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                    e.target.style.borderColor = "#fb923c";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(20, 184, 166, 0.12)";
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.borderColor = "var(--border)";
                     e.target.style.boxShadow = "none";
                   }}
                 />
@@ -799,7 +799,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     display: "block",
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "#888898",
+                    color: "#9ca3af",
                     marginBottom: "8px",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
@@ -815,8 +815,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     width: "100%",
-                    background: "#0a0a12",
-                    border: "1px solid #2a2a3a",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
                     borderRadius: "10px",
                     padding: "12px 14px",
                     fontSize: "14px",
@@ -827,11 +827,11 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     fontFamily: "ui-monospace, monospace",
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = "#7c3aed";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(124, 58, 237, 0.1)";
+                    e.target.style.borderColor = "#fb923c";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(20, 184, 166, 0.12)";
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = "#2a2a3a";
+                    e.target.style.borderColor = "var(--border)";
                     e.target.style.boxShadow = "none";
                   }}
                 />
@@ -846,8 +846,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   style={{
                     flex: 1,
                     background: "rgba(255,255,255,0.05)",
-                    color: "#888898",
-                    border: "1px solid #2a2a3a",
+                    color: "#9ca3af",
+                    border: "1px solid #1c1d26",
                     borderRadius: "10px",
                     padding: "12px 18px",
                     fontSize: "14px",
@@ -864,8 +864,8 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                    e.currentTarget.style.borderColor = "#2a2a3a";
-                    e.currentTarget.style.color = "#888898";
+                    e.currentTarget.style.borderColor = "#1c1d26";
+                    e.currentTarget.style.color = "#9ca3af";
                   }}
                 >
                   Cancel
@@ -875,7 +875,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                   disabled={isSubmitting}
                   style={{
                     flex: 1,
-                    background: isSubmitting ? "#555565" : "linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #a855f7 100%)",
+                    background: isSubmitting ? "#555565" : "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)",
                     color: "#fff",
                     border: "none",
                     borderRadius: "10px",
@@ -884,18 +884,18 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
                     fontWeight: 600,
                     cursor: isSubmitting ? "not-allowed" : "pointer",
                     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                    boxShadow: isSubmitting ? "none" : "0 2px 12px rgba(124, 58, 237, 0.3)",
+                    boxShadow: isSubmitting ? "none" : "0 2px 12px rgba(20, 184, 166, 0.3)",
                     opacity: isSubmitting ? 0.6 : 1,
                   }}
                   onMouseEnter={(e) => {
                     if (!isSubmitting) {
                       e.currentTarget.style.transform = "translateY(-2px)";
-                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(124, 58, 237, 0.5)";
+                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(20, 184, 166, 0.5)";
                     }
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "0 2px 12px rgba(124, 58, 237, 0.3)";
+                    e.currentTarget.style.boxShadow = "0 2px 12px rgba(20, 184, 166, 0.3)";
                   }}
                 >
                   {isSubmitting ? "Creating Sprint..." : "Create Agent"}
@@ -961,7 +961,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
         /* Smooth scrolling for the modal */
         .modal-content {
           scrollbar-width: thin;
-          scrollbar-color: #2a2a3a #0d0d18;
+          scrollbar-color: #1c1d26 #0d0d18;
         }
 
         .modal-content::-webkit-scrollbar {
@@ -974,7 +974,7 @@ export default function AgentConfig({ agents, onAddAgent }: AgentConfigProps) {
         }
 
         .modal-content::-webkit-scrollbar-thumb {
-          background: #2a2a3a;
+          background: #1c1d26;
           border-radius: 4px;
         }
 

@@ -182,7 +182,7 @@ Be specific and actionable. No fluff.`;
     const negotiated: SprintSpec = {
       ...sprint,
       devBrief: {
-        repo: sprint.devBrief?.repo || projectRepo,
+        repo: projectRepo || sprint.devBrief?.repo || ".",
         constraints: sprint.devBrief?.constraints || ["Follow existing code patterns and conventions"],
         definitionOfDone: extractBulletPoints(generatorResponse) || [
           "Feature works as described",

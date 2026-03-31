@@ -35,9 +35,9 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       style={{
         background: "none",
-        border: "1px solid #2a2a3a",
+        border: "1px solid #1c1d26",
         borderRadius: "4px",
-        color: copied ? "#22c55e" : "#888898",
+        color: copied ? "#22c55e" : "#9ca3af",
         cursor: "pointer",
         fontSize: "10px",
         fontWeight: 600,
@@ -128,12 +128,12 @@ function PhaseCard({ phase, index, isExpanded, onToggle }: PhaseCardProps) {
     ? `${(phase.tokenUsage.input + phase.tokenUsage.output).toLocaleString()} tokens`
     : null;
 
-  const phaseColor = phase.phase === "dev" ? "#3b82f6" : phase.phase === "qa" ? "#a855f7" : "#7c3aed";
+  const phaseColor = phase.phase === "dev" ? "#3b82f6" : phase.phase === "qa" ? "#fb923c" : "#fb923c";
 
   return (
     <div
       style={{
-        border: "1px solid #2a2a3a",
+        border: "1px solid #1c1d26",
         borderRadius: "10px",
         overflow: "hidden",
         background: "#0f0f1e",
@@ -190,7 +190,7 @@ function PhaseCard({ phase, index, isExpanded, onToggle }: PhaseCardProps) {
           <span
             style={{
               fontSize: "11px",
-              color: "#888898",
+              color: "#9ca3af",
               background: "#1a1a2e",
               padding: "2px 8px",
               borderRadius: "12px",
@@ -199,14 +199,14 @@ function PhaseCard({ phase, index, isExpanded, onToggle }: PhaseCardProps) {
           >
             {phase.model}
           </span>
-          <span style={{ fontSize: "11px", color: "#888898", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "11px", color: "#9ca3af", whiteSpace: "nowrap" }}>
             {duration}
           </span>
           {cost && (
             <span
               style={{
                 fontSize: "11px",
-                color: "#7c3aed",
+                color: "#fb923c",
                 fontWeight: 600,
                 whiteSpace: "nowrap",
               }}
@@ -262,7 +262,7 @@ function PhaseCard({ phase, index, isExpanded, onToggle }: PhaseCardProps) {
               <CodePanel
                 label="Response"
                 content={phase.responseReceived}
-                accentColor="#a855f7"
+                accentColor="#fb923c"
               />
             </div>
           </div>
@@ -287,7 +287,7 @@ function PhaseCard({ phase, index, isExpanded, onToggle }: PhaseCardProps) {
                 </>
               )}
               {cost && (
-                <span style={{ color: "#7c3aed", marginLeft: "auto" }}>
+                <span style={{ color: "#fb923c", marginLeft: "auto" }}>
                   {cost}
                 </span>
               )}
@@ -388,7 +388,7 @@ export default function TranscriptViewer({ sprintId }: TranscriptViewerProps) {
         <span
           style={{
             fontSize: "12px",
-            color: "#888898",
+            color: "#9ca3af",
             transform: sectionOpen ? "rotate(90deg)" : "rotate(0deg)",
             transition: "transform 0.2s",
             display: "inline-block",
@@ -405,10 +405,10 @@ export default function TranscriptViewer({ sprintId }: TranscriptViewerProps) {
               style={{
                 padding: "24px",
                 textAlign: "center",
-                color: "#888898",
+                color: "#9ca3af",
                 fontSize: "13px",
-                background: "#141420",
-                border: "1px solid #2a2a3a",
+                background: "#0f1116",
+                border: "1px solid #1c1d26",
                 borderRadius: "10px",
               }}
             >
@@ -422,8 +422,8 @@ export default function TranscriptViewer({ sprintId }: TranscriptViewerProps) {
                 padding: "20px",
                 color: "#ef4444",
                 fontSize: "13px",
-                background: "#141420",
-                border: "1px solid #2a2a3a",
+                background: "#0f1116",
+                border: "1px solid #1c1d26",
                 borderRadius: "10px",
               }}
             >
@@ -437,8 +437,8 @@ export default function TranscriptViewer({ sprintId }: TranscriptViewerProps) {
                 padding: "20px",
                 color: "#555565",
                 fontSize: "13px",
-                background: "#141420",
-                border: "1px solid #2a2a3a",
+                background: "#0f1116",
+                border: "1px solid #1c1d26",
                 borderRadius: "10px",
                 fontStyle: "italic",
               }}
@@ -461,9 +461,9 @@ export default function TranscriptViewer({ sprintId }: TranscriptViewerProps) {
                   onClick={handleExpandAll}
                   style={{
                     background: "none",
-                    border: "1px solid #2a2a3a",
+                    border: "1px solid #1c1d26",
                     borderRadius: "6px",
-                    color: "#888898",
+                    color: "#9ca3af",
                     cursor: "pointer",
                     fontSize: "11px",
                     fontWeight: 600,

@@ -29,19 +29,19 @@ interface NodeProps {
 
 function TimelineNode({ title, subtitle, time, duration, cost, verdict, defectCount, phase, isLast }: NodeProps) {
   const phaseColors: Record<string, string> = {
-    contract: "#7c3aed",
-    plan: "#7c3aed",
+    contract: "#fb923c",
+    plan: "#fb923c",
     dev: "#3b82f6",
-    qa: "#a855f7",
+    qa: "#fb923c",
   };
 
   const verdictColors = {
     pass: "#22c55e",
     fail: "#ef4444",
-    warn: "#f59e0b",
+    warn: "#eab308",
   };
 
-  const color = phaseColors[phase] || "#888898";
+  const color = phaseColors[phase] || "#9ca3af";
   const borderColor = verdict ? verdictColors[verdict] : color;
 
   return (
@@ -65,7 +65,7 @@ function TimelineNode({ title, subtitle, time, duration, cost, verdict, defectCo
             style={{
               flex: 1,
               width: "2px",
-              background: "#2a2a3a",
+              background: "#1c1d26",
               minHeight: "24px",
               marginTop: "4px",
             }}
@@ -77,8 +77,8 @@ function TimelineNode({ title, subtitle, time, duration, cost, verdict, defectCo
       <div
         style={{
           flex: 1,
-          background: "#141420",
-          border: `1px solid ${verdict ? borderColor + "44" : "#2a2a3a"}`,
+          background: "#0f1116",
+          border: `1px solid ${verdict ? borderColor + "44" : "#1c1d26"}`,
           borderRadius: "10px",
           padding: "14px 16px",
           marginBottom: isLast ? 0 : "12px",
@@ -104,7 +104,7 @@ function TimelineNode({ title, subtitle, time, duration, cost, verdict, defectCo
               <span style={{ fontWeight: 600, fontSize: "14px", color: "#e0e0e8" }}>{title}</span>
             </div>
             {subtitle && (
-              <div style={{ fontSize: "12px", color: "#888898", marginTop: "6px", lineHeight: 1.5 }}>
+              <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "6px", lineHeight: 1.5 }}>
                 {subtitle}
               </div>
             )}
@@ -129,17 +129,17 @@ function TimelineNode({ title, subtitle, time, duration, cost, verdict, defectCo
         {(time || duration || cost) && (
           <div style={{ display: "flex", gap: "16px", marginTop: "10px", flexWrap: "wrap" }}>
             {time && (
-              <div style={{ fontSize: "11px", color: "#888898" }}>
+              <div style={{ fontSize: "11px", color: "#9ca3af" }}>
                 <span style={{ color: "#555565" }}>@</span> {time}
               </div>
             )}
             {duration && (
-              <div style={{ fontSize: "11px", color: "#888898" }}>
+              <div style={{ fontSize: "11px", color: "#9ca3af" }}>
                 <span style={{ color: "#555565" }}>⏱</span> {duration}
               </div>
             )}
             {cost && (
-              <div style={{ fontSize: "11px", color: "#888898" }}>
+              <div style={{ fontSize: "11px", color: "#9ca3af" }}>
                 <span style={{ color: "#555565" }}>$</span> {cost}
               </div>
             )}
@@ -234,13 +234,13 @@ export default function SprintTimeline({ contract, metrics }: Props) {
             {contract.status === "passed" ? "✓ Sprint Passed" : "✗ Sprint Failed"}
           </span>
           <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "12px", color: "#888898" }}>
+            <span style={{ fontSize: "12px", color: "#9ca3af" }}>
               Total: <strong style={{ color: "#e0e0e8" }}>{formatDuration(metrics.totals.durationMs)}</strong>
             </span>
-            <span style={{ fontSize: "12px", color: "#888898" }}>
+            <span style={{ fontSize: "12px", color: "#9ca3af" }}>
               Cost: <strong style={{ color: "#e0e0e8" }}>${metrics.totals.estimatedCost.toFixed(2)}</strong>
             </span>
-            <span style={{ fontSize: "12px", color: "#888898" }}>
+            <span style={{ fontSize: "12px", color: "#9ca3af" }}>
               Iterations: <strong style={{ color: "#e0e0e8" }}>{metrics.totals.iterations}</strong>
             </span>
           </div>

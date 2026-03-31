@@ -70,6 +70,7 @@ export async function GET(request: Request) {
         return {
           id: contract?.id || "",
           name: contract?.name || "",
+          task: contract?.task || "",
           status,
           verdict,
           iterations: metrics?.totals?.iterations || contract?.iterations?.length || 0,

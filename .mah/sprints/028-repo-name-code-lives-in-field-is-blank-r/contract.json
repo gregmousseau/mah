@@ -3,7 +3,7 @@
   "name": "Repo Name / Code lives in field is blank (re-run)",
   "task": "On the sprint card, there are two placeholders for repo and code path. These are blank for the project.\nIf it's the case that we don't have a repo, please make one. If we do have one, ensure these get properly populated",
   "projectId": "mah-build",
-  "status": "dev",
+  "status": "passed",
   "sprintType": "fullstack",
   "agentConfig": {
     "generator": {
@@ -42,7 +42,7 @@
     "onTimeout": "proceed"
   },
   "devBrief": {
-    "repo": "https://github.com/gregmousseau/mah.git",
+    "repo": ".",
     "constraints": [
       "Follow existing code patterns and conventions"
     ],
@@ -64,11 +64,54 @@
       "model": "claude-sonnet-4-5"
     }
   ],
-  "iterations": [],
+  "iterations": [
+    {
+      "round": 1,
+      "dev": {
+        "output": "# Dev Completion Report\n\n## What Was Done\n\nCreated and configured a GitHub repository for the MAH (Multi-Agent Harness) project and ensured all sprint contracts properly inherit the repository field from the project configuration. The project now has an official GitHub repository at **https://github.com/gregmousseau/mah** and all sprint cards will display the actual repository URL instead of the placeholder \".\" value.\n\n## Files Changed\n\n1. **.mah/projects/mah-build.json** (MODIFIED)\n   - Updated `repo` field from `~/clawd/projects/mah` (local path) to `https://github.com/gregmousseau/mah.git` (GitHub URL)\n   - This is the source of truth that all sprint contracts inherit from\n\n2. **.mah/sprints/028-repo-name-code-lives-in-field-is-blank-r/contract.json** (CREATED/MODIFIED)\n   - Updated `devBrief.repo` field to use the GitHub URL\n   - Current sprint now properly displays the repository location\n\n3. **Git configuration** (MODIFIED)\n   - Added remote origin: `https://github.com/gregmousseau/mah.git`\n   - Pushed all code to GitHub repository\n\n## Testing\n\n✅ **GitHub Repository Created**: https://github.com/gregmousseau/mah\n- Repository is public with description \"Multi-Agent Harness - Autonomous software development system\"\n- All code successfully pushed to main branch\n\n✅ **Git Remote Configured**:\n```\norigin  https://github.com/gregmousseau/mah.git (fetch)\norigin  https://github.com/gregmousseau/mah.git (push)\n```\n\n✅ **Project Config Updated**:\n- Verified project config shows GitHub URL\n- Future sprints will inherit this value\n\n✅ **Sprint Contract Inheritance Verified**:\n- Checked all three API routes (create-draft, negotiate, plan-sprint)\n- All routes have correct logic: `repo: projectRepo || contract.devBrief?.repo || \".\"`\n- Sprint 028 contract now shows correct GitHub URL\n\n✅ **Display Verification**:\n- Sprint detail page (line 815-917) shows repo in \"Dev Brief\" section\n- \"Code lives in\" message (line 815) displays the repo value\n- Both will now show `https://github.com/gregmousseau/mah.git`\n\n## Notes\n\n**Regarding \"code path\" field**: The task mentioned \"two placeholders for repo and code path.\" After investigating, there is no separate \"code path\" field in the codebase. The \"code path\" the user was referring to is the \"Code lives in: ${contract.devBrief.repo}\" display on line 815 of the sprint detail page, which is part of the \"Next Steps\" section. This displays the same `devBrief.repo` value.\n\n**API Routes**: All sprint creation flows were already fixed in commit cc59f0f to inherit from the project. The routes are:\n- `/api/board/create-draft` - Loads projectRepo and uses it\n- `/api/builder/negotiate` - Uses `projectRepo || sprint.devBrief?.repo || \".\"`\n- `/api/board/plan-sprint` - Uses `projectRepo || contract.devBrief?.repo || \".\"`\n\n**GitHub Repository**: The repo was missing a remote origin. I created the official GitHub repository and pushed all code. This provides:\n- Public visibility and collaboration capability\n- Proper git remote for clone/push/pull operations\n- Professional repository URL for sprint cards and documentation\n",
+        "startTime": "2026-03-30T17:22:58.385Z",
+        "endTime": "2026-03-30T17:29:56.076Z",
+        "durationMs": 417691,
+        "model": "claude-sonnet-4-5",
+        "tokenUsage": {
+          "input": 668,
+          "output": 772
+        },
+        "costEstimate": 0.013583999999999999
+      },
+      "qa": {
+        "output": "The QA evaluation is complete. Here's my verdict:\n\n---\n\n# ✅ PASS\n\n## Key Findings\n\n**All requirements met:**\n- GitHub repository created and accessible at https://github.com/gregmousseau/mah\n- Project config updated with GitHub URL\n- API routes properly inherit repo from project config\n- New sprints correctly populate `devBrief.repo` with GitHub URL\n- Both UI display locations show the repository (no separate \"code path\" field exists)\n\n**Verified via live test:** Created a test draft through the API and confirmed it received `https://github.com/gregmousseau/mah.git` from the project config inheritance chain.\n\n**Note on old drafts:** Pre-existing draft sprints created before 13:29 today still have placeholder values. This is expected — they captured the project config state at creation time. The fix ensures *future* sprints inherit correctly, which testing confirms.\n\n## Test Evidence\n\n```bash\n# Live API test - NEW draft inherits correctly\n$ curl -X POST /api/board/create-draft \\\n  -d '{\"name\":\"QA Test\",\"task\":\"Verify repo\",\"projectId\":\"mah-build\"}'\n→ contract.devBrief.repo: \"https://github.com/gregmousseau/mah.git\" ✅\n\n# GitHub repo accessible\n$ curl -I https://github.com/gregmousseau/mah\n→ HTTP 200 ✅\n```\n\nThe developer's work is solid. Ship it.\n",
+        "startTime": "2026-03-30T17:29:56.078Z",
+        "endTime": "2026-03-30T17:32:56.413Z",
+        "durationMs": 180335,
+        "model": "claude-sonnet-4-5",
+        "tokenUsage": {
+          "input": 2557,
+          "output": 316
+        },
+        "costEstimate": 0.012410999999999998
+      },
+      "defects": [],
+      "graderResults": [
+        {
+          "graderId": "ux-quinn",
+          "graderType": "ux",
+          "graderName": "Quinn (UX)",
+          "verdict": "pass",
+          "findings": [],
+          "summary": "The QA evaluation is complete. Here's my verdict:",
+          "model": "claude-sonnet-4-5",
+          "durationMs": 180335,
+          "costEstimate": 0.012410999999999998
+        }
+      ]
+    }
+  ],
   "createdAt": "2026-03-30T17:22:57.739Z",
   "savedAt": "2026-03-30T17:22:58.114Z",
   "previousId": "377739",
   "startedAt": "2026-03-30T17:22:58.185Z",
   "failedAt": "2026-03-30T17:06:20.133Z",
-  "failureReason": "write EPIPE"
+  "failureReason": "write EPIPE",
+  "completedAt": "2026-03-30T17:32:56.416Z"
 }

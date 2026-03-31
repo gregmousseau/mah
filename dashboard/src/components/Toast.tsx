@@ -28,7 +28,7 @@ export default function Toast({ message, type = "success", duration = 5000, onCl
         top: "24px",
         right: "24px",
         zIndex: 9999,
-        background: "#141420",
+        background: "#0f1116",
         border: `1px solid ${borderColor}`,
         borderRadius: "12px",
         padding: "14px 18px",
@@ -61,7 +61,7 @@ export default function Toast({ message, type = "success", duration = 5000, onCl
         style={{
           background: "transparent",
           border: "none",
-          color: "#888898",
+          color: "#9ca3af",
           cursor: "pointer",
           padding: "4px",
           display: "flex",
@@ -69,7 +69,7 @@ export default function Toast({ message, type = "success", duration = 5000, onCl
           transition: "color 0.15s ease",
         }}
         onMouseEnter={(e) => (e.currentTarget.style.color = "#e0e0e8")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "#888898")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "#9ca3af")}
       >
         <X size={16} />
       </button>

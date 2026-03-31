@@ -192,6 +192,7 @@ export interface MahConfig {
 export interface SprintSummary {
   id: string;
   name: string;
+  task: string;
   status: string;
   verdict: string;
   iterations: number;

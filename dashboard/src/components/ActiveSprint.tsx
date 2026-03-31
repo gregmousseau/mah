@@ -57,13 +57,13 @@ function HeartbeatDot({ heartbeat }: { heartbeat: Heartbeat | null }) {
     label = "Possibly stuck";
     cls = "hb-red";
   } else if (age > 60) {
-    color = "#f59e0b";
+    color = "#eab308";
     label = "Slow";
     cls = "hb-yellow";
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#888898" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#9ca3af" }}>
       <div
         className={cls}
         style={{
@@ -112,8 +112,8 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
       <div style={{
         padding: "10px 12px",
         margin: "8px 10px",
-        background: isActive ? "rgba(168,85,247,0.08)" : "rgba(0,0,0,0.2)",
-        border: `1px solid ${isActive ? "rgba(168,85,247,0.25)" : "#2a2a3a"}`,
+        background: isActive ? "rgba(20,184,166,0.08)" : "rgba(0,0,0,0.2)",
+        border: `1px solid ${isActive ? "rgba(20,184,166,0.25)" : "#1c1d26"}`,
         borderRadius: "8px",
         fontSize: "12px",
       }}>
@@ -124,22 +124,22 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
               width: "7px",
               height: "7px",
               borderRadius: "50%",
-              background: isActive ? "#a855f7" : "#555565",
+              background: isActive ? "#fb923c" : "#555565",
               flexShrink: 0,
             }}
           />
-          <span style={{ color: isActive ? "#e0e0e8" : "#888898", fontWeight: 500 }}>
+          <span style={{ color: isActive ? "#e0e0e8" : "#9ca3af", fontWeight: 500 }}>
             {isActive ? (sprintLabel) : "Ready"}
           </span>
         </div>
         {isActive && currentPhase && (
-          <div style={{ marginTop: "4px", paddingLeft: "14px", color: "#888898", fontSize: "11px" }}>
+          <div style={{ marginTop: "4px", paddingLeft: "14px", color: "#9ca3af", fontSize: "11px" }}>
             {currentPhase} · {relTime}
           </div>
         )}
         {isActive && sprintHref && (
           <div style={{ marginTop: "4px", paddingLeft: "14px" }}>
-            <Link href={sprintHref} style={{ fontSize: "11px", color: "#7c3aed", textDecoration: "none" }}>
+            <Link href={sprintHref} style={{ fontSize: "11px", color: "#fb923c", textDecoration: "none" }}>
               View sprint →
             </Link>
           </div>
@@ -155,8 +155,8 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
 
   return (
     <div style={{
-      background: isActive ? "rgba(124,58,237,0.08)" : "#141420",
-      border: `1px solid ${isActive ? "rgba(168,85,247,0.25)" : "#2a2a3a"}`,
+      background: isActive ? "rgba(20,184,166,0.08)" : "#0f1116",
+      border: `1px solid ${isActive ? "rgba(20,184,166,0.25)" : "#1c1d26"}`,
       borderRadius: "12px",
       padding: "16px 20px",
       display: "flex",
@@ -172,7 +172,7 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
             width: "10px",
             height: "10px",
             borderRadius: "50%",
-            background: isActive ? "#a855f7" : "#555565",
+            background: isActive ? "#fb923c" : "#555565",
             flexShrink: 0,
           }}
         />
@@ -187,15 +187,15 @@ export default function ActiveSprint({ compact = false }: { compact?: boolean })
             ) : "Ready — No active sprint"}
           </div>
           {isActive && currentPhase && (
-            <div style={{ fontSize: "12px", color: "#888898", marginTop: "2px" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>
               Phase: <span style={{
-                color: currentPhase === "dev" ? "#3b82f6" : currentPhase === "qa" ? "#a855f7" : "#888898"
+                color: currentPhase === "dev" ? "#3b82f6" : currentPhase === "qa" ? "#fb923c" : "#9ca3af"
               }}>{currentPhase}</span>
               {" · "}{relTime}
             </div>
           )}
           {!isActive && lastTs && (
-            <div style={{ fontSize: "12px", color: "#888898", marginTop: "2px" }}>
+            <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>
               Last activity {relTime}
             </div>
           )}

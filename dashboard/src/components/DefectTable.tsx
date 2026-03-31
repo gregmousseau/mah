@@ -6,8 +6,8 @@ import type { Defect } from "@/types/mah";
 const SEVERITY_COLORS: Record<string, { bg: string; color: string; label: string }> = {
   p0: { bg: "rgba(239, 68, 68, 0.2)", color: "#ef4444", label: "P0" },
   p1: { bg: "rgba(249, 115, 22, 0.2)", color: "#f97316", label: "P1" },
-  p2: { bg: "rgba(245, 158, 11, 0.2)", color: "#f59e0b", label: "P2" },
-  p3: { bg: "rgba(136, 136, 152, 0.2)", color: "#888898", label: "P3" },
+  p2: { bg: "rgba(245, 158, 11, 0.2)", color: "#eab308", label: "P2" },
+  p3: { bg: "rgba(136, 136, 152, 0.2)", color: "#9ca3af", label: "P3" },
 };
 
 function SeverityBadge({ severity }: { severity: string }) {
@@ -35,8 +35,8 @@ function DefectRow({ defect }: { defect: Defect }) {
   return (
     <div
       style={{
-        background: defect.fixed ? "rgba(20, 20, 32, 0.6)" : "#141420",
-        border: "1px solid #2a2a3a",
+        background: defect.fixed ? "rgba(20, 20, 32, 0.6)" : "#0f1116",
+        border: "1px solid #1c1d26",
         borderRadius: "8px",
         overflow: "hidden",
         opacity: defect.fixed ? 0.8 : 1,
@@ -96,20 +96,20 @@ function DefectRow({ defect }: { defect: Defect }) {
 
       {expanded && (
         <div style={{
-          borderTop: "1px solid #2a2a3a",
+          borderTop: "1px solid #1c1d26",
           padding: "12px 14px",
           background: "rgba(0,0,0,0.2)",
         }}>
           <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", fontSize: "12px" }}>
             <div>
               <span style={{ color: "#555565" }}>ID: </span>
-              <code style={{ color: "#a855f7", background: "#0d0d18", padding: "1px 5px", borderRadius: "4px" }}>
+              <code style={{ color: "#fb923c", background: "#0d0d18", padding: "1px 5px", borderRadius: "4px" }}>
                 {defect.id}
               </code>
             </div>
             <div>
               <span style={{ color: "#555565" }}>Severity: </span>
-              <span style={{ color: SEVERITY_COLORS[defect.severity]?.color || "#888898", fontWeight: 600 }}>
+              <span style={{ color: SEVERITY_COLORS[defect.severity]?.color || "#9ca3af", fontWeight: 600 }}>
                 {defect.severity.toUpperCase()}
               </span>
             </div>
@@ -121,7 +121,7 @@ function DefectRow({ defect }: { defect: Defect }) {
             </div>
           </div>
           {defect.fixed && (
-            <div style={{ marginTop: "8px", fontSize: "12px", color: "#888898" }}>
+            <div style={{ marginTop: "8px", fontSize: "12px", color: "#9ca3af" }}>
               <span style={{ color: "#22c55e" }}>✓</span> Fixed in the following iteration.
             </div>
           )}
@@ -134,7 +134,7 @@ function DefectRow({ defect }: { defect: Defect }) {
 export default function DefectTable({ defects }: { defects: Defect[] }) {
   if (!defects || defects.length === 0) {
     return (
-      <div style={{ color: "#888898", fontSize: "14px", padding: "16px 0" }}>No defects found.</div>
+      <div style={{ color: "#9ca3af", fontSize: "14px", padding: "16px 0" }}>No defects found.</div>
     );
   }
 

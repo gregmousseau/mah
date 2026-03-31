@@ -31,7 +31,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
 
   if (!sprints || sprints.length === 0) {
     return (
-      <div style={{ color: "#888898", fontSize: "14px", padding: "24px 0" }}>
+      <div style={{ color: "#9ca3af", fontSize: "14px", padding: "24px 0" }}>
         No sprint data available yet.
       </div>
     );
@@ -41,7 +41,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
   const validSprints = sprints.filter((s) => s.createdAt);
   if (validSprints.length === 0) {
     return (
-      <div style={{ color: "#888898", fontSize: "14px", padding: "24px 0" }}>
+      <div style={{ color: "#9ca3af", fontSize: "14px", padding: "24px 0" }}>
         No sprint data with dates available yet.
       </div>
     );
@@ -94,7 +94,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
                 y1={y}
                 x2={padding.left + chartWidth}
                 y2={y}
-                stroke="#2a2a3a"
+                stroke="#1c1d26"
                 strokeWidth="1"
               />
               <text
@@ -117,7 +117,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
           y1={padding.top + chartHeight}
           x2={padding.left + chartWidth}
           y2={padding.top + chartHeight}
-          stroke="#2a2a3a"
+          stroke="#1c1d26"
           strokeWidth="1.5"
         />
 
@@ -127,7 +127,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
           y1={padding.top}
           x2={padding.left}
           y2={padding.top + chartHeight}
-          stroke="#2a2a3a"
+          stroke="#1c1d26"
           strokeWidth="1.5"
         />
 
@@ -193,7 +193,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
           x={padding.left + chartWidth / 2}
           y={height - 5}
           textAnchor="middle"
-          fill="#888898"
+          fill="#9ca3af"
           fontSize="11"
           fontWeight="500"
         >
@@ -203,7 +203,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
           x={15}
           y={padding.top + chartHeight / 2}
           textAnchor="middle"
-          fill="#888898"
+          fill="#9ca3af"
           fontSize="11"
           fontWeight="500"
           transform={`rotate(-90 15 ${padding.top + chartHeight / 2})`}
@@ -220,7 +220,7 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
             left: tooltipPos.x,
             top: tooltipPos.y - 10,
             transform: "translate(-50%, -100%)",
-            background: "#141420",
+            background: "#0f1116",
             border: "1px solid #3a3a4a",
             borderRadius: "8px",
             padding: "10px 12px",
@@ -235,8 +235,8 @@ export default function SprintTimelineChart({ sprints, getProjectAccent }: Sprin
           <div style={{ fontWeight: 600, marginBottom: "4px", color: "#e0e0e8" }}>
             {hovered.name}
           </div>
-          <div style={{ fontSize: "11px", color: "#888898", display: "flex", flexDirection: "column", gap: "2px" }}>
-            <div>Cost: <span style={{ color: "#a855f7", fontWeight: 600 }}>${hovered.totalCost.toFixed(2)}</span></div>
+          <div style={{ fontSize: "11px", color: "#9ca3af", display: "flex", flexDirection: "column", gap: "2px" }}>
+            <div>Cost: <span style={{ color: "#fb923c", fontWeight: 600 }}>${hovered.totalCost.toFixed(2)}</span></div>
             <div>Duration: <span style={{ color: "#e0e0e8", fontWeight: 500 }}>{calculateDuration(hovered.createdAt, hovered.completedAt)}</span></div>
             <div style={{ fontSize: "10px", marginTop: "2px", color: "#555565" }}>
               {formatDate(hovered.createdAt)}

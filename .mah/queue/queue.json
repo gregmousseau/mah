@@ -1,12 +1,67 @@
 {
-  "running": {
-    "sprintId": "019",
-    "sprintName": "Agent Config UI panel with cards and add-agent flow",
-    "startedAt": "2026-03-29T22:42:55.124Z",
-    "pid": 2700572
-  },
-  "pending": [],
+  "running": null,
+  "pending": [
+    {
+      "sprintId": "030",
+      "sprintName": "Repo Name / Code lives in field is blank",
+      "queuedAt": "2026-03-31T17:59:07.220Z"
+    }
+  ],
   "completed": [
+    {
+      "sprintId": "029",
+      "sprintName": "Cleanup Test sprints",
+      "completedAt": "2026-03-31T17:56:07.078Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "028",
+      "sprintName": "Repo Name / Code lives in field is blank (re-run)",
+      "completedAt": "2026-03-30T17:32:56.418Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "026",
+      "sprintName": "Fix board negotiate + builder Review fallback for planned cards",
+      "completedAt": "2026-03-30T16:37:17.624Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "025",
+      "sprintName": "Board sprint lifecycle UI with card creation and actions (re-run)",
+      "completedAt": "2026-03-30T15:59:47.365Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "023",
+      "sprintName": "Board draft creation API and card action endpoints",
+      "completedAt": "2026-03-30T15:07:21.385Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "022",
+      "sprintName": "Add YOLO mode button to sprint builder",
+      "completedAt": "2026-03-30T14:36:25.564Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "021",
+      "sprintName": "Visual refresh — replace default purple theme with unique palette (re-run)",
+      "completedAt": "2026-03-30T05:32:07.263Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "020",
+      "sprintName": "Visual refresh — replace default purple theme with unique palette",
+      "completedAt": "2026-03-30T05:15:45.839Z",
+      "status": "escalated"
+    },
+    {
+      "sprintId": "019",
+      "sprintName": "Agent Config UI panel with cards and add-agent flow",
+      "completedAt": "2026-03-30T03:19:06.138Z",
+      "status": "passed"
+    },
     {
       "sprintId": "018",
       "sprintName": "Agent registry data model and API endpoints",
@@ -22,6 +77,16 @@
     {
       "sprintId": "019",
       "completedAt": "2026-03-29T22:41:16.521Z",
+      "status": "failed"
+    },
+    {
+      "sprintId": "024",
+      "completedAt": "2026-03-30T15:15:39.812Z",
+      "status": "failed"
+    },
+    {
+      "sprintId": "027",
+      "completedAt": "2026-03-30T17:21:45.472Z",
       "status": "failed"
     }
   ]

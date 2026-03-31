@@ -1,0 +1,25 @@
+[executor] Running sprint: Board draft creation API and card action endpoints (023)
+[executor] Working directory: /home/greg/clawd/projects/mah
+[executor] Loaded project config: /home/greg/clawd/projects/mah/.mah/projects/mah-build.json
+[executor] Starting pipeline for sprint 023...
+  🏁 moe    [contract] Starting sprint: Board draft creation API and card action endpoints
+  🏁 moe    [contract] Sprint ID: 023
+
+  ─── Round 1 / 3 ─────────────────────
+  🚀 moe    [dev] Spawned dev agent R1
+  📄 dev    [dev] R1 complete (5m 26s / $0.0115)
+  🚀 moe    [qa] Spawned Quinn (UX) for QA R1
+  📄 quinn  [qa] R1 verdict received (10m 0s)
+  🔀 moe    [dev] QA failed — sending findings back to dev for R2
+
+  ─── Round 2 / 3 ─────────────────────
+  🚀 moe    [dev] Spawned dev agent R2
+  📄 dev    [dev] R2 complete (4m 36s / $0.0150)
+  🚀 moe    [qa] Spawned Quinn (UX) for QA R2
+  📄 quinn  [qa] R2 verdict received (2m 11s / $0.0161)
+  📄 quinn  [qa] Defects: P3-01(P3)
+  🏁 system [metrics] Sprint PASSED in 2 iteration(s) [all graders passed]
+[executor] Sprint 023 completed: passed
+[executor] Duration: 1334959ms
+[executor] Cost: $0.0426
+[executor] Queue: started next sprint 024 (pid: 646037)

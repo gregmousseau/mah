@@ -18,10 +18,10 @@ function formatDate(iso: string) {
 
 function getProjectAccent(id: string): { color: string; bg: string; border: string } {
   if (id === "w-construction") {
-    return { color: "#f59e0b", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)" };
+    return { color: "#eab308", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)" };
   }
   if (id === "mah-build") {
-    return { color: "#a855f7", bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.2)" };
+    return { color: "#fb923c", bg: "rgba(20,184,166,0.08)", border: "rgba(20,184,166,0.2)" };
   }
   // Default: generate from hash
   const hash = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -40,19 +40,19 @@ export default async function ProjectsPage() {
     <div style={{ padding: "32px", maxWidth: "1000px" }}>
       <div style={{ marginBottom: "28px" }}>
         <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>Projects</h1>
-        <div style={{ fontSize: "13px", color: "#888898" }}>
+        <div style={{ fontSize: "13px", color: "#9ca3af" }}>
           {projects.length} project{projects.length !== 1 ? "s" : ""}
         </div>
       </div>
 
       {projects.length === 0 ? (
         <div style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "#0f1116",
+          border: "1px solid #1c1d26",
           borderRadius: "12px",
           padding: "48px",
           textAlign: "center",
-          color: "#888898",
+          color: "#9ca3af",
         }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>📁</div>
           <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>No projects yet</div>
@@ -70,8 +70,8 @@ export default async function ProjectsPage() {
               >
                 <div
                   style={{
-                    background: "#141420",
-                    border: `1px solid #2a2a3a`,
+                    background: "#0f1116",
+                    border: `1px solid #1c1d26`,
                     borderRadius: "14px",
                     padding: "24px",
                     cursor: "pointer",
@@ -98,7 +98,7 @@ export default async function ProjectsPage() {
                       {project.name}
                     </div>
                     {project.description && (
-                      <div style={{ fontSize: "13px", color: "#888898", lineHeight: 1.5 }}>
+                      <div style={{ fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>
                         {project.description}
                       </div>
                     )}
@@ -123,7 +123,7 @@ export default async function ProjectsPage() {
                   {/* Footer */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", color: "#555565" }}>
                     {project.repo && (
-                      <code style={{ background: "#0d0d18", padding: "2px 6px", borderRadius: "4px", color: "#888898" }}>
+                      <code style={{ background: "#0d0d18", padding: "2px 6px", borderRadius: "4px", color: "#9ca3af" }}>
                         {project.repo}
                       </code>
                     )}

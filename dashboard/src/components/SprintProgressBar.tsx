@@ -40,13 +40,13 @@ export default function SprintProgressBar({ status, iterations = [], isActive = 
 
   return (
     <div style={{
-      background: "#141420",
-      border: "1px solid #2a2a3a",
+      background: "#0f1116",
+      border: "1px solid #1c1d26",
       borderRadius: "12px",
       padding: "18px 20px",
       marginBottom: "24px",
     }}>
-      <div style={{ fontSize: "12px", color: "#888898", marginBottom: "14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+      <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
         Sprint Progress
       </div>
 
@@ -57,14 +57,14 @@ export default function SprintProgressBar({ status, iterations = [], isActive = 
           const isFinalFail = phase === "QA" && (status === "failed" || status === "escalated");
           const hasLoopback = iterations.length > 1 && (phase === "QA" || phase === "Dev");
 
-          let dotColor = "#2a2a3a";
+          let dotColor = "#1c1d26";
           let labelColor = "#555565";
 
           if (done) {
             dotColor = "#22c55e";
             labelColor = "#22c55e";
           } else if (active && !isFinalFail) {
-            dotColor = phase === "Dev" ? "#3b82f6" : phase === "QA" ? "#a855f7" : "#7c3aed";
+            dotColor = phase === "Dev" ? "#3b82f6" : phase === "QA" ? "#fb923c" : "#fb923c";
             labelColor = dotColor;
           } else if (isFinalFail) {
             dotColor = "#ef4444";
@@ -107,7 +107,7 @@ export default function SprintProgressBar({ status, iterations = [], isActive = 
                   {phase}
                 </div>
                 {hasLoopback && active && iterations.length > 1 && (
-                  <div style={{ fontSize: "10px", color: "#f59e0b" }}>
+                  <div style={{ fontSize: "10px", color: "#eab308" }}>
                     ×{iterations.length}
                   </div>
                 )}
@@ -118,7 +118,7 @@ export default function SprintProgressBar({ status, iterations = [], isActive = 
                 <div style={{
                   flex: 1,
                   height: "2px",
-                  background: done ? "#22c55e44" : "#2a2a3a",
+                  background: done ? "#22c55e44" : "#1c1d26",
                   margin: "0 4px",
                   marginBottom: "20px",
                 }} />
@@ -129,9 +129,9 @@ export default function SprintProgressBar({ status, iterations = [], isActive = 
       </div>
 
       {/* Current status text */}
-      <div style={{ marginTop: "10px", fontSize: "12px", color: "#888898" }}>
+      <div style={{ marginTop: "10px", fontSize: "12px", color: "#9ca3af" }}>
         {isActive && activePhase && (
-          <span style={{ color: "#a855f7" }}>
+          <span style={{ color: "#fb923c" }}>
             ● Running — {activePhase} phase
             {iterations.length > 1 ? ` (round ${iterations.length})` : ""}
           </span>

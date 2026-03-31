@@ -1,0 +1,25 @@
+{
+  "id": "draft-mndbmc9i-09nk8",
+  "name": "Test Draft Sprint",
+  "task": "This is a test task description",
+  "projectId": "mah-build",
+  "status": "draft",
+  "sprintType": "code",
+  "devBrief": {
+    "repo": ".",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [],
+  "createdAt": "2026-03-30T15:06:22.232Z"
+}

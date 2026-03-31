@@ -1,0 +1,102 @@
+{
+  "id": "024",
+  "name": "Board sprint lifecycle UI with card creation and actions",
+  "task": "Enhance the KanBan board (src/app/board/page.tsx) to support the full sprint lifecycle:\n\n1. **Card Creation** — Add a '+ New Card' button at the top or bottom of the Draft column. Clicking opens an inline form (or modal) with fields: name, task description, project selector. On save, POST to /api/board/create-draft and add the card to the Draft column.\n\n2. **Inline Card Actions** — Add contextual action buttons to cards based on their column/status:\n   - **Draft cards**: 'Plan' button (calls /api/board/plan-sprint to get agent assignment + refined plan), 'Edit' button (inline edit name/task), 'Delete' button\n   - **Planned cards**: 'Negotiate Contract' button (calls /api/builder/negotiate), shows agent assignment badge\n   - **Approved cards**: 'Run Now' button (calls /api/sprints/run), 'Schedule' button (date picker → calls /api/sprints/run with scheduledFor)\n   - Running/Passed/Failed cards: keep existing behavior (link to detail page)\n\n3. **New/Updated Columns** — Reorganize columns to match the lifecycle flow:\n   - Draft (gray) → Planned (blue) → Approved/Negotiated (gold) → Queued (blue) → Running (orange) → Passed (green) / Failed (red)\n   - The 'Planned' column holds sprints that have been through the planner but not yet negotiated\n   - The 'Approved' column holds sprints with negotiated contracts ready to run\n\n4. **Visual Polish** — Card action buttons should be subtle (icon buttons or small text) that appear on hover. Use existing theme colors and patterns from globals.css. Add a subtle loading state on cards when an action is in progress. Toast notifications for success/error.\n\n5. **Auto-refresh** — After any action (create, plan, negotiate, run), refetch the board data so cards move between columns automatically.\n\nReference the existing board page for column styling, the builder page for the negotiate/plan API call patterns, and the Toast component for notifications.",
+  "projectId": "mah-build",
+  "status": "failed",
+  "sprintType": "frontend",
+  "agentConfig": {
+    "generator": {
+      "agentId": "frontend-dev",
+      "agentName": "Frankie"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "planId": "plan-mndauzug",
+  "plannerOutput": "",
+  "agents": {
+    "generator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    },
+    "evaluator": {
+      "type": "openclaw",
+      "model": "claude-sonnet-4-5"
+    }
+  },
+  "priorities": {
+    "speed": 2,
+    "quality": 1,
+    "cost": 3
+  },
+  "human": {
+    "checkpoints": [
+      "On completion",
+      "On escalation"
+    ],
+    "notificationChannel": "telegram",
+    "responseTimeoutMinutes": 30,
+    "onTimeout": "proceed"
+  },
+  "devBrief": {
+    "repo": ".",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": [
+      "`src/app/board/page.tsx` — primary target (columns, card actions, new card form, polling, loading states)",
+      "No new files needed",
+      "[ ] **Draft column** has a working \"+ New Card\" form (name, task, project selector) that POSTs to `/api/board/create-draft` and adds the card immediately",
+      "[ ] **Planned cards** show \"Negotiate Contract\" button calling `/api/builder/negotiate`, with agent assignment badge visible after negotiation",
+      "[ ] **Approved cards** show \"Run Now\" and \"Schedule\" buttons; Run calls `/api/sprints/run`, Schedule opens a date picker then calls with `scheduledFor`",
+      "[ ] Cards show a spinner/shimmer loading state while their action is in-flight; buttons are disabled to prevent double-submits",
+      "[ ] Board auto-refetches after every action; toast confirms success/error using existing Toast component",
+      "I'll call `/api/board/create-draft` for draft creation — if this endpoint doesn't exist yet I'll flag it and stub optimistic behavior",
+      "Plan action reuses the builder's two-step flow (plan → save) to produce a negotiable contract, not just `/api/board/plan-sprint`",
+      "\"Delete\" on draft cards: I'll call a delete endpoint if it exists; otherwise optimistic local removal with a warning note",
+      "Column order: Draft → Planned → Approved → Queued → Running → Passed / Failed (Queued maps to existing \"queued\" status)",
+      "Network failure on any action → Toast error, card snaps back to previous state",
+      "`create-draft` with missing required fields → inline validation before submit",
+      "Clicking \"Run Now\" on already-queued card → disabled state if status is already `queued`/`running`",
+      "Long sprint names in the inline edit form → truncation + max-length"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "",
+    "testFocus": [
+      "**Negotiate → Approved flow** — Click \"Negotiate Contract\" on a Planned card. Card must land in Approved column with contract badge. Verify the badge doesn't truncate agent name on iPhone SE.",
+      "**Error state recovery** — Simulate network failure (DevTools offline) during Plan action. Card must snap back to Draft; toast error must appear and dismiss. No zombie loading states.",
+      "Column transitions happen without full reload after every action",
+      "Loading states prevent double-submits (button disabled during in-flight request)"
+    ],
+    "passCriteria": [
+      "**Negotiate → Approved flow** — Click \"Negotiate Contract\" on a Planned card. Card must land in Approved column with contract badge. Verify the badge doesn't truncate agent name on iPhone SE.",
+      "**Error state recovery** — Simulate network failure (DevTools offline) during Plan action. Card must snap back to Draft; toast error must appear and dismiss. No zombie loading states.",
+      "Column transitions happen without full reload after every action",
+      "Loading states prevent double-submits (button disabled during in-flight request)",
+      "No card overflow or text truncation on iPhone SE"
+    ],
+    "knownLimitations": []
+  },
+  "graders": [
+    {
+      "id": "ux-quinn",
+      "type": "ux",
+      "name": "Quinn (UX)",
+      "enabled": true,
+      "model": "claude-sonnet-4-5"
+    }
+  ],
+  "iterations": [],
+  "createdAt": "2026-03-30T14:45:06.596Z",
+  "savedAt": "2026-03-30T14:45:06.859Z",
+  "previousId": "draft-mndauzz8-j82or",
+  "queuedAt": "2026-03-30T14:45:06.944Z",
+  "startedAt": "2026-03-30T15:07:21.386Z",
+  "failedAt": "2026-03-30T15:14:52.170Z",
+  "failureReason": "write EPIPE"
+}

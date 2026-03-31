@@ -1,0 +1,84 @@
+{
+  "id": "029",
+  "name": "Cleanup Test sprints",
+  "task": "On the /board page, there are a bunch of drafts, tests, checks, etc. Please remove these",
+  "projectId": "mah-build",
+  "status": "passed",
+  "sprintType": "code",
+  "devBrief": {
+    "repo": "https://github.com/gregmousseau/mah.git",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": [
+      "Delete all 13 `draft-*` directories from `.mah/sprints/`",
+      "All 13 `draft-*` directories deleted from `.mah/sprints/`",
+      "`/board` Draft column shows 0 cards",
+      "No legitimate sprint data lost (sprint `028` proper dir remains intact)",
+      "Board still loads without errors",
+      "New Card form still works",
+      "`draft-mnddo59z-k6ifk` (\"Repo Name...\") is a stale draft; the real work is tracked under `028-repo-name-code-lives-in-field-is-blank-r/` — safe to delete",
+      "`draft-mnex0cma-qn331` (\"Cleanup Test sprints\") is this sprint's own draft entry — deleting it is correct",
+      "No DB, no rollback needed — these are just filesystem entries",
+      "If any draft-ID is referenced by another system (queue, metrics), those references will become dangling but harmless — the board simply won't find the sprint dir and will skip it"
+    ]
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "",
+    "testFocus": [
+      "**Board Draft column is empty** — Navigate to `/board`, confirm the Draft column shows 0 cards. No ghost cards, no broken card frames.",
+      "**Board loads without JS error** — Open browser console on `/board`. Zero errors on load.",
+      "**No 404/500 on board load** — Network tab shows 200 for the board's data API calls (no missing-file errors from dangling sprint dir references).",
+      "Draft column renders with exactly 0 cards"
+    ],
+    "passCriteria": [
+      "**Board Draft column is empty** — Navigate to `/board`, confirm the Draft column shows 0 cards. No ghost cards, no broken card frames.",
+      "**Board loads without JS error** — Open browser console on `/board`. Zero errors on load.",
+      "**No 404/500 on board load** — Network tab shows 200 for the board's data API calls (no missing-file errors from dangling sprint dir references).",
+      "Draft column renders with exactly 0 cards",
+      "No JS console errors on `/board`"
+    ],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [
+    {
+      "round": 1,
+      "dev": {
+        "output": "# Dev Completion Report\n\n## Task\nYou are Devin. # SOUL.md — Backend Dev Agent 🤓\n\nYou are Devin, the Backend Dev agent for Moe's AI. You handle APIs, data models, server logic, and architecture.\n\n## How You Work\n\n1. Receive a task (f\n\n## What Was Done\n- Analyzed the codebase and identified relevant files\n- Implemented the requested changes\n- Added appropriate tests and documentation\n- Verified the implementation works as expected\n\n## Files Changed\n- `src/index.ts` — Added core functionality\n- `src/utils.ts` — Added helper functions\n- `README.md` — Updated documentation\n\n## Testing\nRan the test suite manually. All existing tests pass. New functionality\nverified through manual testing.\n\n## Notes\nThis is a mock output — claude CLI was not available at runtime.\n",
+        "startTime": "2026-03-31T17:56:06.873Z",
+        "endTime": "2026-03-31T17:56:07.075Z",
+        "durationMs": 202,
+        "model": "claude-sonnet-4-5",
+        "tokenUsage": {
+          "input": 813,
+          "output": 192
+        },
+        "costEstimate": 0.005319000000000001
+      },
+      "defects": [],
+      "graderResults": []
+    }
+  ],
+  "createdAt": "2026-03-31T17:52:53.986Z",
+  "agentConfig": {
+    "generator": {
+      "agentId": "dev",
+      "agentName": "Devin"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "plannerOutput": "This is a data/filesystem cleanup task — removing draft and test sprint directories from .mah/sprints/. The board page reads from the sprints API which reads these directories, so the fix is deleting the unwanted draft-* directories and any other test artifacts. This is a backend/ops task, not UI work.",
+  "estimatedComplexity": "low",
+  "updatedAt": "2026-03-31T17:53:22.960Z",
+  "generatorBrief": "---\n\n**Proposal: Cleanup Test Sprints**\n\n**What I'll change**\n\nNo code files. Pure data cleanup:\n- Delete all 13 `draft-*` directories from `.mah/sprints/`\n\nThe full list of items to remove:\n\n| ID | Name | Status |\n|----|------|--------|\n| `draft-mndbdvtr-yim0e` | Test Draft QA | planned |\n| `draft-mndbe4hn-cf1fz` | Update Test | planned |\n| `draft-mndbeej5-dch5l` | Contract Check | draft |\n| `draft-mndbekti-e9ihm` | Updated Name | draft |\n| `draft-mndbj4mw-kngai` | Test Draft Sprint | draft |\n| `draft-mndbk901-d3fot` | Test Draft Sprint | draft |\n| `draft-mndbmapt-1ndx7` | Test Draft Sprint | draft |\n| `draft-mndbmc9i-09nk8` | Test Draft Sprint | draft |\n| `draft-mndbmdtk-f5e3o` | Test Draft Sprint | draft |\n| `draft-mndd1e6i-kmanc` | Test Sprint | planned |\n| `draft-mnddo59z-k6ifk` | Repo Name / Code lives in field blank | planned |\n| `draft-mnex0cma-qn331` | Cleanup Test sprints | planned |\n| `draft-mnex2m2e-hmrh9` | Check on prices | draft |\n\n**What the user sees when done**\n\nThe Draft column on /board will be empty (or contain only real work). No test/check/temp cards cluttering the view.\n\n**Definition of done**\n\n- All 13 `draft-*` directories deleted from `.mah/sprints/`\n- `/board` Draft column shows 0 cards\n- No legitimate sprint data lost (sprint `028` proper dir remains intact)\n- Board still loads without errors\n- New Card form still works\n\n**Constraints / assumptions**\n\n- `draft-mnddo59z-k6ifk` (\"Repo Name...\") is a stale draft; the real work is tracked under `028-repo-name-code-lives-in-field-is-blank-r/` — safe to delete\n- `draft-mnex0cma-qn331` (\"Cleanup Test sprints\") is this sprint's own draft entry — deleting it is correct\n- No DB, no rollback needed — these are just filesystem entries\n\n**Edge cases**\n\n- If any draft-ID is referenced by another system (queue, metrics), those references will become dangling but harmless — the board simply won't find the sprint dir and will skip it\n\nReady to proceed on your say-so.\n",
+  "evaluatorBrief": "# QA Review: Cleanup Test Sprints\n\n**QA Level:** Smoke — appropriate. Pure data deletion, no code changes.\n\n---\n\n## Test Cases\n\n1. **Board Draft column is empty** — Navigate to `/board`, confirm the Draft column shows 0 cards. No ghost cards, no broken card frames.\n\n2. **Board loads without JS error** — Open browser console on `/board`. Zero errors on load.\n\n3. **New Card form still functional** — Click \"New Card\" (or equivalent add button) on the board. Confirm the draft creation form opens, submits, and creates a new card in Draft column. Then delete that test card.\n\n4. **Real sprints unaffected** — Confirm sprints `019`, `020`–`028` still appear in their expected columns. Spot-check `028-repo-name-code-lives-in-field-is-blank-r/` is present and renders correctly on the board.\n\n5. **No 404/500 on board load** — Network tab shows 200 for the board's data API calls (no missing-file errors from dangling sprint dir references).\n\n---\n\n## Pass Criteria\n\n- Draft column renders with exactly 0 cards\n- No JS console errors on `/board`\n- `028` sprint card visible in its column\n- New draft creation round-trip succeeds\n- All API calls return 2xx\n\n---\n\n## Failure Criteria\n\n- Any draft-* card still visible on the board → **fail**\n- JS error or blank board → **fail**\n- `028` sprint missing or errored → **fail**\n- New Card form broken → **fail**\n\n---\n\n## Edge Cases the Developer Missed\n\n- **Queue references:** Developer notes queue/metrics references become \"dangling but harmless\" — but if the board's data fetch throws on a missing directory (not just skips it), the whole board could break. Verify the board API gracefully skips missing sprint dirs rather than erroring.\n- **`draft-mnddo59z-k6ifk` / sprint 028 overlap** — The real `028` dir has its own `contract.json`. After deleting the draft, confirm the board doesn't show a duplicate or broken entry for this sprint.\n- **Alphabetical re-render** — Some board implementations re-sort after deletion. Confirm the remaining real sprints maintain correct column placement after the Draft column empties.\n\n---\n\n**Recommendation:** Proceed. Low-risk, no code changes. One smoke pass on `/board` is sufficient.\n",
+  "savedAt": "2026-03-31T17:55:53.845Z",
+  "previousId": "draft-mnex0cma-qn331",
+  "startedAt": "2026-03-31T17:56:06.548Z",
+  "completedAt": "2026-03-31T17:56:07.077Z"
+}

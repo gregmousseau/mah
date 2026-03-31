@@ -46,7 +46,7 @@ interface DraftSprint {
 
 const COMPLEXITY_COLORS: Record<string, string> = {
   low: "#22c55e",
-  medium: "#f59e0b",
+  medium: "#eab308",
   high: "#ef4444",
 };
 
@@ -82,7 +82,7 @@ function AgentBadge({ agentId, agentName, size = "sm" }: { agentId: string; agen
 }
 
 function ComplexityBadge({ complexity }: { complexity: string }) {
-  const color = COMPLEXITY_COLORS[complexity] || "#888898";
+  const color = COMPLEXITY_COLORS[complexity] || "#9ca3af";
   return (
     <span style={{
       fontSize: "10px",
@@ -129,8 +129,8 @@ function SprintCard({
   return (
     <div
       style={{
-        background: "#141420",
-        border: `1px solid ${sprint.negotiated ? "rgba(34,197,94,0.3)" : "#2a2a3a"}`,
+        background: "#0f1116",
+        border: `1px solid ${sprint.negotiated ? "rgba(34,197,94,0.3)" : "#1c1d26"}`,
         borderRadius: "12px",
         padding: "18px 20px",
         marginBottom: "12px",
@@ -158,7 +158,7 @@ function SprintCard({
                 onChange={(e) => onEdit({ name: e.target.value })}
                 style={{
                   background: "#0d0d18",
-                  border: "1px solid #7c3aed",
+                  border: "1px solid #fb923c",
                   borderRadius: "4px",
                   padding: "2px 8px",
                   fontSize: "14px",
@@ -174,7 +174,7 @@ function SprintCard({
             <AgentBadge agentId={sprint.agent.id} agentName={sprint.agent.name} />
             <span style={{
               fontSize: "10px",
-              color: "#888898",
+              color: "#9ca3af",
               background: "rgba(136,136,152,0.1)",
               border: "1px solid rgba(136,136,152,0.2)",
               borderRadius: "4px",
@@ -186,9 +186,9 @@ function SprintCard({
             </span>
             <span style={{
               fontSize: "10px",
-              color: "#a855f7",
-              background: "rgba(168,85,247,0.1)",
-              border: "1px solid rgba(168,85,247,0.2)",
+              color: "#fb923c",
+              background: "rgba(20,184,166,0.1)",
+              border: "1px solid rgba(20,184,166,0.2)",
               borderRadius: "4px",
               padding: "2px 6px",
               fontWeight: 500,
@@ -217,20 +217,20 @@ function SprintCard({
           <button
             onClick={onMoveUp}
             disabled={index === 0}
-            style={{ background: "none", border: "none", cursor: index === 0 ? "default" : "pointer", color: index === 0 ? "#333345" : "#888898", padding: "3px", display: "flex" }}
+            style={{ background: "none", border: "none", cursor: index === 0 ? "default" : "pointer", color: index === 0 ? "#333345" : "#9ca3af", padding: "3px", display: "flex" }}
           >
             <ChevronUp size={14} />
           </button>
           <button
             onClick={onMoveDown}
             disabled={index === total - 1}
-            style={{ background: "none", border: "none", cursor: index === total - 1 ? "default" : "pointer", color: index === total - 1 ? "#333345" : "#888898", padding: "3px", display: "flex" }}
+            style={{ background: "none", border: "none", cursor: index === total - 1 ? "default" : "pointer", color: index === total - 1 ? "#333345" : "#9ca3af", padding: "3px", display: "flex" }}
           >
             <ChevronDown size={14} />
           </button>
           <button
             onClick={() => setEditing(!editing)}
-            style={{ background: "none", border: "1px solid #2a2a3a", borderRadius: "4px", cursor: "pointer", color: "#888898", padding: "3px 6px", fontSize: "11px" }}
+            style={{ background: "none", border: "1px solid #1c1d26", borderRadius: "4px", cursor: "pointer", color: "#9ca3af", padding: "3px 6px", fontSize: "11px" }}
           >
             {editing ? "Done" : "Edit"}
           </button>
@@ -245,7 +245,7 @@ function SprintCard({
 
       {/* Task description */}
       {!editing ? (
-        <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#888898", lineHeight: 1.5 }}>
+        <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>
           {sprint.task.length > 180 ? sprint.task.slice(0, 180) + "…" : sprint.task}
         </p>
       ) : (
@@ -258,7 +258,7 @@ function SprintCard({
             style={{
               width: "100%",
               background: "#0d0d18",
-              border: "1px solid #2a2a3a",
+              border: "1px solid #1c1d26",
               borderRadius: "6px",
               padding: "8px 10px",
               fontSize: "13px",
@@ -271,7 +271,7 @@ function SprintCard({
             }}
           />
           <div style={{ marginTop: "8px" }}>
-            <label style={{ display: "block", fontSize: "11px", color: "#888898", marginBottom: "4px" }}>Agent</label>
+            <label style={{ display: "block", fontSize: "11px", color: "#9ca3af", marginBottom: "4px" }}>Agent</label>
             <select
               value={editAgent}
               onChange={(e) => {
@@ -282,7 +282,7 @@ function SprintCard({
               }}
               style={{
                 background: "#0d0d18",
-                border: "1px solid #2a2a3a",
+                border: "1px solid #1c1d26",
                 borderRadius: "6px",
                 padding: "6px 10px",
                 fontSize: "12px",
@@ -315,7 +315,7 @@ function SprintCard({
           border: "1px solid rgba(34,197,94,0.15)",
           borderRadius: "8px",
           fontSize: "12px",
-          color: "#888898",
+          color: "#9ca3af",
         }}>
           <div style={{ fontWeight: 600, color: "#22c55e", marginBottom: "6px" }}>Negotiated Contract</div>
           <div style={{ marginBottom: "4px" }}>
@@ -337,10 +337,10 @@ function SprintCard({
           style={{
             marginTop: "10px",
             padding: "6px 12px",
-            background: "rgba(124,58,237,0.1)",
-            border: "1px solid rgba(124,58,237,0.25)",
+            background: "rgba(20,184,166,0.1)",
+            border: "1px solid rgba(20,184,166,0.25)",
             borderRadius: "6px",
-            color: "#a855f7",
+            color: "#fb923c",
             fontSize: "12px",
             fontWeight: 500,
             cursor: "pointer",
@@ -361,7 +361,7 @@ function SprintCard({
           alignItems: "center",
           gap: "6px",
           fontSize: "12px",
-          color: "#888898",
+          color: "#9ca3af",
         }}>
           <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
           Negotiating…
@@ -391,6 +391,11 @@ function BuilderInner() {
   // Negotiating all state
   const [negotiatingAll, setNegotiatingAll] = useState(false);
 
+  // YOLO flow state
+  const [yoloRunning, setYoloRunning] = useState(false);
+  const [yoloPhase, setYoloPhase] = useState("");
+  const [yoloError, setYoloError] = useState("");
+
   // Launch state
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
@@ -398,20 +403,79 @@ function BuilderInner() {
 
   const selectedProjectObj = (projects || []).find(p => p.id === selectedProject);
 
-  // Load from localStorage
+  // Load from localStorage or query params
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const state = JSON.parse(saved);
-        if (state.step) setStep(state.step);
-        if (state.prompt) setPrompt(state.prompt);
-        if (state.selectedProject) setSelectedProject(state.selectedProject);
-        if (state.context) setContext(state.context);
-        if (state.sprints) setSprints(state.sprints);
-        if (state.planReasoning) setPlanReasoning(state.planReasoning);
+    const loadFromSprintId = async () => {
+      const sprintId = searchParams.get("sprintId");
+      if (sprintId) {
+        // Load existing sprint contract and convert to builder format
+        try {
+          const res = await fetch(`/api/sprints/${sprintId}`);
+          if (!res.ok) throw new Error("Failed to load sprint");
+          const { contract } = await res.json();
+
+          if (!contract) throw new Error("Contract not found");
+
+          // Convert to DraftSprint
+          const draftSprint: DraftSprint = {
+            localId: `sprint-${Date.now()}`,
+            name: contract.name,
+            task: contract.task,
+            sprintType: contract.sprintType || "code",
+            agent: {
+              id: contract.agentConfig?.generator?.agentId || "dev",
+              name: contract.agentConfig?.generator?.agentName || "Devin",
+            },
+            evaluator: {
+              id: contract.agentConfig?.evaluator?.agentId || "qa",
+              name: contract.agentConfig?.evaluator?.agentName || "Quinn",
+            },
+            suggestedQaTier: contract.qaBrief?.tier || "targeted",
+            dependencies: [],
+            estimatedComplexity: contract.estimatedComplexity || "medium",
+            devBrief: contract.devBrief,
+            qaBrief: contract.qaBrief,
+            negotiated: contract.status === "approved" || !!contract.generatorBrief, // Only negotiated if approved or has generatorBrief
+          };
+
+          if (contract.projectId) setSelectedProject(contract.projectId);
+          setSprints([draftSprint]);
+          setPlanReasoning(contract.plannerOutput || "Loaded from existing sprint");
+          setStep(2);
+
+          // Save to localStorage
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+              step: 2,
+              sprints: [draftSprint],
+              planReasoning: contract.plannerOutput || "",
+              selectedProject: contract.projectId || ""
+            }));
+          } catch { /* ignore */ }
+        } catch (err) {
+          console.error("Failed to load sprint:", err);
+          alert("Failed to load sprint: " + (err instanceof Error ? err.message : String(err)));
+        }
+        return;
       }
-    } catch { /* ignore */ }
+
+      // Otherwise load from localStorage
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const state = JSON.parse(saved);
+          if (state.step) setStep(state.step);
+          if (state.prompt) setPrompt(state.prompt);
+          if (state.selectedProject) setSelectedProject(state.selectedProject);
+          if (state.context) setContext(state.context);
+          if (state.sprints) setSprints(state.sprints);
+          if (state.planReasoning) setPlanReasoning(state.planReasoning);
+        }
+      } catch { /* ignore */ }
+    };
+
+    loadFromSprintId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const saveToStorage = useCallback((updates: Record<string, unknown>) => {
@@ -552,10 +616,9 @@ function BuilderInner() {
     setNegotiatingAll(false);
   };
 
-  const handleQueueAll = async () => {
-    if (sprints.length === 0) return;
-    setSaving(true);
-    setSaveMsg("");
+  // Extracted queue logic that accepts a sprint list
+  const runQueueAll = async (sprintList: DraftSprint[]) => {
+    if (sprintList.length === 0) return { queued: 0, errors: 0 };
 
     const projectConfig = selectedProjectObj;
     const repo = (projectConfig as { repo?: string })?.repo || ".";
@@ -563,8 +626,8 @@ function BuilderInner() {
 
     const results: { queued: number; errors: number } = { queued: 0, errors: 0 };
 
-    for (let i = 0; i < sprints.length; i++) {
-      const sprint = sprints[i];
+    for (let i = 0; i < sprintList.length; i++) {
+      const sprint = sprintList[i];
       try {
         const id = `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
         const contract = {
@@ -638,6 +701,16 @@ function BuilderInner() {
       }
     }
 
+    return results;
+  };
+
+  const handleQueueAll = async () => {
+    if (sprints.length === 0) return;
+    setSaving(true);
+    setSaveMsg("");
+
+    const results = await runQueueAll(sprints);
+
     setSaving(false);
 
     if (results.errors === 0) {
@@ -649,6 +722,123 @@ function BuilderInner() {
     }
   };
 
+  const handleYolo = async () => {
+    if (!prompt.trim()) return;
+    setYoloRunning(true);
+    setYoloError("");
+
+    let draftSprints: DraftSprint[] = [];
+    let reasoning = "";
+
+    try {
+      // Phase 1: Planning
+      setYoloPhase("Planning…");
+      const planRes = await fetch("/api/builder/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, projectId: selectedProject, context }),
+      });
+
+      if (!planRes.ok) {
+        const err = await planRes.json().catch(() => ({}));
+        throw new Error("Planning failed: " + (err.error || "Unknown error"));
+      }
+
+      const planData = await planRes.json();
+      const plan = planData.plan as { reasoning?: string; sprints?: SprintPlanItem[] };
+
+      draftSprints = (plan.sprints || []).map((s: SprintPlanItem, i: number) => ({
+        localId: `sprint-${Date.now()}-${i}`,
+        name: s.name,
+        task: s.task,
+        sprintType: s.sprintType as DraftSprint["sprintType"],
+        agent: s.agent,
+        evaluator: s.evaluator,
+        suggestedQaTier: s.suggestedQaTier,
+        dependencies: s.dependencies || [],
+        estimatedComplexity: s.estimatedComplexity,
+      }));
+
+      reasoning = plan.reasoning || "";
+
+      if (draftSprints.length === 0) {
+        throw new Error("No sprints returned from planner");
+      }
+
+      setPlanReasoning(reasoning);
+
+      // Phase 2: Negotiate all contracts
+      const negotiatedSprints: DraftSprint[] = [];
+      for (let i = 0; i < draftSprints.length; i++) {
+        setYoloPhase(`Negotiating ${i + 1}/${draftSprints.length}…`);
+        const sprint = draftSprints[i];
+
+        try {
+          const negRes = await fetch("/api/builder/negotiate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sprint, projectId: selectedProject }),
+          });
+
+          if (negRes.ok) {
+            const negData = await negRes.json();
+            negotiatedSprints.push({
+              ...sprint,
+              negotiated: true,
+              devBrief: negData.negotiated.devBrief,
+              qaBrief: negData.negotiated.qaBrief,
+              generatorBrief: negData.generatorBrief,
+              evaluatorBrief: negData.evaluatorBrief,
+            });
+          } else {
+            // If negotiation fails, include the sprint as-is
+            negotiatedSprints.push(sprint);
+          }
+        } catch {
+          // On negotiation error, include the sprint as-is
+          negotiatedSprints.push(sprint);
+        }
+      }
+
+      // Phase 3: Queue all sprints
+      setYoloPhase("Queuing sprints…");
+      const queueResults = await runQueueAll(negotiatedSprints);
+
+      if (queueResults.errors === 0 && queueResults.queued > 0) {
+        // Full success
+        localStorage.removeItem(STORAGE_KEY);
+        router.push("/live");
+      } else if (queueResults.queued > 0) {
+        // Partial success
+        setYoloError(`Queued ${queueResults.queued}, but ${queueResults.errors} failed.`);
+        setSprints(negotiatedSprints);
+        setStep(2);
+        saveToStorage({ step: 2, sprints: negotiatedSprints, planReasoning: reasoning });
+      } else {
+        // All queueing failed - dump to Step 2 with negotiated sprints
+        setSprints(negotiatedSprints);
+        setStep(2);
+        saveToStorage({ step: 2, sprints: negotiatedSprints, planReasoning: reasoning });
+        throw new Error(`Failed to queue sprints (${queueResults.errors} errors)`);
+      }
+    } catch (err) {
+      // On any error, show error message
+      const errorMsg = String(err).replace("Error: ", "");
+      setYoloError(errorMsg);
+
+      // If we successfully planned sprints, dump to Step 2 for manual review
+      if (draftSprints.length > 0) {
+        setSprints(draftSprints);
+        setPlanReasoning(reasoning);
+        setStep(2);
+        saveToStorage({ step: 2, sprints: draftSprints, planReasoning: reasoning });
+      }
+    } finally {
+      setYoloRunning(false);
+      setYoloPhase("");
+    }
+  };
+
   // ─── Step 1: Describe ─────────────────────────────────────────────────────
 
   const renderStep1 = () => (
@@ -657,12 +847,12 @@ function BuilderInner() {
         <h1 style={{ margin: "0 0 8px", fontSize: "26px", fontWeight: 700, color: "#e0e0e8" }}>
           Sprint Builder
         </h1>
-        <p style={{ margin: 0, fontSize: "14px", color: "#888898" }}>
+        <p style={{ margin: 0, fontSize: "14px", color: "#9ca3af" }}>
           Describe what you want built. The planner will decompose it into focused agent sprints.
         </p>
       </div>
 
-      <div style={{ background: "#141420", border: "1px solid #2a2a3a", borderRadius: "12px", padding: "28px" }}>
+      <div style={{ background: "#0f1116", border: "1px solid #1c1d26", borderRadius: "12px", padding: "28px" }}>
         <div style={{ marginBottom: "20px" }}>
           <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#e0e0e8", marginBottom: "8px" }}>
             What do you want built?
@@ -673,7 +863,7 @@ function BuilderInner() {
             placeholder="Paste a client email, feature request, bug report, or just describe the task..."
             rows={7}
             style={{
-              width: "100%", background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "8px",
+              width: "100%", background: "#0d0d18", border: "1px solid #1c1d26", borderRadius: "8px",
               padding: "12px 14px", fontSize: "14px", color: "#e0e0e8", outline: "none",
               resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, boxSizing: "border-box",
             }}
@@ -688,7 +878,7 @@ function BuilderInner() {
             value={selectedProject}
             onChange={(e) => { setSelectedProject(e.target.value); saveToStorage({ selectedProject: e.target.value }); }}
             style={{
-              width: "100%", background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "8px",
+              width: "100%", background: "#0d0d18", border: "1px solid #1c1d26", borderRadius: "8px",
               padding: "10px 14px", fontSize: "14px", color: "#e0e0e8", outline: "none", cursor: "pointer",
             }}
           >
@@ -710,7 +900,7 @@ function BuilderInner() {
             placeholder="Constraints, tech stack details, related tickets, anything else the agent should know..."
             rows={3}
             style={{
-              width: "100%", background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: "8px",
+              width: "100%", background: "#0d0d18", border: "1px solid #1c1d26", borderRadius: "8px",
               padding: "12px 14px", fontSize: "14px", color: "#e0e0e8", outline: "none",
               resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, boxSizing: "border-box",
             }}
@@ -719,14 +909,14 @@ function BuilderInner() {
 
         <button
           onClick={handlePlan}
-          disabled={!prompt.trim() || planning}
+          disabled={!prompt.trim() || planning || yoloRunning}
           style={{
             width: "100%", padding: "13px",
-            background: prompt.trim() && !planning ? "linear-gradient(135deg, #7c3aed, #a855f7)" : "#2a2a3a",
+            background: prompt.trim() && !planning && !yoloRunning ? "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)" : "#1c1d26",
             border: "none", borderRadius: "8px",
-            color: prompt.trim() && !planning ? "white" : "#555565",
+            color: prompt.trim() && !planning && !yoloRunning ? "white" : "#555565",
             fontSize: "15px", fontWeight: 600,
-            cursor: prompt.trim() && !planning ? "pointer" : "not-allowed",
+            cursor: prompt.trim() && !planning && !yoloRunning ? "pointer" : "not-allowed",
             display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
             transition: "all 0.15s",
           }}
@@ -743,6 +933,49 @@ function BuilderInner() {
             </>
           )}
         </button>
+
+        <button
+          onClick={handleYolo}
+          disabled={!prompt.trim() || planning || yoloRunning}
+          style={{
+            width: "100%", padding: "13px", marginTop: "10px",
+            background: prompt.trim() && !planning && !yoloRunning ? "rgba(251,146,60,0.15)" : "#1c1d26",
+            border: prompt.trim() && !planning && !yoloRunning ? "2px solid #fb923c" : "2px solid #1c1d26",
+            borderRadius: "8px",
+            color: prompt.trim() && !planning && !yoloRunning ? "#fb923c" : "#555565",
+            fontSize: "15px", fontWeight: 700,
+            cursor: prompt.trim() && !planning && !yoloRunning ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+            transition: "all 0.15s",
+          }}
+        >
+          {yoloRunning ? (
+            <>
+              <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+              {yoloPhase || "Running…"}
+            </>
+          ) : (
+            <>
+              <Rocket size={18} />
+              Start Now (YOLO)
+            </>
+          )}
+        </button>
+
+        {yoloError && (
+          <div style={{
+            marginTop: "12px",
+            padding: "10px 14px",
+            background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.3)",
+            borderRadius: "6px",
+            fontSize: "13px",
+            color: "#ef4444",
+            lineHeight: 1.4,
+          }}>
+            <strong>YOLO failed:</strong> {yoloError}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -753,10 +986,10 @@ function BuilderInner() {
     <div style={{ maxWidth: "760px", margin: "0 auto" }}>
       <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
         <button
-          onClick={() => setStep(1)}
+          onClick={() => { setStep(1); setYoloError(""); }}
           style={{
-            background: "none", border: "1px solid #2a2a3a", borderRadius: "8px",
-            padding: "6px 12px", color: "#888898", cursor: "pointer",
+            background: "none", border: "1px solid #1c1d26", borderRadius: "8px",
+            padding: "6px 12px", color: "#9ca3af", cursor: "pointer",
             display: "flex", alignItems: "center", gap: "6px", fontSize: "13px",
           }}
         >
@@ -767,19 +1000,37 @@ function BuilderInner() {
         </h1>
       </div>
 
+      {/* YOLO error banner */}
+      {yoloError && (
+        <div style={{
+          marginBottom: "16px",
+          padding: "12px 16px",
+          background: "rgba(251,146,60,0.1)",
+          border: "1px solid rgba(251,146,60,0.3)",
+          borderRadius: "8px",
+          fontSize: "13px",
+          color: "#fb923c",
+          lineHeight: 1.5,
+        }}>
+          <strong>YOLO mode failed:</strong> {yoloError}
+          <br />
+          <span style={{ color: "#9ca3af" }}>Review the sprints below, make any adjustments, and proceed manually.</span>
+        </div>
+      )}
+
       {/* Planner reasoning */}
       {planReasoning && (
         <div style={{
-          background: "rgba(124,58,237,0.06)",
-          border: "1px solid rgba(124,58,237,0.2)",
+          background: "rgba(20,184,166,0.06)",
+          border: "1px solid rgba(20,184,166,0.2)",
           borderRadius: "10px",
           padding: "14px 16px",
           marginBottom: "20px",
           fontSize: "13px",
-          color: "#888898",
+          color: "#9ca3af",
           lineHeight: 1.5,
         }}>
-          <div style={{ fontWeight: 600, color: "#a855f7", marginBottom: "6px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div style={{ fontWeight: 600, color: "#fb923c", marginBottom: "6px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Planner Reasoning
           </div>
           {planReasoning}
@@ -813,7 +1064,7 @@ function BuilderInner() {
         onClick={addSprint}
         style={{
           width: "100%", padding: "10px",
-          background: "transparent", border: "1px dashed #2a2a3a",
+          background: "transparent", border: "1px dashed #1c1d26",
           borderRadius: "10px", color: "#555565", fontSize: "13px",
           cursor: "pointer", display: "flex", alignItems: "center",
           justifyContent: "center", gap: "6px", marginBottom: "20px",
@@ -827,8 +1078,8 @@ function BuilderInner() {
       {/* Negotiate All */}
       {sprints.some(s => !s.negotiated) && (
         <div style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "#0f1116",
+          border: "1px solid #1c1d26",
           borderRadius: "10px",
           padding: "16px 20px",
           marginBottom: "20px",
@@ -850,10 +1101,10 @@ function BuilderInner() {
             disabled={negotiatingAll}
             style={{
               padding: "9px 18px",
-              background: negotiatingAll ? "#2a2a3a" : "rgba(124,58,237,0.15)",
-              border: negotiatingAll ? "1px solid #2a2a3a" : "1px solid rgba(124,58,237,0.35)",
+              background: negotiatingAll ? "#1c1d26" : "rgba(20,184,166,0.15)",
+              border: negotiatingAll ? "1px solid #1c1d26" : "1px solid rgba(20,184,166,0.35)",
               borderRadius: "8px",
-              color: negotiatingAll ? "#555565" : "#a855f7",
+              color: negotiatingAll ? "#555565" : "#fb923c",
               fontSize: "13px", fontWeight: 600, cursor: negotiatingAll ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", gap: "7px", whiteSpace: "nowrap",
               flexShrink: 0, marginLeft: "16px",
@@ -875,7 +1126,7 @@ function BuilderInner() {
           disabled={sprints.length === 0}
           style={{
             padding: "11px 24px",
-            background: sprints.length > 0 ? "linear-gradient(135deg, #7c3aed, #a855f7)" : "#2a2a3a",
+            background: sprints.length > 0 ? "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)" : "#1c1d26",
             border: "none", borderRadius: "8px",
             color: sprints.length > 0 ? "white" : "#555565",
             fontSize: "14px", fontWeight: 600,
@@ -898,8 +1149,8 @@ function BuilderInner() {
         <button
           onClick={() => setStep(2)}
           style={{
-            background: "none", border: "1px solid #2a2a3a", borderRadius: "8px",
-            padding: "6px 12px", color: "#888898", cursor: "pointer",
+            background: "none", border: "1px solid #1c1d26", borderRadius: "8px",
+            padding: "6px 12px", color: "#9ca3af", cursor: "pointer",
             display: "flex", alignItems: "center", gap: "6px", fontSize: "13px",
           }}
         >
@@ -912,8 +1163,8 @@ function BuilderInner() {
 
       {/* Sprint summary */}
       <div style={{
-        background: "#141420",
-        border: "1px solid #2a2a3a",
+        background: "#0f1116",
+        border: "1px solid #1c1d26",
         borderRadius: "12px",
         padding: "20px",
         marginBottom: "16px",
@@ -941,7 +1192,7 @@ function BuilderInner() {
               </div>
               <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                 <AgentBadge agentId={sprint.agent.id} agentName={sprint.agent.name} />
-                <span style={{ fontSize: "10px", color: "#888898" }}>{sprint.suggestedQaTier} QA</span>
+                <span style={{ fontSize: "10px", color: "#9ca3af" }}>{sprint.suggestedQaTier} QA</span>
                 {sprint.negotiated && (
                   <span style={{ fontSize: "10px", color: "#22c55e" }}>✓ negotiated</span>
                 )}
@@ -964,7 +1215,7 @@ function BuilderInner() {
           disabled={saving}
           style={{
             padding: "16px 24px",
-            background: saving ? "#2a2a3a" : "linear-gradient(135deg, #7c3aed, #a855f7)",
+            background: saving ? "#1c1d26" : "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #10b981 100%)",
             border: "none", borderRadius: "10px",
             color: saving ? "#555565" : "white",
             fontSize: "15px", fontWeight: 600,
@@ -982,13 +1233,13 @@ function BuilderInner() {
 
         {/* Schedule */}
         <div style={{
-          background: "#141420",
-          border: "1px solid #2a2a3a",
+          background: "#0f1116",
+          border: "1px solid #1c1d26",
           borderRadius: "10px",
           padding: "16px 20px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-            <Clock size={16} color="#888898" />
+            <Clock size={16} color="#9ca3af" />
             <span style={{ fontSize: "14px", fontWeight: 500, color: "#e0e0e8" }}>Schedule First Sprint</span>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
@@ -997,7 +1248,7 @@ function BuilderInner() {
               value={scheduledFor}
               onChange={(e) => setScheduledFor(e.target.value)}
               style={{
-                flex: 1, background: "#0d0d18", border: "1px solid #2a2a3a",
+                flex: 1, background: "#0d0d18", border: "1px solid #1c1d26",
                 borderRadius: "6px", padding: "8px 12px", fontSize: "13px",
                 color: "#e0e0e8", outline: "none", colorScheme: "dark",
               }}
@@ -1006,10 +1257,10 @@ function BuilderInner() {
               disabled={!scheduledFor || saving}
               style={{
                 padding: "8px 16px",
-                background: scheduledFor ? "rgba(124,58,237,0.15)" : "#1a1a2a",
-                border: scheduledFor ? "1px solid rgba(124,58,237,0.4)" : "1px solid #2a2a3a",
+                background: scheduledFor ? "rgba(20,184,166,0.15)" : "#1a1a2a",
+                border: scheduledFor ? "1px solid rgba(20,184,166,0.4)" : "1px solid #1c1d26",
                 borderRadius: "6px",
-                color: scheduledFor ? "#a855f7" : "#555565",
+                color: scheduledFor ? "#fb923c" : "#555565",
                 fontSize: "13px", fontWeight: 500,
                 cursor: scheduledFor && !saving ? "pointer" : "not-allowed",
                 whiteSpace: "nowrap",
@@ -1025,8 +1276,8 @@ function BuilderInner() {
           onClick={() => { setSaveMsg("Draft saved (use /sprints to review)"); }}
           disabled={saving}
           style={{
-            padding: "14px 24px", background: "transparent", border: "1px solid #2a2a3a",
-            borderRadius: "10px", color: "#888898", fontSize: "14px", fontWeight: 500,
+            padding: "14px 24px", background: "transparent", border: "1px solid #1c1d26",
+            borderRadius: "10px", color: "#9ca3af", fontSize: "14px", fontWeight: 500,
             cursor: saving ? "not-allowed" : "pointer",
             display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
           }}
@@ -1081,12 +1332,12 @@ function BuilderInner() {
               <div style={{
                 display: "flex", alignItems: "center", gap: "6px",
                 padding: "4px 12px", borderRadius: "20px",
-                background: active ? "rgba(124,58,237,0.15)" : done ? "rgba(34,197,94,0.1)" : "transparent",
-                border: `1px solid ${active ? "#7c3aed" : done ? "rgba(34,197,94,0.3)" : "#2a2a3a"}`,
+                background: active ? "rgba(20,184,166,0.15)" : done ? "rgba(34,197,94,0.1)" : "transparent",
+                border: `1px solid ${active ? "#fb923c" : done ? "rgba(34,197,94,0.3)" : "#1c1d26"}`,
               }}>
                 <span style={{
                   width: "18px", height: "18px", borderRadius: "50%",
-                  background: active ? "#7c3aed" : done ? "#22c55e" : "#2a2a3a",
+                  background: active ? "#fb923c" : done ? "#22c55e" : "#1c1d26",
                   color: "white", fontSize: "10px", fontWeight: 700,
                   display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 }}>
@@ -1094,13 +1345,13 @@ function BuilderInner() {
                 </span>
                 <span style={{
                   fontSize: "12px", fontWeight: active ? 600 : 400,
-                  color: active ? "#a855f7" : done ? "#22c55e" : "#888898",
+                  color: active ? "#fb923c" : done ? "#22c55e" : "#9ca3af",
                 }}>
                   {s.label}
                 </span>
               </div>
               {i < steps.length - 1 && (
-                <div style={{ width: "24px", height: "1px", background: step > s.num ? "rgba(34,197,94,0.4)" : "#2a2a3a" }} />
+                <div style={{ width: "24px", height: "1px", background: step > s.num ? "rgba(34,197,94,0.4)" : "#1c1d26" }} />
               )}
             </div>
           );
@@ -1117,7 +1368,7 @@ function BuilderInner() {
 export default function BuilderPage() {
   return (
     <Suspense fallback={
-      <div style={{ padding: "32px", color: "#888898", fontSize: "14px" }}>Loading builder...</div>
+      <div style={{ padding: "32px", color: "#9ca3af", fontSize: "14px" }}>Loading builder...</div>
     }>
       <BuilderInner />
     </Suspense>

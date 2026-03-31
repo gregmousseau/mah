@@ -1,0 +1,38 @@
+{
+  "id": "draft-mndd1e6i-kmanc",
+  "name": "Test Sprint",
+  "task": "Test task description",
+  "projectId": "mah-build",
+  "status": "planned",
+  "sprintType": "code",
+  "devBrief": {
+    "repo": ".",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [],
+  "createdAt": "2026-03-30T15:46:04.170Z",
+  "agentConfig": {
+    "generator": {
+      "agentId": "dev",
+      "agentName": "Devin"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "plannerOutput": "This is a generic test sprint with no specific domain indicated. Assigning to Devin as the general-purpose developer since the task description doesn't indicate frontend, research, or content work.",
+  "estimatedComplexity": "low",
+  "updatedAt": "2026-03-30T15:46:19.217Z"
+}

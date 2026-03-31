@@ -1,0 +1,37 @@
+{
+  "id": "draft-mndbe4hn-cf1fz",
+  "name": "Update Test",
+  "task": "Test update functionality",
+  "status": "planned",
+  "sprintType": "code",
+  "devBrief": {
+    "repo": ".",
+    "constraints": [
+      "Follow existing code patterns and conventions"
+    ],
+    "definitionOfDone": []
+  },
+  "qaBrief": {
+    "tier": "smoke",
+    "testUrl": "",
+    "testFocus": [],
+    "passCriteria": [],
+    "knownLimitations": []
+  },
+  "graders": [],
+  "iterations": [],
+  "createdAt": "2026-03-30T14:59:58.908Z",
+  "updatedAt": "2026-03-30T15:50:08.118Z",
+  "agentConfig": {
+    "generator": {
+      "agentId": "dev",
+      "agentName": "Devin"
+    },
+    "evaluator": {
+      "agentId": "qa",
+      "agentName": "Quinn"
+    }
+  },
+  "plannerOutput": "Testing update functionality is a general development/QA task involving backend logic and test infrastructure, not frontend UI or research.",
+  "estimatedComplexity": "low"
+}
