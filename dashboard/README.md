@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MAH Dashboard
+
+Next.js web UI for managing multi-agent sprint pipelines.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Projects
+- Create and manage projects with priority configuration (speed/quality/cost)
+- Per-project agent and QA settings
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Sprint Builder
+- AI-assisted sprint contract generation
+- Negotiate and refine contracts before execution
+- Configure graders (UX, code review) per sprint
+- Assign specific agents (Frankie, Devin, Quinn)
 
-## Learn More
+### Sprint Execution
+- One-click sprint execution from the UI
+- Real-time phase tracking (dev → QA → verdict)
+- Live heartbeat monitoring
+- Cancel running sprints
 
-To learn more about Next.js, take a look at the following resources:
+### Sprint History
+- Browse all sprints with status, cost, and duration
+- Full transcript viewer (prompts sent, responses received)
+- Metrics breakdown per phase
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Agent Config
+- View registered agents with names, workspaces, and colors
+- Agent registry at `src/lib/agents.ts`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API Routes
 
-## Deploy on Vercel
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/projects` | GET/POST | List/create projects |
+| `/api/projects/[id]` | GET/PATCH/DELETE | Project CRUD |
+| `/api/sprints` | GET | List sprints |
+| `/api/sprints/execute` | POST | Execute a sprint contract |
+| `/api/sprints/run` | POST | Quick-run a task |
+| `/api/sprints/cancel` | POST | Cancel running sprint |
+| `/api/sprints/queue` | GET | View sprint queue |
+| `/api/sprints/[id]` | GET | Sprint details |
+| `/api/sprints/[id]/status` | GET | Sprint status (heartbeat) |
+| `/api/sprints/[id]/transcript` | GET | Full transcript |
+| `/api/agents` | GET | List registered agents |
+| `/api/config` | GET | Project configuration |
+| `/api/stats` | GET | Aggregate statistics |
+| `/api/events` | GET | Event stream |
+| `/api/builder/plan` | POST | Generate sprint contract |
+| `/api/builder/negotiate` | POST | Refine contract via AI |
+| `/api/builder/generate` | POST | Generate from template |
+| `/api/builder/save` | POST | Save draft sprint |
+| `/api/builder/drafts` | GET | List draft sprints |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+- Next.js 15 (App Router)
+- Tailwind CSS
+- TypeScript
+- Playwright (QA test execution)
