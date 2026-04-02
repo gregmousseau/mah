@@ -1,13 +1,31 @@
 {
   "running": null,
-  "pending": [
+  "pending": [],
+  "completed": [
+    {
+      "sprintId": "033",
+      "sprintName": "Update footer copyright year to 2026",
+      "completedAt": "2026-04-02T17:44:33.610Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "032",
+      "sprintName": "Fix hydration mismatch in ActiveSprint component",
+      "completedAt": "2026-04-02T17:05:43.029Z",
+      "status": "passed"
+    },
     {
       "sprintId": "030",
       "sprintName": "Repo Name / Code lives in field is blank",
-      "queuedAt": "2026-03-31T17:59:07.220Z"
-    }
-  ],
-  "completed": [
+      "completedAt": "2026-03-31T18:49:31.312Z",
+      "status": "passed"
+    },
+    {
+      "sprintId": "031",
+      "sprintName": "Fix negotiate API empty array fallback logic",
+      "completedAt": "2026-03-31T18:49:30.826Z",
+      "status": "passed"
+    },
     {
       "sprintId": "029",
       "sprintName": "Cleanup Test sprints",

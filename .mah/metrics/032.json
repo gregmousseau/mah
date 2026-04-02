@@ -1,0 +1,51 @@
+{
+  "sprintId": "032",
+  "projectName": "MAH Build",
+  "task": "Fix the hydration error on the /projects page (and all pages) caused by the ActiveSprint component in src/components/ActiveSprint.tsx.\n\nROOT CAUSE: Around line 93-97, the `isActive` calculation uses `Date.now()` during render:\n```\nconst isActive = (() => {\n  if (heartbeat?.alive) return true;\n  if (!lastTs) return false;\n  return Date.now() - new Date(lastTs).getTime() < 5 * 60 * 1000;\n})();\n```\n\nDate.now() returns different values on server vs client, causing a hydration mismatch.\n\nFIX: Defer the Date.now()-based timestamp comparison so it doesn't run during the initial render. Options:\n1. Initialize `isActive` based only on `heartbeat?.alive` for the first render, then use a useEffect + useState to update the timestamp-based check after hydration.\n2. Or use a `useSyncExternalStore` with a server snapshot.\n\nThe component already has a `useRelativeTime()` hook that correctly defers Date.now() to useEffect — follow that same pattern for the isActive check.\n\nFiles to modify:\n- src/components/ActiveSprint.tsx\n\nVerify the fix by confirming /projects loads without hydration warnings in the browser console.",
+  "startTime": "2026-04-02T17:05:42.169Z",
+  "endTime": "2026-04-02T17:05:43.027Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 201,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.007086
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 202,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.009987
+    }
+  ],
+  "totals": {
+    "durationMs": 858,
+    "estimatedCost": 0.017072999999999998,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "qa-r1"
+}

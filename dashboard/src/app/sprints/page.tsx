@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { Search, X } from "lucide-react";
 import VerdictBadge from "@/components/VerdictBadge";
 import CountdownTimer from "@/components/CountdownTimer";
 import { usePolling } from "@/hooks/usePolling";
@@ -85,29 +86,126 @@ function ProjectBadge({ projectId, projects }: { projectId?: string | null; proj
   );
 }
 
+const STATUS_OPTIONS = ["All", "Draft", "Running", "Passed", "Failed"] as const;
+type StatusFilter = typeof STATUS_OPTIONS[number];
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "cost", label: "Highest cost" },
+  { value: "iterations", label: "Most iterations" },
+] as const;
+type SortOption = typeof SORT_OPTIONS[number]["value"];
+
 export default function SprintsPage() {
   const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
+  const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+
   const { data: sprints } = usePolling<SprintSummary[]>("/api/sprints", 10000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
 
   const allSprints = sprints || [];
   const allProjects = projects || [];
 
-  const filtered = projectFilter === "all"
-    ? allSprints
-    : allSprints.filter((s) => (s.projectId || null) === (projectFilter === "none" ? null : projectFilter));
+  // Unique agent names from sprint data
+  const agentOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const s of allSprints) {
+      if (s.agentConfig?.generator) {
+        const { agentId, agentName } = s.agentConfig.generator;
+        if (!seen.has(agentId)) seen.set(agentId, agentName);
+      }
+    }
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+  }, [allSprints]);
 
-  const displaySprints = [...filtered].reverse();
+  // Status counts (before status filter, after other filters)
+  const statusCounts = useMemo(() => {
+    const base = allSprints.filter((s) => {
+      if (projectFilter !== "all" && (s.projectId || null) !== (projectFilter === "none" ? null : projectFilter)) return false;
+      if (searchText && !s.name.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (agentFilter !== "all" && s.agentConfig?.generator?.agentId !== agentFilter) return false;
+      return true;
+    });
+    const counts: Record<StatusFilter, number> = { All: base.length, Draft: 0, Running: 0, Passed: 0, Failed: 0 };
+    for (const s of base) {
+      if (s.status === "draft") counts.Draft++;
+      else if (s.status === "running") counts.Running++;
+      else if (s.status === "passed") counts.Passed++;
+      else if (s.status === "failed") counts.Failed++;
+    }
+    return counts;
+  }, [allSprints, projectFilter, searchText, agentFilter]);
+
+  // Apply all filters + sort
+  const filteredSprints = useMemo(() => {
+    let result = allSprints.filter((s) => {
+      if (projectFilter !== "all" && (s.projectId || null) !== (projectFilter === "none" ? null : projectFilter)) return false;
+      if (searchText && !s.name.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (statusFilter !== "All") {
+        const statusMap: Record<StatusFilter, string> = { All: "", Draft: "draft", Running: "running", Passed: "passed", Failed: "failed" };
+        if (s.status !== statusMap[statusFilter]) return false;
+      }
+      if (agentFilter !== "all" && s.agentConfig?.generator?.agentId !== agentFilter) return false;
+      return true;
+    });
+
+    if (sortBy === "newest") result = [...result].reverse();
+    else if (sortBy === "oldest") result = [...result];
+    else if (sortBy === "cost") result = [...result].sort((a, b) => b.totalCost - a.totalCost);
+    else if (sortBy === "iterations") result = [...result].sort((a, b) => b.iterations - a.iterations);
+
+    return result;
+  }, [allSprints, projectFilter, searchText, statusFilter, agentFilter, sortBy]);
+
+  const isFiltered = searchText || statusFilter !== "All" || agentFilter !== "all" || projectFilter !== "all";
+
+  const selectStyle = {
+    background: "#14151b",
+    border: "1px solid #1c1d26",
+    borderRadius: "8px",
+    padding: "7px 10px",
+    color: "#e0e0e8",
+    fontSize: "12px",
+    cursor: "pointer",
+    outline: "none",
+  };
 
   return (
     <div style={{ padding: "32px", maxWidth: "1000px" }}>
-      <div style={{ marginBottom: "28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>Sprints</h1>
-          <div style={{ fontSize: "13px", color: "#9ca3af" }}>
-            {filtered.length} sprint{filtered.length !== 1 ? "s" : ""}
-            {projectFilter !== "all" && " (filtered)"}
+      {/* Page header */}
+      <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div>
+            <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, color: "#e0e0e8" }}>Sprints</h1>
+            <div style={{ fontSize: "13px", color: "#9ca3af" }}>
+              {filteredSprints.length} sprint{filteredSprints.length !== 1 ? "s" : ""}
+              {isFiltered && " (filtered)"}
+            </div>
           </div>
+          <Link
+            href="/sprints/compare"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "7px 13px",
+              borderRadius: "7px",
+              border: "1px solid #1c1d26",
+              background: "transparent",
+              color: "#9ca3af",
+              fontSize: "12px",
+              fontWeight: 500,
+              textDecoration: "none",
+              transition: "all 0.15s",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ⇄ Compare
+          </Link>
         </div>
 
         {/* Project filter */}
@@ -158,7 +256,128 @@ export default function SprintsPage() {
         )}
       </div>
 
-      {displaySprints.length === 0 ? (
+      {/* Filter bar */}
+      <div style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "12px",
+        alignItems: "center",
+        marginBottom: "20px",
+        padding: "14px 16px",
+        background: "#0f1116",
+        border: "1px solid #1c1d26",
+        borderRadius: "10px",
+      }}>
+        {/* Search */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <Search size={14} style={{
+            position: "absolute",
+            left: "10px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#555565",
+            pointerEvents: "none",
+          }} />
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search sprints..."
+            style={{
+              background: "#14151b",
+              border: "1px solid #1c1d26",
+              borderRadius: "8px",
+              padding: "8px 32px 8px 32px",
+              color: "#e0e0e8",
+              fontSize: "13px",
+              width: "280px",
+              outline: "none",
+            }}
+          />
+          {searchText && (
+            <button
+              onClick={() => setSearchText("")}
+              style={{
+                position: "absolute",
+                right: "8px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                padding: "2px",
+                cursor: "pointer",
+                color: "#555565",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        {/* Status filter */}
+        <div style={{ display: "flex", gap: "4px" }}>
+          {STATUS_OPTIONS.map((status) => {
+            const active = statusFilter === status;
+            return (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid",
+                  borderColor: active ? "var(--accent)" : "#1c1d26",
+                  background: active ? "var(--accent-glow)" : "transparent",
+                  color: active ? "var(--accent)" : "#9ca3af",
+                  fontSize: "12px",
+                  fontWeight: active ? 600 : 400,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {status}
+                <span style={{
+                  marginLeft: "5px",
+                  fontSize: "11px",
+                  opacity: 0.75,
+                }}>
+                  {statusCounts[status]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Agent filter */}
+        {agentOptions.length > 1 && (
+          <select
+            value={agentFilter}
+            onChange={(e) => setAgentFilter(e.target.value)}
+            style={selectStyle}
+          >
+            <option value="all">All agents</option>
+            {agentOptions.map(({ id, name }) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Sort */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortOption)}
+          style={{ ...selectStyle, marginLeft: "auto" }}
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {filteredSprints.length === 0 ? (
         <div style={{
           background: "#0f1116",
           border: "1px solid #1c1d26",
@@ -169,12 +388,12 @@ export default function SprintsPage() {
         }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>⚡</div>
           <div style={{ fontSize: "16px", fontWeight: 600, color: "#e0e0e8", marginBottom: "6px" }}>
-            {projectFilter !== "all" ? "No sprints in this project" : "No sprints yet"}
+            {isFiltered ? "No matching sprints" : "No sprints yet"}
           </div>
           <div style={{ fontSize: "13px", marginBottom: "16px" }}>
-            {projectFilter !== "all" ? "Try selecting a different project filter." : "Run your first sprint to get started."}
+            {isFiltered ? "Try adjusting your filters." : "Run your first sprint to get started."}
           </div>
-          {projectFilter === "all" && (
+          {!isFiltered && (
             <code style={{ background: "var(--card-elevated)", border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 12px", fontSize: "13px", color: "#fb923c", fontWeight: 600 }}>
               mah run
             </code>
@@ -205,7 +424,7 @@ export default function SprintsPage() {
           </div>
 
           {/* Rows */}
-          {displaySprints.map((sprint, i) => (
+          {filteredSprints.map((sprint, i) => (
             <Link
               key={sprint.id}
               href={`/sprints/${sprint.id}`}
@@ -214,7 +433,7 @@ export default function SprintsPage() {
                 gridTemplateColumns: "60px 1fr 140px 120px 80px 80px 100px",
                 gap: "12px",
                 padding: "13px 20px",
-                borderBottom: i < displaySprints.length - 1 ? "1px solid #1e1e2e" : "none",
+                borderBottom: i < filteredSprints.length - 1 ? "1px solid #1e1e2e" : "none",
                 textDecoration: "none",
                 color: "inherit",
                 alignItems: "center",

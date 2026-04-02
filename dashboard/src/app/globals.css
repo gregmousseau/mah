@@ -204,6 +204,36 @@ body {
   h1 {
     font-size: 20px !important;
   }
+
+  /* Board: stack kanban columns vertically */
+  .kanban-columns {
+    flex-direction: column !important;
+    overflow-x: visible !important;
+  }
+
+  .kanban-columns > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: none !important;
+  }
+
+  /* Builder: wrap sprint card header so controls don't overflow */
+  .builder-layout {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* Sprint detail: stack transcript panels vertically */
+  .transcript-panels {
+    flex-direction: column !important;
+  }
+}
+
+/* ── Small screen (480px) ───────────────────────────────── */
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* Scrollbar */

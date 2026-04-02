@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { usePolling } from "@/hooks/usePolling";
-import { Plus, Edit2, Trash2, Play, Calendar, Handshake, Wand2, Loader2, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Play, Calendar, Handshake, Wand2, Loader2, X, CheckSquare } from "lucide-react";
 import Toast from "@/components/Toast";
 import { getGeneratorAgents } from "@/lib/agents";
 import type { SprintSummary, Project } from "@/types/mah";
@@ -72,9 +72,12 @@ interface SprintCardProps {
   onAction: (action: string, sprintId: string) => void;
   onEdit: (sprintId: string, name: string, task: string) => void;
   isLoading: boolean;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-function SprintCard({ sprint, projects, onAction, onEdit, isLoading }: SprintCardProps) {
+function SprintCard({ sprint, projects, onAction, onEdit, isLoading, selectionMode, isSelected, onToggleSelect }: SprintCardProps) {
   const accent = getProjectAccent(sprint.projectId);
   const project = projects.find((p) => p.id === sprint.projectId);
   const isRunning = sprint.status === "running";
@@ -110,18 +113,42 @@ function SprintCard({ sprint, projects, onAction, onEdit, isLoading }: SprintCar
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={selectionMode ? () => onToggleSelect?.(sprint.id) : undefined}
       style={{
         background: "#0f1116",
-        border: "1px solid #1c1d26",
+        border: `1px solid ${selectionMode && isSelected ? "#fb923c60" : "#1c1d26"}`,
         borderRadius: "10px",
         padding: "12px 14px",
         marginBottom: "8px",
         transition: "border-color 0.15s, box-shadow 0.15s",
         position: "relative",
         overflow: "hidden",
+        cursor: selectionMode ? "pointer" : undefined,
+        display: "flex",
+        gap: selectionMode ? "10px" : undefined,
+        alignItems: selectionMode ? "flex-start" : undefined,
       }}
       className="kanban-card"
     >
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <div style={{
+          flexShrink: 0,
+          marginTop: "1px",
+          width: "16px",
+          height: "16px",
+          borderRadius: "4px",
+          border: `2px solid ${isSelected ? "#fb923c" : "#555565"}`,
+          background: isSelected ? "#fb923c20" : "transparent",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.15s",
+        }}>
+          {isSelected && <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: "#fb923c" }} />}
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
       {/* Loading overlay */}
       {isLoading && (
         <div style={{
@@ -314,7 +341,7 @@ function SprintCard({ sprint, projects, onAction, onEdit, isLoading }: SprintCar
       </div>
 
       {/* Action buttons (always visible on mobile, hover on desktop) */}
-      {hasActions && (
+      {!selectionMode && hasActions && (
         <div
           className="card-actions"
           style={{
@@ -503,6 +530,7 @@ function SprintCard({ sprint, projects, onAction, onEdit, isLoading }: SprintCar
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -520,10 +548,16 @@ interface BoardColumnProps {
   onNewCardClick: () => void;
   onNewCardSubmit: (name: string, task: string, projectId: string) => void;
   onNewCardCancel: () => void;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: (ids: string[], selected: boolean) => void;
 }
 
-function BoardColumn({ col, sprints, projects, onAction, onEdit, loadingSprintId, showNewCardForm, onNewCardClick, onNewCardSubmit, onNewCardCancel }: BoardColumnProps) {
+function BoardColumn({ col, sprints, projects, onAction, onEdit, loadingSprintId, showNewCardForm, onNewCardClick, onNewCardSubmit, onNewCardCancel, selectionMode, selectedIds, onToggleSelect, onToggleAll }: BoardColumnProps) {
   const isDraftColumn = col.status === "draft";
+  const allSelected = sprints.length > 0 && sprints.every((s) => selectedIds?.has(s.id));
+  const someSelected = sprints.some((s) => selectedIds?.has(s.id));
 
   return (
     <div style={{
@@ -545,6 +579,34 @@ function BoardColumn({ col, sprints, projects, onAction, onEdit, loadingSprintId
         borderBottom: "none",
         marginBottom: "0",
       }}>
+        {/* Select-all checkbox */}
+        {selectionMode && sprints.length > 0 && (
+          <div
+            onClick={() => onToggleAll?.(sprints.map((s) => s.id), !allSelected)}
+            style={{
+              flexShrink: 0,
+              width: "14px",
+              height: "14px",
+              borderRadius: "3px",
+              border: `2px solid ${allSelected ? "#fb923c" : someSelected ? "#fb923c80" : "#555565"}`,
+              background: allSelected ? "#fb923c20" : "transparent",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.15s",
+            }}
+          >
+            {(allSelected || someSelected) && (
+              <div style={{
+                width: allSelected ? "6px" : "4px",
+                height: allSelected ? "6px" : "2px",
+                borderRadius: "1px",
+                background: "#fb923c",
+              }} />
+            )}
+          </div>
+        )}
         <div style={{
           width: "8px",
           height: "8px",
@@ -650,6 +712,9 @@ function BoardColumn({ col, sprints, projects, onAction, onEdit, loadingSprintId
               onAction={onAction}
               onEdit={onEdit}
               isLoading={loadingSprintId === s.id}
+              selectionMode={selectionMode}
+              isSelected={selectedIds?.has(s.id)}
+              onToggleSelect={onToggleSelect}
             />
           ))
         )}
@@ -802,6 +867,8 @@ export default function BoardPage() {
   const [showNewCardForm, setShowNewCardForm] = useState(false);
   const [loadingSprintId, setLoadingSprintId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { data: sprints, refetch } = usePolling<SprintSummary[]>("/api/sprints", 8000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 30000);
 
@@ -1044,6 +1111,75 @@ export default function BoardPage() {
     }
   }, [handlePlanSprint, handleNegotiate, handleRunSprint, handleScheduleSprint, handleDeleteSprint]);
 
+  // ─── Selection Handlers ───────────────────────────────────────────────────────
+
+  const handleToggleSelectMode = useCallback(() => {
+    setSelectionMode((prev) => !prev);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleAll = useCallback((ids: string[], selected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (selected) ids.forEach((id) => next.add(id));
+      else ids.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, []);
+
+  // ─── Bulk Action Handlers ─────────────────────────────────────────────────────
+
+  const handleBulkPlan = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    let succeeded = 0;
+    for (const id of ids) {
+      await handlePlanSprint(id);
+      succeeded++;
+      if (succeeded < ids.length) await new Promise((r) => setTimeout(r, 300));
+    }
+    showToast(`Planned ${succeeded} sprint${succeeded !== 1 ? "s" : ""}`);
+  }, [selectedIds, handlePlanSprint, showToast]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (!confirm(`Delete ${ids.length} draft sprint${ids.length !== 1 ? "s" : ""}?`)) return;
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    let succeeded = 0;
+    for (const id of ids) {
+      try {
+        const response = await fetch(`/api/board/draft/${id}`, { method: "DELETE" });
+        if (response.ok) succeeded++;
+      } catch { /* continue */ }
+      if (succeeded < ids.length) await new Promise((r) => setTimeout(r, 150));
+    }
+    showToast(`Deleted ${succeeded} sprint${succeeded !== 1 ? "s" : ""}`);
+    refetch();
+  }, [selectedIds, showToast, refetch]);
+
+  const handleBulkRun = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    let succeeded = 0;
+    for (const id of ids) {
+      await handleRunSprint(id);
+      succeeded++;
+      if (succeeded < ids.length) await new Promise((r) => setTimeout(r, 300));
+    }
+    showToast(`Started ${succeeded} sprint${succeeded !== 1 ? "s" : ""}`);
+  }, [selectedIds, handleRunSprint, showToast]);
+
   return (
     <div style={{ padding: "32px", minWidth: 0 }}>
       {/* Page header */}
@@ -1064,6 +1200,39 @@ export default function BoardPage() {
             {projectFilter !== "all" && " (filtered)"}
           </div>
         </div>
+
+        {/* Right side: select toggle + project filter */}
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+        {/* Select toggle */}
+        <button
+          onClick={handleToggleSelectMode}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            border: `1px solid ${selectionMode ? "#fb923c" : "#1c1d26"}`,
+            background: selectionMode ? "rgba(251,146,60,0.1)" : "transparent",
+            color: selectionMode ? "#fb923c" : "#9ca3af",
+            fontSize: "12px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          {selectionMode ? (
+            <>
+              <X size={13} />
+              <span>Cancel{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}</span>
+            </>
+          ) : (
+            <>
+              <CheckSquare size={13} />
+              <span>Select</span>
+            </>
+          )}
+        </button>
 
         {/* Project filter */}
         {allProjects.length > 0 && (
@@ -1110,10 +1279,11 @@ export default function BoardPage() {
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* Kanban columns */}
-      <div style={{
+      <div className="kanban-columns" style={{
         display: "flex",
         gap: "12px",
         overflowX: "auto",
@@ -1140,10 +1310,94 @@ export default function BoardPage() {
               onNewCardClick={() => setShowNewCardForm(true)}
               onNewCardSubmit={handleCreateCard}
               onNewCardCancel={() => setShowNewCardForm(false)}
+              selectionMode={selectionMode}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onToggleAll={handleToggleAll}
             />
           );
         })}
       </div>
+
+      {/* Bulk action bar */}
+      {selectionMode && selectedIds.size > 0 && (() => {
+        const selectedSprints = allSprints.filter((s) => selectedIds.has(s.id));
+        const allDrafts = selectedSprints.every((s) => s.status === "draft");
+        const allApproved = selectedSprints.every((s) => s.status === "approved");
+        return (
+          <div style={{
+            position: "fixed",
+            bottom: "24px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#14151b",
+            border: "1px solid #fb923c40",
+            borderRadius: "12px",
+            padding: "12px 24px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            zIndex: 100,
+            whiteSpace: "nowrap",
+          }}>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "#fb923c" }}>
+              {selectedIds.size} selected
+            </span>
+            <div style={{ width: "1px", height: "20px", background: "#2a2a3a" }} />
+            {allDrafts && (
+              <button
+                onClick={handleBulkPlan}
+                style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  background: "#3b82f620", border: "1px solid #3b82f640", color: "#3b82f6",
+                  padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+                }}
+              >
+                <Wand2 size={13} />
+                <span>Plan All</span>
+              </button>
+            )}
+            {allDrafts && (
+              <button
+                onClick={handleBulkDelete}
+                style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  background: "#ef444420", border: "1px solid #ef444440", color: "#ef4444",
+                  padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+                }}
+              >
+                <Trash2 size={13} />
+                <span>Delete All</span>
+              </button>
+            )}
+            {allApproved && (
+              <button
+                onClick={handleBulkRun}
+                style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  background: "#22c55e20", border: "1px solid #22c55e40", color: "#22c55e",
+                  padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+                }}
+              >
+                <Play size={13} />
+                <span>Run All</span>
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              style={{
+                display: "flex", alignItems: "center", gap: "4px",
+                background: "transparent", border: "1px solid #2a2a3a", color: "#9ca3af",
+                padding: "6px 10px", borderRadius: "6px", fontSize: "12px", cursor: "pointer",
+              }}
+            >
+              <X size={13} />
+              <span>Clear</span>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Toast notifications */}
       {toast && (

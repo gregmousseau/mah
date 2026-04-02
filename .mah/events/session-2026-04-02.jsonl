@@ -1,0 +1,25 @@
+{"ts":"2026-04-02T17:05:42.456Z","local":"13:05:42","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Fix hydration mismatch in ActiveSprint component"}
+{"ts":"2026-04-02T17:05:42.494Z","local":"13:05:42","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 032"}
+{"ts":"2026-04-02T17:05:42.607Z","local":"13:05:42","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-04-02T17:05:42.821Z","local":"13:05:42","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (201ms / $0.0071)"}
+{"ts":"2026-04-02T17:05:42.822Z","local":"13:05:42","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-04-02T17:05:43.024Z","local":"13:05:43","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (202ms / $0.0100)"}
+{"ts":"2026-04-02T17:05:43.026Z","local":"13:05:43","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 1 iteration(s) [all graders passed]"}
+{"ts":"2026-04-02T17:26:29.256Z","local":"13:26:29","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Update footer copyright year to 2026"}
+{"ts":"2026-04-02T17:26:29.305Z","local":"13:26:29","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 033"}
+{"ts":"2026-04-02T17:26:29.439Z","local":"13:26:29","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-04-02T17:28:06.682Z","local":"13:28:06","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (1m 37s / $0.0076)"}
+{"ts":"2026-04-02T17:28:06.683Z","local":"13:28:06","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-04-02T17:29:07.518Z","local":"13:29:07","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (1m 0s / $0.0172)"}
+{"ts":"2026-04-02T17:29:07.521Z","local":"13:29:07","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P0-01(P0), P0-02(P0)"}
+{"ts":"2026-04-02T17:29:07.521Z","local":"13:29:07","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R2"}
+{"ts":"2026-04-02T17:29:07.523Z","local":"13:29:07","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R2"}
+{"ts":"2026-04-02T17:31:14.412Z","local":"13:31:14","actor":"dev","type":"output","phase":"dev","summary":"R2 complete (2m 6s / $0.0135)"}
+{"ts":"2026-04-02T17:31:14.413Z","local":"13:31:14","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R2"}
+{"ts":"2026-04-02T17:40:40.022Z","local":"13:40:40","actor":"quinn","type":"output","phase":"qa","summary":"R2 verdict received (9m 25s)"}
+{"ts":"2026-04-02T17:40:40.024Z","local":"13:40:40","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R3"}
+{"ts":"2026-04-02T17:40:40.025Z","local":"13:40:40","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R3"}
+{"ts":"2026-04-02T17:42:17.401Z","local":"13:42:17","actor":"dev","type":"output","phase":"dev","summary":"R3 complete (1m 37s / $0.0159)"}
+{"ts":"2026-04-02T17:42:17.402Z","local":"13:42:17","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R3"}
+{"ts":"2026-04-02T17:44:33.606Z","local":"13:44:33","actor":"quinn","type":"output","phase":"qa","summary":"R3 verdict received (2m 16s / $0.0215)"}
+{"ts":"2026-04-02T17:44:33.607Z","local":"13:44:33","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint CONDITIONAL PASS in 3 iteration(s)"}

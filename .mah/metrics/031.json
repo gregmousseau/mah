@@ -1,0 +1,51 @@
+{
+  "sprintId": "031",
+  "projectName": "MAH Build",
+  "task": "Fix the bug in src/app/api/builder/negotiate/route.ts where the fallback defaults for definitionOfDone, testFocus, and passCriteria never trigger because empty arrays are truthy in JavaScript.\n\nThe bug is on lines 187-197. The pattern `extractBulletPoints(response) || [\"default\"]` returns `[]` when extractBulletPoints returns an empty array, because `[] || x` evaluates to `[]` (arrays are truthy).\n\nFix by checking `.length` instead of using `||`. For example:\n\n```js\nconst dodBullets = extractBulletPoints(generatorResponse);\nconst evalBullets = extractBulletPoints(evaluatorResponse);\n```\n\nThen use:\n- `definitionOfDone: dodBullets.length > 0 ? dodBullets : [\"Feature works as described\", \"No regressions introduced\", \"Code follows project conventions\"]`\n- `testFocus: evalFocus.length > 0 ? evalFocus : [\"Core functionality\"]`  \n- `passCriteria: evalCriteria.length > 0 ? evalCriteria : [\"Zero P0 defects\", \"Zero P1 defects\"]`\n\nAlso ensure the `knownLimitations` field gets populated if the evaluator mentions any.\n\nTest by verifying that when extractBulletPoints returns an empty array, the fallback defaults are used instead of blank fields.",
+  "startTime": "2026-03-31T18:49:31.073Z",
+  "endTime": "2026-03-31T18:49:30.824Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 201,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.0072840000000000005
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 201,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.009993
+    }
+  ],
+  "totals": {
+    "durationMs": -249,
+    "estimatedCost": 0.017277,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}

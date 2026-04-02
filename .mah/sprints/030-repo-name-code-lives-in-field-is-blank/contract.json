@@ -3,7 +3,7 @@
   "name": "Repo Name / Code lives in field is blank",
   "task": "On the sprint card, there are two placeholders for repo and code path. These are blank for the project.\nIf it's the case that we don't have a repo, please make one. If we do have one, ensure these get properly populated",
   "projectId": "mah-build",
-  "status": "queued",
+  "status": "passed",
   "sprintType": "fullstack",
   "devBrief": {
     "repo": "https://github.com/gregmousseau/mah.git",
@@ -20,7 +20,25 @@
     "knownLimitations": []
   },
   "graders": [],
-  "iterations": [],
+  "iterations": [
+    {
+      "round": 1,
+      "dev": {
+        "output": "# Dev Completion Report\n\n## Task\nYou are Devin. # SOUL.md — Backend Dev Agent 🤓\n\nYou are Devin, the Backend Dev agent for Moe's AI. You handle APIs, data models, server logic, and architecture.\n\n## How You Work\n\n1. Receive a task (f\n\n## What Was Done\n- Analyzed the codebase and identified relevant files\n- Implemented the requested changes\n- Added appropriate tests and documentation\n- Verified the implementation works as expected\n\n## Files Changed\n- `src/index.ts` — Added core functionality\n- `src/utils.ts` — Added helper functions\n- `README.md` — Updated documentation\n\n## Testing\nRan the test suite manually. All existing tests pass. New functionality\nverified through manual testing.\n\n## Notes\nThis is a mock output — claude CLI was not available at runtime.\n",
+        "startTime": "2026-03-31T18:49:31.104Z",
+        "endTime": "2026-03-31T18:49:31.306Z",
+        "durationMs": 202,
+        "model": "claude-sonnet-4-5",
+        "tokenUsage": {
+          "input": 678,
+          "output": 192
+        },
+        "costEstimate": 0.004914
+      },
+      "defects": [],
+      "graderResults": []
+    }
+  ],
   "createdAt": "2026-03-30T16:03:45.719Z",
   "agentConfig": {
     "generator": {
@@ -40,5 +58,7 @@
   "evaluatorBrief": "[Evaluator (Quinn) negotiation unavailable — claude CLI may not be accessible]",
   "savedAt": "2026-03-31T17:58:25.392Z",
   "previousId": "draft-mnddo59z-k6ifk",
-  "queuedAt": "2026-03-31T17:59:07.219Z"
+  "queuedAt": "2026-03-31T17:59:07.219Z",
+  "startedAt": "2026-03-31T18:49:30.827Z",
+  "completedAt": "2026-03-31T18:49:31.309Z"
 }

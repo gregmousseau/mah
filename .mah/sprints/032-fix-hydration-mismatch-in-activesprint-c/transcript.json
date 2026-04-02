@@ -1,0 +1,35 @@
+{
+  "sprintId": "032",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "actor": "Devin",
+      "model": "claude-sonnet-4-5",
+      "startTime": "2026-04-02T17:05:42.619Z",
+      "endTime": "2026-04-02T17:05:42.820Z",
+      "promptSent": "(see contract)",
+      "responseReceived": "# Dev Completion Report\n\n## Task\nYou are Devin. # SOUL.md — Backend Dev Agent 🤓\n\nYou are Devin, the Backend Dev agent for Moe's AI. You handle APIs, data models, server logic, and architecture.\n\n## How You Work\n\n1. Receive a task (f\n\n## What Was Done\n- Analyzed the codebase and identified relevant files\n- Implemented the requested changes\n- Added appropriate tests and documentation\n- Verified the implementation works as expected\n\n## Files Changed\n- `src/index.ts` — Added core functionality\n- `src/utils.ts` — Added helper functions\n- `README.md` — Updated documentation\n\n## Testing\nRan the test suite manually. All existing tests pass. New functionality\nverified through manual testing.\n\n## Notes\nThis is a mock output — claude CLI was not available at runtime.\n",
+      "tokenUsage": {
+        "input": 1402,
+        "output": 192
+      },
+      "costEstimate": 0.007086
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "actor": "Quinn",
+      "model": "claude-sonnet-4-5",
+      "startTime": "2026-04-02T17:05:42.822Z",
+      "endTime": "2026-04-02T17:05:43.024Z",
+      "promptSent": "You are Quinn, a QA engineer. Evaluate the following development work.\n\n## Sprint\nFix hydration mismatch in ActiveSprint component\n\n## Original Task\nFix the hydration error on the /projects page (and all pages) caused by the ActiveSprint component in src/components/ActiveSprint.tsx.\n\nROOT CAUSE: Around line 93-97, the `isActive` calculation uses `Date.now()` during render:\n```\nconst isActive = (() => {\n  if (heartbeat?.alive) return true;\n  if (!lastTs) return false;\n  return Date.now() - new Date(lastTs).getTime() < 5 * 60 * 1000;\n})();\n```\n\nDate.now() returns different values on server vs client, causing a hydration mismatch.\n\nFIX: Defer the Date.now()-based timestamp comparison so it doesn't run during the initial render. Options:\n1. Initialize `isActive` based only on `heartbeat?.alive` for the first render, then use a useEffect + useState to update the timestamp-based check after hydration.\n2. Or use a `useSyncExternalStore` with a server snapshot.\n\nThe component already has a `useRelativeTime()` hook that correctly defers Date.now() to useEffect — follow that same pattern for the isActive check.\n\nFiles to modify:\n- src/components/ActiveSprint.tsx\n\nVerify the fix by confirming /projects loads without hydration warnings in the browser console.\n\n## QA Tier: TARGETED\n\n## Test Focus\n- **Stale heartbeat (>5 min old):** Load `/projects` with a `lastTs` that is 6+ minutes ago and `alive: false`. Server and client should both render inactive. No console warnings.\n- **`alive: true` case:** Load with `heartbeat.alive = true`. Server and client must agree — both render active. This is the zero-risk case but must be confirmed.\n- **`lastTs` is null/undefined:** Server and client both render inactive. No exception, no warning.\n- **Other pages using ActiveSprint:** Confirm at least one non-`/projects` page that renders `ActiveSprint` is also warning-free.\n\n## Pass Criteria\n- **Stale heartbeat (>5 min old):** Load `/projects` with a `lastTs` that is 6+ minutes ago and `alive: false`. Server and client should both render inactive. No console warnings.\n- **`alive: true` case:** Load with `heartbeat.alive = true`. Server and client must agree — both render active. This is the zero-risk case but must be confirmed.\n- **`lastTs` is null/undefined:** Server and client both render inactive. No exception, no warning.\n- **Other pages using ActiveSprint:** Confirm at least one non-`/projects` page that renders `ActiveSprint` is also warning-free.\n- Zero React hydration warnings on `/projects` in browser console (Chrome DevTools, React 18 strict mode)\n\n## Developer's Completion Report (Round 1)\n# Dev Completion Report\n\n## Task\nYou are Devin. # SOUL.md — Backend Dev Agent 🤓\n\nYou are Devin, the Backend Dev agent for Moe's AI. You handle APIs, data models, server logic, and architecture.\n\n## How You Work\n\n1. Receive a task (f\n\n## What Was Done\n- Analyzed the codebase and identified relevant files\n- Implemented the requested changes\n- Added appropriate tests and documentation\n- Verified the implementation works as expected\n\n## Files Changed\n- `src/index.ts` — Added core functionality\n- `src/utils.ts` — Added helper functions\n- `README.md` — Updated documentation\n\n## Testing\nRan the test suite manually. All existing tests pass. New functionality\nverified through manual testing.\n\n## Notes\nThis is a mock output — claude CLI was not available at runtime.\n\n\n---\n\nReview the developer's work against the task requirements and pass criteria.\nIf you have access to a test URL or repo, verify the implementation directly.\n\nProvide your QA report in this format:\n\n# QA Report\n\n## Verdict: [PASS / CONDITIONAL PASS / FAIL]\n\n## Summary\n[One paragraph summary of overall quality]\n\n## Defects Found\n[List each defect with severity: P0 (critical), P1 (blocker), P2 (major), P3 (minor)]\nFormat: **P1-01:** [description]\n\n## Recommendation\n[PASS/FAIL with brief reasoning]\n",
+      "responseReceived": "# QA Report\n\n## Verdict: PASS\n\n## Summary\nThe implementation meets the requirements as specified in the sprint contract.\nAll critical functionality is working correctly.\n\n## Test Results\n\n### Smoke Tests\n- [x] Application starts without errors\n- [x] Core functionality works as expected\n- [x] No console errors\n\n### Targeted Tests\n- [x] Feature A behaves correctly\n- [x] Edge cases handled appropriately\n- [x] Performance is acceptable\n\n## Defects Found\nNone.\n\n## Recommendation\nPASS — The implementation is solid. No blocking issues found.\nReady for production deployment.\n\n---\n*This is a mock QA report — claude CLI was not available at runtime.*\n",
+      "tokenUsage": {
+        "input": 2514,
+        "output": 163
+      },
+      "costEstimate": 0.009987
+    }
+  ]
+}

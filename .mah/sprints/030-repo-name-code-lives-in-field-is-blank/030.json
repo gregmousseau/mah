@@ -1,0 +1,44 @@
+{
+  "sprintId": "030",
+  "projectName": "MAH Build",
+  "task": "On the sprint card, there are two placeholders for repo and code path. These are blank for the project.\nIf it's the case that we don't have a repo, please make one. If we do have one, ensure these get properly populated",
+  "startTime": "2026-03-30T16:03:45.719Z",
+  "endTime": "2026-03-31T18:49:31.309Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 202,
+      "model": "claude-sonnet-4-5",
+      "costEstimate": 0.004914
+    }
+  ],
+  "totals": {
+    "durationMs": 96345590,
+    "estimatedCost": 0.004914,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "dev-r1"
+}

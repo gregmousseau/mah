@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Copy, RotateCcw } from "lucide-react";
 import SprintTimeline from "@/components/SprintTimeline";
 import DefectTable from "@/components/DefectTable";
 import VerdictBadge from "@/components/VerdictBadge";
@@ -535,9 +536,40 @@ interface QueueState {
 
 export default function SprintDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { data, loading, error, refetch } = usePolling<SprintData>(`/api/sprints/${id}`, 5000);
   const { data: projects } = usePolling<Project[]>("/api/projects", 60000);
   const { data: queueState } = usePolling<QueueState>("/api/queue", 5000);
+  const [cloning, setCloning] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
+
+  const cloneAsDraft = async (contract: SprintContract) => {
+    setCloning(true);
+    try {
+      await fetch("/api/board/create-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `Copy of ${contract.name}`, task: contract.task, projectId: contract.projectId }),
+      });
+      router.push("/board");
+    } finally {
+      setCloning(false);
+    }
+  };
+
+  const reRunSprint = async (sprintId: string) => {
+    setRerunning(true);
+    try {
+      await fetch("/api/sprints/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractId: sprintId }),
+      });
+      router.push("/live");
+    } finally {
+      setRerunning(false);
+    }
+  };
 
   // Dynamic page title
   useEffect(() => {
@@ -671,6 +703,52 @@ export default function SprintDetailPage() {
             #{contract.id} {contract.name}
           </h1>
           <VerdictBadge verdict={metrics?.verdict || contract.status} />
+          {(contract.status === "passed" || contract.status === "failed") && (
+            <>
+              <button
+                onClick={() => cloneAsDraft(contract)}
+                disabled={cloning}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 16px",
+                  background: "#3b82f620",
+                  border: "1px solid #3b82f640",
+                  borderRadius: "8px",
+                  color: "#3b82f6",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: cloning ? "not-allowed" : "pointer",
+                  opacity: cloning ? 0.6 : 1,
+                }}
+              >
+                <Copy size={14} />
+                {cloning ? "Cloning..." : "Clone as Draft"}
+              </button>
+              <button
+                onClick={() => reRunSprint(contract.id)}
+                disabled={rerunning}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 16px",
+                  background: "linear-gradient(135deg, #fb923c, #f97316)",
+                  border: "none",
+                  borderRadius: "8px",
+                  color: "white",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: rerunning ? "not-allowed" : "pointer",
+                  opacity: rerunning ? 0.6 : 1,
+                }}
+              >
+                <RotateCcw size={14} />
+                {rerunning ? "Running..." : "Re-run"}
+              </button>
+            </>
+          )}
         </div>
         <div style={{ fontSize: "13px", color: "#9ca3af", display: "flex", gap: "20px", flexWrap: "wrap" }}>
           <span>Started: {formatDateTime(contract.createdAt)}</span>
