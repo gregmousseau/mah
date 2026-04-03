@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, List, Radio, Zap, Menu, X, FolderKanban, PlusSquare, Kanban, Settings } from "lucide-react";
+import { LayoutDashboard, List, Radio, Zap, Menu, X, FolderKanban, PlusSquare, Kanban, Settings, Wrench, PlayCircle } from "lucide-react";
 import { useState } from "react";
 import ActiveSprint from "@/components/ActiveSprint";
 import { usePolling } from "@/hooks/usePolling";
@@ -17,7 +17,9 @@ const navItems = [
   { href: "/projects", icon: FolderKanban, label: "Projects" },
   { href: "/sprints", icon: List, label: "Sprints" },
   { href: "/board", icon: Kanban, label: "Board" },
+  { href: "/skills", icon: Wrench, label: "Skills" },
   { href: "/live", icon: Radio, label: "Live" },
+  { href: "/demo", icon: PlayCircle, label: "Demo" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ];
 

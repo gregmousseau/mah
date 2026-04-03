@@ -1,0 +1,44 @@
+name: humanizer
+type: capability
+description: 'Humanizer: Remove AI Writing Patterns'
+agentTypes:
+  - generator
+gotchas:
+  - Every sentence is the same length and structure
+  - No opinions, just neutral reporting
+  - No acknowledgment of uncertainty or mixed feelings
+  - No first-person perspective when appropriate
+  - No humor, no edge, no personality
+  - Reads like a Wikipedia article or press release
+  - '"In order to achieve this goal" → "To achieve this"'
+  - '"Due to the fact that it was raining" → "Because it was raining"'
+  - '"At this point in time" → "Now"'
+  - '"In the event that you need help" → "If you need help"'
+  - '"The system has the ability to process" → "The system can process"'
+  - '"It is important to note that the data shows" → "The data shows"'
+  - Sounds natural when read aloud
+  - Varies sentence structure naturally
+  - Uses specific details over vague claims
+  - Maintains appropriate tone for context
+  - Uses simple constructions (is/are/has) where appropriate
+  - Removed "serves as a testament" (inflated symbolism)
+  - Removed "Moreover" (AI vocabulary)
+constraints:
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - AskUserQuestion
+  - Removed "seamless, intuitive, and powerful" (rule of three + promotional)
+  - Removed em dash and "-ensuring" phrase (superficial analysis)
+  - Removed "It's not just...it's..." (negative parallelism)
+  - Removed "Industry experts believe" (vague attribution)
+  - Removed "pivotal role" and "evolving landscape" (AI vocabulary)
+  - Added specific features and concrete feedback
+tags:
+  - imported
+source:
+  type: openclaw
+  uri: /home/greg/clawd/skills/humanizer/SKILL.md
+  importedAt: '2026-04-02T20:48:08.041Z'

@@ -1,0 +1,15 @@
+name: react-forms
+type: capability
+description: "React form patterns — validation, controlled inputs, error states, accessibility"
+agent_types: [generator]
+gotchas:
+  - "Always use controlled components, never uncontrolled refs for form state"
+  - "Error messages must be ARIA-linked to their input (aria-describedby)"
+  - "Don't add form libraries (react-hook-form, formik) unless project already has one"
+  - "Test with keyboard-only navigation — Tab order, Enter to submit, Escape to cancel"
+constraints:
+  - "All forms must work with keyboard-only navigation"
+  - "Submit buttons disabled until required fields pass validation"
+  - "Show inline validation errors on blur, not on every keystroke"
+  - "Loading states on submit buttons to prevent double-submission"
+tags: [frontend, forms, accessibility]

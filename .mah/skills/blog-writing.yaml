@@ -1,0 +1,19 @@
+name: blog-writing
+type: capability
+description: "Technical blog post writing — structure, hooks, SEO, human voice"
+agent_types: [generator]
+gotchas:
+  - "No em dashes — use commas, periods, or restructure"
+  - "No 'Furthermore', 'Moreover', 'Additionally' sentence starters"
+  - "No triple structure in every paragraph (X, Y, and Z)"
+  - "No 'leverage', 'utilize', 'robust', 'seamless' — use normal words"
+  - "No 'It's worth noting' or 'It's important to note'"
+  - "First paragraph must hook — no throat-clearing introductions"
+  - "End with a concrete takeaway, not a vague call to action"
+constraints:
+  - "Target 800-1500 words unless topic demands more"
+  - "Include code examples for technical posts (real, runnable code)"
+  - "One H1, logical H2/H3 hierarchy, no skipping levels"
+  - "Meta description under 160 chars, title under 60 chars"
+  - "Write like a senior dev explaining to a peer, not a textbook"
+tags: [content, writing, seo]

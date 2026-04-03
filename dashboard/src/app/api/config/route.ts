@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 
 const MAH_ROOT = join(process.cwd(), "..");
 
 function parseYaml(yaml: string): Record<string, unknown> {
-  // Simple YAML parser for our specific mah.yaml structure
   const result: Record<string, unknown> = {};
   const lines = yaml.split("\n");
   let currentSection: string | null = null;
@@ -66,5 +65,63 @@ export async function GET() {
     return NextResponse.json(config);
   } catch {
     return NextResponse.json({ error: "Config not found" }, { status: 404 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { maxRetries, defaultTier, concurrentLimit, projectName, projectRepo } = body;
+
+    const configPath = join(MAH_ROOT, "mah.yaml");
+    if (!existsSync(configPath)) {
+      return NextResponse.json({ error: "Config file not found" }, { status: 404 });
+    }
+
+    let yaml = readFileSync(configPath, "utf-8");
+
+    // Update qa section values in-place using regex replacement
+    if (maxRetries !== undefined) {
+      yaml = yaml.replace(
+        /^(\s*maxIterations:\s*)\d+/m,
+        `$1${Number(maxRetries)}`
+      );
+    }
+
+    if (defaultTier !== undefined) {
+      yaml = yaml.replace(
+        /^(\s*defaultTier:\s*)\S+/m,
+        `$1${defaultTier}`
+      );
+    }
+
+    // Update project name
+    if (projectName !== undefined) {
+      yaml = yaml.replace(
+        /^(\s*name:\s*)["']?[^"'\n]+["']?/m,
+        `$1"${projectName}"`
+      );
+    }
+
+    // Update project repo
+    if (projectRepo !== undefined) {
+      yaml = yaml.replace(
+        /^(\s*repo:\s*)\S+/m,
+        `$1${projectRepo}`
+      );
+      // Also update generator cwd
+      yaml = yaml.replace(
+        /^(\s*cwd:\s*)\S+/m,
+        `$1${projectRepo}`
+      );
+    }
+
+    // Write back
+    writeFileSync(configPath, yaml, "utf-8");
+
+    return NextResponse.json({ ok: true, saved: { maxRetries, defaultTier, concurrentLimit, projectName, projectRepo } });
+  } catch (err) {
+    console.error("Config save error:", err);
+    return NextResponse.json({ error: "Failed to save config" }, { status: 500 });
   }
 }

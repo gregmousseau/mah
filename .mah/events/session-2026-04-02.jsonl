@@ -23,3 +23,25 @@
 {"ts":"2026-04-02T17:42:17.402Z","local":"13:42:17","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R3"}
 {"ts":"2026-04-02T17:44:33.606Z","local":"13:44:33","actor":"quinn","type":"output","phase":"qa","summary":"R3 verdict received (2m 16s / $0.0215)"}
 {"ts":"2026-04-02T17:44:33.607Z","local":"13:44:33","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint CONDITIONAL PASS in 3 iteration(s)"}
+{"ts":"2026-04-02T21:05:54.708Z","local":"17:05:54","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Add a booking calendar with date picker and availability ..."}
+{"ts":"2026-04-02T21:05:54.740Z","local":"17:05:54","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260402-210554-3fda06"}
+{"ts":"2026-04-02T21:05:54.744Z","local":"17:05:54","actor":"moe","type":"milestone","phase":"contract","summary":"Generator skills: react-forms, playwright-mobile"}
+{"ts":"2026-04-02T21:11:23.747Z","local":"17:11:23","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Fix the mobile hamburger menu animation"}
+{"ts":"2026-04-02T21:11:23.763Z","local":"17:11:23","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260402-211123-d055f8"}
+{"ts":"2026-04-02T21:11:23.768Z","local":"17:11:23","actor":"moe","type":"milestone","phase":"contract","summary":"Generator skills: react-forms, playwright-mobile"}
+{"ts":"2026-04-02T23:51:14.954Z","local":"19:51:14","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Check on prices"}
+{"ts":"2026-04-02T23:51:14.982Z","local":"19:51:14","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 034"}
+{"ts":"2026-04-02T23:51:15.074Z","local":"19:51:15","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-04-02T23:51:15.285Z","local":"19:51:15","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (200ms / $0.0060)"}
+{"ts":"2026-04-02T23:51:15.286Z","local":"19:51:15","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-04-02T23:51:15.487Z","local":"19:51:15","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (200ms / $0.0092)"}
+{"ts":"2026-04-02T23:51:15.489Z","local":"19:51:15","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 1 iteration(s) [all graders passed]"}
+{"ts":"2026-04-02T23:52:56.078Z","local":"19:52:56","actor":"moe","type":"milestone","phase":"contract","summary":"Starting sprint: Check on prices"}
+{"ts":"2026-04-02T23:52:56.098Z","local":"19:52:56","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: 034"}
+{"ts":"2026-04-02T23:52:56.198Z","local":"19:52:56","actor":"moe","type":"milestone","phase":"resume","summary":"Resuming from round 2 dev phase (previous QA findings carried forward)"}
+{"ts":"2026-04-02T23:52:56.199Z","local":"19:52:56","actor":"moe","type":"milestone","phase":"skip","summary":"Skipping round 1 (completed in previous run)"}
+{"ts":"2026-04-02T23:52:56.201Z","local":"19:52:56","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R2"}
+{"ts":"2026-04-02T23:52:56.425Z","local":"19:52:56","actor":"dev","type":"output","phase":"dev","summary":"R2 complete (213ms / $0.0065)"}
+{"ts":"2026-04-02T23:52:56.425Z","local":"19:52:56","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R2"}
+{"ts":"2026-04-02T23:52:56.628Z","local":"19:52:56","actor":"quinn","type":"output","phase":"qa","summary":"R2 verdict received (201ms / $0.0092)"}
+{"ts":"2026-04-02T23:52:56.630Z","local":"19:52:56","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 2 iteration(s) [all graders passed]"}

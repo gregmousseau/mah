@@ -10,6 +10,10 @@ import {
   contractToQAPrompt,
   contractToDevFixPrompt,
 } from './contract.js'
+import { loadSkills, resolveSkillsForPrompt } from './skills.js'
+import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
+import { loadNamedAgents } from './config.js'
+import type { ResolvedSkill } from './skills.js'
 import { parseQAReport } from './parser.js'
 import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
@@ -158,9 +162,31 @@ export async function runSprint(
   // Save initial contract
   saveContract(contract, sprintDir)
 
+  // Load skills
+  const mahRoot = process.cwd()
+  const allSkills = loadSkills(mahRoot)
+  const namedAgents = loadNamedAgents()
+
+  // Resolve skills for generator and evaluator
+  const generatorSkillNames = contract.agentAssignments?.find(a => a.role === 'generator')?.skills
+    ?? namedAgents.values().next().value?.defaultSkills
+    ?? []
+  const evaluatorSkillNames = contract.agentAssignments?.find(a => a.role === 'evaluator')?.skills
+    ?? []
+
+  const generatorSkills = resolveSkillsForPrompt(generatorSkillNames, allSkills, mahRoot)
+  const evaluatorSkills = resolveSkillsForPrompt(evaluatorSkillNames, allSkills, mahRoot)
+
+  if (generatorSkills.length > 0) {
+    events.log('moe', 'milestone', 'contract', `Generator skills: ${generatorSkills.map(s => s.name).join(', ')}`)
+  }
+  if (evaluatorSkills.length > 0) {
+    events.log('moe', 'milestone', 'contract', `Evaluator skills: ${evaluatorSkills.map(s => s.name).join(', ')}`)
+  }
+
   if (options?.dryRun) {
     // Dry run: just print the contract and return stub metrics
-    printContractSummary(contract)
+    printContractSummary(contract, generatorSkills, evaluatorSkills)
     const metrics = createSprintMetrics(contract, config)
     return { contract, metrics }
   }
@@ -197,7 +223,7 @@ export async function runSprint(
     events.log('moe', 'spawn', 'dev', `Spawned dev agent R${round}`)
 
     const devPrompt = round === 1
-      ? contractToDevPrompt(contract)
+      ? contractToDevPrompt(contract, generatorSkills)
       : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
 
     const devExecOptions = {
@@ -258,7 +284,7 @@ export async function runSprint(
       if (grader.type === 'ux') {
         // ── Quinn (UX) grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
-        const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
+        const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evaluatorSkills)
         const qaExecOptions = {
           model: grader.agent.model,
           cwd: grader.agent.workspace,
@@ -423,11 +449,22 @@ export async function runSprint(
     lastQAOutput = qaOutput
   }
 
-  // 4. Compute metrics
+  // 4. Extract artifacts from last dev output
+  if (contract.status === 'passed' && lastDevOutput) {
+    const artifacts = extractArtifacts(lastDevOutput, contract.id)
+    if (artifacts.length > 0) {
+      contract.outputs = artifacts
+      const sprintFullDir = join(sprintDir, contract.id)
+      saveArtifacts(artifacts, sprintFullDir)
+      events.log('system', 'milestone', 'metrics', `Extracted ${artifacts.length} artifact(s)`)
+    }
+  }
+
+  // 5. Compute metrics
   contract.completedAt = new Date().toISOString()
   const metrics = createSprintMetrics(contract, config)
 
-  // 5. Save everything
+  // 6. Save everything
   saveContract(contract, sprintDir)
   saveMetrics(metrics, join(sprintDir, contract.id))
 
@@ -462,6 +499,23 @@ export async function runExistingContract(
 
   events.log('moe', 'milestone', 'contract', `Starting sprint: ${contract.name}`)
   events.log('moe', 'milestone', 'contract', `Sprint ID: ${contract.id}`)
+
+  // Load skills
+  const mahRoot2 = process.cwd()
+  const allSkills2 = loadSkills(mahRoot2)
+  const namedAgents2 = loadNamedAgents()
+
+  const genSkillNames2 = contract.agentAssignments?.find(a => a.role === 'generator')?.skills ?? []
+  const evalSkillNames2 = contract.agentAssignments?.find(a => a.role === 'evaluator')?.skills ?? []
+  const genSkills2 = resolveSkillsForPrompt(genSkillNames2, allSkills2, mahRoot2)
+  const evalSkills2 = resolveSkillsForPrompt(evalSkillNames2, allSkills2, mahRoot2)
+
+  if (genSkills2.length > 0) {
+    events.log('moe', 'milestone', 'contract', `Generator skills: ${genSkills2.map(s => s.name).join(', ')}`)
+  }
+  if (evalSkills2.length > 0) {
+    events.log('moe', 'milestone', 'contract', `Evaluator skills: ${evalSkills2.map(s => s.name).join(', ')}`)
+  }
 
   const adapter = new OpenClawAdapter()
   let lastDevOutput = ''
@@ -569,7 +623,7 @@ export async function runExistingContract(
       events.log('moe', 'spawn', 'dev', `Spawned dev agent R${round}`)
 
       const baseDevPrompt = round === 1
-        ? contractToDevPrompt(contract)
+        ? contractToDevPrompt(contract, genSkills2)
         : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
       const devPrompt = baseDevPrompt + devPromptContext
 
@@ -631,7 +685,7 @@ export async function runExistingContract(
     for (const grader of graders) {
       if (grader.type === 'ux') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
-        const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
+        const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evalSkills2)
         const qaExecOptions2 = {
           model: grader.agent.model,
           cwd: grader.agent.workspace,
@@ -802,7 +856,7 @@ export async function runExistingContract(
   return { contract, metrics }
 }
 
-function printContractSummary(contract: SprintContract): void {
+function printContractSummary(contract: SprintContract, generatorSkills?: ResolvedSkill[], evaluatorSkills?: ResolvedSkill[]): void {
   console.log()
   console.log(chalk.bold.white('  ─── Sprint Contract (dry-run) ─────────────────────'))
   console.log()
@@ -830,6 +884,17 @@ function printContractSummary(contract: SprintContract): void {
   }
   console.log(`    Pass Criteria:`)
   contract.qaBrief.passCriteria.forEach(p => console.log(`      - ${p}`))
+
+  if ((generatorSkills && generatorSkills.length > 0) || (evaluatorSkills && evaluatorSkills.length > 0)) {
+    console.log()
+    console.log(chalk.bold('  Skills'))
+    if (generatorSkills && generatorSkills.length > 0) {
+      console.log(`    Generator: ${generatorSkills.map(s => `${s.name} (${s.type})`).join(', ')}`)
+    }
+    if (evaluatorSkills && evaluatorSkills.length > 0) {
+      console.log(`    Evaluator: ${evaluatorSkills.map(s => `${s.name} (${s.type})`).join(', ')}`)
+    }
+  }
   console.log()
 }
 

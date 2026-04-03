@@ -118,6 +118,11 @@ export interface SprintContract {
     knownLimitations: string[]
   }
   graders: Grader[]  // which graders to run for this sprint
+  agentAssignments?: AgentAssignment[]
+  outputs?: SprintArtifact[]
+  inputs?: SprintInput[]
+  dependsOn?: string[]
+  humanCheckpoint?: boolean
   iterations: SprintIteration[]
   createdAt: string
   completedAt?: string
@@ -240,6 +245,64 @@ export interface TranscriptPhase {
   responseReceived: string  // full response from the agent
   tokenUsage?: { input: number; output: number }
   costEstimate?: number
+}
+
+// ─── Agent Skills ───
+
+export type SkillType = 'capability' | 'behavioral' | 'workflow'
+
+export interface Skill {
+  name: string
+  type: SkillType
+  description: string
+  agentTypes: string[]           // which agent roles can use this: generator, evaluator, researcher
+  contextFiles?: string[]        // relative paths to reference files
+  gotchas?: string[]
+  constraints?: string[]
+  persona?: string               // for behavioral skills
+  steps?: WorkflowStep[]         // for workflow skills
+  tags?: string[]
+  source?: SkillSource           // where this was imported from
+}
+
+export interface WorkflowStep {
+  agent: string
+  action: string
+  input?: string                 // artifact name from previous step
+  output?: string                // artifact name this step produces
+}
+
+export interface SkillSource {
+  type: 'local' | 'url' | 'claude-code' | 'openclaw' | 'paste'
+  uri?: string                   // original URL or file path
+  importedAt: string             // ISO timestamp
+}
+
+// ─── Sprint Artifacts + Chaining ───
+
+export interface SprintArtifact {
+  id: string
+  type: 'file' | 'snippet' | 'summary'
+  path?: string
+  content?: string
+  description: string
+}
+
+export interface SprintInput {
+  from: string                   // "sprint-001.research-findings" format
+  injectAs: 'context' | 'reference' | 'cwd'
+  resolved?: string              // populated at execution time
+}
+
+// ─── Agent Assignment (skill-aware) ───
+
+export interface AgentAssignment {
+  agentId: string
+  role: 'generator' | 'evaluator' | 'researcher'
+  skills: string[]               // skill names activated for this sprint
+  skillOverrides?: string        // free-text additions from user
+  model?: string                 // override default model
+  reasoning: string              // why the planner chose this combo
 }
 
 // ─── Event Stream (for Remotion replay) ───

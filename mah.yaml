@@ -1,22 +1,50 @@
 project:
-  name: "Moe's AI"
-  repo: ~/pro/w
+  name: "MAH"
+  repo: ~/clawd/projects/mah
 
 priorities:
-  speed: 1
-  quality: 2
+  speed: 2
+  quality: 1
   cost: 3
 
 agents:
+  # Legacy flat format (required by loadConfig)
   generator:
     type: openclaw
     model: sonnet
-    cwd: ~/pro/w
+    cwd: ~/clawd/projects/mah
   evaluator:
     type: openclaw
     model: sonnet
     workspace: ~/.openclaw/workspace-qa
-    testUrl: http://localhost:3099
+    testUrl: http://localhost:3000
+
+  # Named agents with skills
+  frankie:
+    role: generator
+    specialty: frontend
+    model: sonnet
+    defaultSkills: [react-forms, playwright-mobile]
+  devin:
+    role: generator
+    specialty: backend
+    model: sonnet
+    defaultSkills: [supabase-rls]
+  quinn:
+    role: evaluator
+    specialty: ux
+    model: sonnet
+    defaultSkills: [playwright-mobile, devils-advocate]
+  reese:
+    role: researcher
+    specialty: research
+    model: haiku
+    defaultSkills: []
+  connie:
+    role: generator
+    specialty: content
+    model: sonnet
+    defaultSkills: [blog-writing]
 
 qa:
   defaultTier: targeted

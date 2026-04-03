@@ -981,6 +981,31 @@ export default function SprintDetailPage() {
                 </span>
               )}
             </div>
+            {/* Skills */}
+            {contract.agentAssignments && contract.agentAssignments.length > 0 && (
+              <div style={{ display: "flex", gap: "4px", marginTop: "8px", flexWrap: "wrap" }}>
+                {contract.agentAssignments.flatMap(a => a.skills ?? []).map((skill, i) => (
+                  <span key={i} style={{
+                    fontSize: "10px", color: "#3b82f6",
+                    background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)",
+                    borderRadius: "4px", padding: "2px 6px", fontWeight: 500,
+                  }}>
+                    🔧 {skill}
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* Artifacts */}
+            {contract.outputs && contract.outputs.length > 0 && (
+              <div style={{ marginTop: "10px" }}>
+                <div style={{ fontSize: "11px", color: "#10b981", fontWeight: 600, marginBottom: "4px" }}>Outputs:</div>
+                {contract.outputs.map((a, i) => (
+                  <div key={i} style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "2px" }}>
+                    {a.type === "file" ? "📄" : a.type === "snippet" ? "📋" : "📝"} {a.path ?? a.id} — {a.description}
+                  </div>
+                ))}
+              </div>
+            )}
             {contract.plannerOutput && (
               <div style={{ marginTop: "10px", fontSize: "12px", color: "#9ca3af", background: "rgba(20,184,166,0.06)", border: "1px solid rgba(20,184,166,0.15)", borderRadius: "6px", padding: "8px 10px", lineHeight: 1.5 }}>
                 <span style={{ color: "#fb923c", fontWeight: 600 }}>Planner: </span>{contract.plannerOutput}

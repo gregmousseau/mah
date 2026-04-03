@@ -1,0 +1,61 @@
+{
+  "id": "sprint-20260402-210554-3fda06",
+  "name": "Add a booking calendar with date picker and availability ...",
+  "task": "Add a booking calendar with date picker and availability grid",
+  "status": "planned",
+  "graders": [
+    {
+      "id": "ux-quinn",
+      "type": "ux",
+      "name": "Quinn (UX)",
+      "agent": {
+        "type": "openclaw",
+        "model": "sonnet",
+        "workspace": "~/.openclaw/workspace-qa",
+        "testUrl": "http://localhost:3099"
+      },
+      "enabled": true
+    },
+    {
+      "id": "code-review",
+      "type": "code-review",
+      "name": "Code Reviewer",
+      "agent": {
+        "type": "openclaw",
+        "model": "claude-sonnet-4-5"
+      },
+      "enabled": true
+    }
+  ],
+  "devBrief": {
+    "repo": "~/pro/w",
+    "constraints": [
+      "Maintain backward compatibility",
+      "Follow existing code style and conventions",
+      "Keep changes minimal and focused on the task"
+    ],
+    "definitionOfDone": [
+      "Feature is implemented and working",
+      "Existing tests still pass",
+      "Code is clean and readable",
+      "Changes are committed to the repo"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "http://localhost:3099",
+    "testFocus": [
+      "Core functionality works as specified",
+      "No regressions in existing behavior",
+      "Edge cases are handled"
+    ],
+    "passCriteria": [
+      "No P0 or P1 defects",
+      "Application runs without errors",
+      "Task requirements are met"
+    ],
+    "knownLimitations": []
+  },
+  "iterations": [],
+  "createdAt": "2026-04-02T21:05:54.708Z"
+}

@@ -1,0 +1,15 @@
+name: supabase-rls
+type: capability
+description: "Supabase Row Level Security patterns — policies, auth context, common pitfalls"
+agent_types: [generator]
+gotchas:
+  - "RLS is OFF by default on new tables — always enable it explicitly"
+  - "Service role key bypasses RLS — never expose it to the client"
+  - "auth.uid() returns null for unauthenticated requests — policies must handle this"
+  - "JOIN-based policies can be slow — prefer direct column checks when possible"
+  - "Don't forget INSERT policies — SELECT-only policies block writes silently"
+constraints:
+  - "Every new table must have RLS enabled in the same migration"
+  - "Test policies with both authenticated and unauthenticated requests"
+  - "Use auth.uid() = user_id pattern for user-owned data"
+tags: [backend, database, security]

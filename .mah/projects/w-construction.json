@@ -3,5 +3,14 @@
   "name": "W Construction",
   "description": "Construction company website — dark mode, responsive fixes, QA",
   "repo": "~/pro/w",
-  "createdAt": "2026-03-28T09:55:00Z"
+  "createdAt": "2026-03-28T09:55:00Z",
+  "config": {
+    "priorities": { "speed": 2, "quality": 1, "cost": 3 },
+    "defaultAgents": {
+      "generator": { "type": "openclaw", "model": "sonnet" },
+      "evaluator": { "type": "openclaw", "model": "sonnet" }
+    },
+    "qa": { "defaultTier": "targeted", "maxIterations": 3 },
+    "skills": ["react-forms", "playwright-mobile"]
+  }
 }

@@ -2,6 +2,15 @@
   "id": "mah-build",
   "name": "MAH Build",
   "description": "Building the Multi-Agent Harness system itself (Inception)",
-  "repo": "https://github.com/gregmousseau/mah.git",
-  "createdAt": "2026-03-28T19:40:00Z"
+  "repo": "~/clawd/projects/mah",
+  "createdAt": "2026-03-28T19:40:00Z",
+  "config": {
+    "priorities": { "speed": 2, "quality": 1, "cost": 3 },
+    "defaultAgents": {
+      "generator": { "type": "openclaw", "model": "sonnet" },
+      "evaluator": { "type": "openclaw", "model": "sonnet" }
+    },
+    "qa": { "defaultTier": "targeted", "maxIterations": 3 },
+    "skills": ["react-forms", "supabase-rls", "playwright-mobile"]
+  }
 }

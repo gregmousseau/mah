@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import { spawn } from "child_process";
 import { buildAgentsInfoString } from "@/lib/agents";
 
 const MAH_ROOT = join(process.cwd(), "..");
 const PROJECTS_DIR = join(MAH_ROOT, ".mah", "projects");
+const SKILL_DIRS = ["skills", "global-skills", "imported"] as const;
 
 interface PlanRequest {
   prompt: string;
@@ -13,17 +14,62 @@ interface PlanRequest {
   context?: string;
 }
 
+// ─── Load available skills catalog ───
+
+function loadSkillsCatalog(): string {
+  const skills: { name: string; type: string; description: string; tags: string[]; agentTypes: string[]; gotchaCount: number }[] = [];
+
+  for (const dir of SKILL_DIRS) {
+    const fullDir = join(MAH_ROOT, ".mah", dir);
+    if (!existsSync(fullDir)) continue;
+
+    const files = readdirSync(fullDir).filter(f => f.endsWith(".yaml") || f.endsWith(".yml"));
+    for (const file of files) {
+      try {
+        const raw = readFileSync(join(fullDir, file), "utf-8");
+        // Quick extraction without full YAML parse
+        const name = raw.match(/^name:\s*(.+)/m)?.[1]?.trim().replace(/^['"]|['"]$/g, "") ?? "";
+        const type = raw.match(/^type:\s*(.+)/m)?.[1]?.trim() ?? "capability";
+        const desc = raw.match(/^description:\s*['"]?(.+?)['"]?\s*$/m)?.[1]?.trim() ?? "";
+        const tagsMatch = raw.match(/^tags:\s*\[(.+)\]/m);
+        const tags = tagsMatch ? tagsMatch[1].split(",").map(t => t.trim().replace(/^['"]|['"]$/g, "")) : [];
+        const agentTypesMatch = raw.match(/^agent_types:\s*\[(.+)\]/m);
+        const agentTypes = agentTypesMatch ? agentTypesMatch[1].split(",").map(t => t.trim().replace(/^['"]|['"]$/g, "")) : [];
+        const gotchaCount = (raw.match(/^\s+-\s/gm) || []).length;
+
+        if (name) skills.push({ name, type, description: desc, tags, agentTypes, gotchaCount });
+      } catch { /* skip */ }
+    }
+  }
+
+  if (skills.length === 0) return "No skills available yet.";
+
+  const lines = ["Available agent skills (assign relevant ones to each sprint):"];
+  for (const s of skills) {
+    const tagsStr = s.tags.length > 0 ? ` [${s.tags.join(", ")}]` : "";
+    const agentStr = s.agentTypes.length > 0 ? ` (for: ${s.agentTypes.join(", ")})` : "";
+    lines.push(`- **${s.name}** (${s.type}): ${s.description}${tagsStr}${agentStr}${s.gotchaCount > 0 ? ` — ${s.gotchaCount} gotchas` : ""}`);
+  }
+  return lines.join("\n");
+}
+
+// ─── Build planning prompt ───
+
 function buildPlanningPrompt(
   userPrompt: string,
   projectContext: string,
   extraContext?: string
 ): string {
   const agentsInfo = buildAgentsInfoString();
+  const skillsCatalog = loadSkillsCatalog();
+
   return `You are a senior engineering lead responsible for decomposing work into focused agent sprints.
 
 ${projectContext}
 
 ${agentsInfo}
+
+## ${skillsCatalog}
 
 ## Decomposition Rules
 
@@ -35,6 +81,9 @@ ${agentsInfo}
 6. Mixed frontend+backend → split into separate sprints (backend first, then frontend)
 7. Always use Quinn (qa) as the evaluator
 8. Keep sprint tasks concrete and actionable — the agent should know exactly what to do
+9. For each agent, select the most relevant skills from the catalog above. Only include skills that genuinely help with the task.
+10. If the task spans multiple phases (research → write → publish), create separate sprints with dependencies between them.
+11. If a sprint produces output that the next sprint needs, list it in expectedOutputs.
 
 ## User Request
 
@@ -43,10 +92,13 @@ ${userPrompt}${extraContext ? `\n\n## Additional Context\n\n${extraContext}` : "
 ## Instructions
 
 Analyze the request and decompose it into the minimum number of focused sprints needed.
+For each sprint, select the most relevant skills from the available catalog.
+If the task is a multi-phase pipeline (e.g., research then write then publish), create a chain of sprints with dependencies.
+
 Return ONLY a JSON object (no markdown, no explanation outside the JSON) with this structure:
 
 {
-  "reasoning": "Brief explanation of why you decomposed it this way",
+  "reasoning": "Brief explanation of why you decomposed it this way, including skill selection rationale",
   "sprints": [
     {
       "name": "Short sprint name (max 60 chars)",
@@ -57,6 +109,7 @@ Return ONLY a JSON object (no markdown, no explanation outside the JSON) with th
         "name": "Devin|Frankie|Reese|Connie",
         "reason": "Why this agent is best for this sprint"
       },
+      "skills": ["skill-name-1", "skill-name-2"],
       "evaluator": {
         "id": "qa",
         "name": "Quinn"
@@ -64,18 +117,26 @@ Return ONLY a JSON object (no markdown, no explanation outside the JSON) with th
       "suggestedQaTier": "smoke|targeted|full",
       "suggestedDesignTier": "quick|polished|impeccable (frontend sprints only — quick=fast with theme tokens, polished=full design skill, impeccable=pixel perfect with animations. Default quick unless user asks for quality)",
       "dependencies": ["Name of sprint that must complete first, or empty array"],
+      "expectedOutputs": [{"id": "artifact-name", "description": "What this sprint produces for downstream use"}],
+      "humanCheckpoint": false,
       "estimatedComplexity": "low|medium|high"
     }
   ]
-}`;
 }
+
+Notes:
+- skills array should reference skill names from the catalog above (exact match)
+- humanCheckpoint: true means the chain pauses after this sprint for human review (use for content before publishing)
+- expectedOutputs: list artifacts that downstream sprints will consume
+- dependencies: reference sprint names from earlier in the array`;
+}
+
+// ─── Claude CLI runner ───
 
 async function runClaudeOpus(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Unset CLAUDECODE so nested claude invocations aren't blocked
     const env = { ...process.env };
     delete env.CLAUDECODE;
-    // Use full path to claude in case PATH isn't inherited
     const claudePath = env.HOME ? `${env.HOME}/.local/bin/claude` : "claude";
 
     const child = spawn(claudePath, ["--print", "--model", "opus", "--permission-mode", "bypassPermissions"], {
@@ -113,20 +174,17 @@ async function runClaudeOpus(prompt: string): Promise<string> {
   });
 }
 
-function extractJSON(text: string): unknown {
-  // Try direct parse first
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch { /* try extraction */ }
+// ─── JSON extraction ───
 
-  // Try to find JSON block
+function extractJSON(text: string): unknown {
+  const trimmed = text.trim();
+  try { return JSON.parse(trimmed); } catch { /* try extraction */ }
+
   const jsonMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[1]); } catch { /* continue */ }
   }
 
-  // Find first { and last }
   const start = trimmed.indexOf("{");
   const end = trimmed.lastIndexOf("}");
   if (start !== -1 && end !== -1 && end > start) {
@@ -135,6 +193,8 @@ function extractJSON(text: string): unknown {
 
   throw new Error("Could not extract JSON from planner output");
 }
+
+// ─── API handler ───
 
 export async function POST(request: Request) {
   try {

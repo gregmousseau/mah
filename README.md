@@ -31,11 +31,33 @@ mah init
 # Run a sprint
 mah run "Add a responsive navigation menu"
 
+# Plan a sprint (see what agents + skills would be used)
+mah plan "Add a booking form with date picker"
+
+# Run a chained multi-sprint pipeline
+mah chain "Research competitor pricing, write a blog post, and publish to the site"
+
 # Dry run (generate contract without executing)
 mah run --dry-run "Refactor the auth module"
 
 # Check status
 mah status
+
+# List sprints
+mah sprints --limit 10
+
+# Manage skills
+mah skill list
+mah skill show devils-advocate
+mah skill import ~/some-project/CLAUDE.md
+mah skill create
+
+# Manage projects
+mah project list
+mah project create
+
+# Start the dashboard
+mah dashboard
 
 # View event log
 mah events
@@ -94,6 +116,53 @@ Multiple graders can evaluate each sprint independently:
 
 Aggregate verdict: any grader fails → sprint fails. All pass → ship.
 
+### Agent Skills
+
+Skills are reusable capability modules that shape how agents operate per sprint. Three types:
+
+- **Capability** (🔧) — technical uplift: `react-forms`, `supabase-rls`, `playwright-mobile`
+- **Behavioral** (🎭) — persona/approach modifier: `devils-advocate`
+- **Workflow** (🔗) — multi-step process: `research-to-publish`
+
+Skills are YAML files in `.mah/skills/`:
+
+```yaml
+name: devils-advocate
+type: behavioral
+description: "Challenge every assumption. Push back on easy answers."
+agent_types: [evaluator, researcher]
+persona: |
+  You are a devil's advocate. Your job is NOT to agree.
+  For every proposal, find 3 reasons it could fail.
+gotchas:
+  - "Don't be contrarian for its own sake"
+tags: [review, strategy, quality]
+```
+
+Import skills from Claude Code, OpenClaw, or any URL:
+
+```bash
+mah skill import ~/project/CLAUDE.md
+mah skill import ~/.openclaw/skills/humanizer/SKILL.md
+```
+
+### Output Chaining
+
+Sprints produce named artifacts that downstream sprints consume automatically:
+
+```
+Sprint 1: Research → research-findings
+Sprint 2: Draft Content (input: research-findings) → blog-draft
+Sprint 3: Publish (input: blog-draft)
+```
+
+The planner auto-detects chains from natural language:
+
+```bash
+mah chain "Research NemoClaw, write a blog post, publish to GTA Labs"
+# → 3 chained sprints with human review checkpoint after content draft
+```
+
 ### Design Tiers (Frontend)
 
 Frankie receives different design briefs based on task signals:
@@ -113,11 +182,14 @@ cd dashboard && npm run dev
 ```
 
 Features:
-- Project management with priority configuration
-- Sprint builder with AI-assisted contract generation
-- Live sprint execution with real-time phase tracking
-- Sprint history with full transcript viewer
-- Agent configuration panel
+- **Builder** — AI-assisted sprint planning with skill proposals and Mermaid dependency graphs
+- **Projects** — per-project config, stats, sprint history
+- **Sprints** — list, detail, transcript viewer, grader results
+- **Board** — kanban view of sprint statuses
+- **Skills** — browse, search, filter agent skills with expandable detail cards
+- **Demo** — animated replay of real sprint transcripts (47 pre-recorded sprints)
+- **Live** — real-time sprint execution monitoring
+- **Settings** — editable project config, agent roster with skill badges, execution defaults
 
 See [`dashboard/README.md`](dashboard/README.md) for details.
 
@@ -128,6 +200,10 @@ mah/
 ├── src/                    # CLI + pipeline engine
 │   ├── cli.ts              # Commander-based CLI
 │   ├── pipeline.ts         # Core sprint execution loop
+│   ├── planner.ts          # Task analysis + agent/skill selection
+│   ├── chain.ts            # Multi-sprint chain execution engine
+│   ├── skills.ts           # Skill loader, resolver, importer
+│   ├── artifacts.ts        # Sprint artifact extraction + injection
 │   ├── contract.ts         # Sprint contract generation
 │   ├── parser.ts           # QA report parsing
 │   ├── config.ts           # YAML config loader
@@ -138,10 +214,13 @@ mah/
 │   │   └── openclaw.ts     # Claude Code CLI adapter
 │   ├── graders/
 │   │   └── code-review.ts  # Code review grader
-│   ├── design-briefs/
-│   │   └── quick.md        # Quick-tier design brief
 │   └── lib/
 │       └── agentRegistry.ts # Agent name/workspace mapping
+├── .mah/
+│   ├── skills/             # Agent skill definitions (YAML)
+│   ├── imported/           # Skills imported from external sources
+│   ├── projects/           # Project configs (JSON)
+│   └── sprints/            # Sprint data (contracts, metrics, transcripts)
 ├── dashboard/              # Next.js web UI
 ├── sprints/                # Sprint output directory
 ├── research/               # Research notes

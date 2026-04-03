@@ -29,9 +29,12 @@ interface DraftSprint {
   task: string;
   sprintType: "code" | "frontend" | "research" | "content" | "fullstack";
   agent: { id: string; name: string; reason?: string };
+  skills: string[];
   evaluator: { id: string; name: string };
   suggestedQaTier: "smoke" | "targeted" | "full";
   dependencies: string[];
+  expectedOutputs?: { id: string; description: string }[];
+  humanCheckpoint?: boolean;
   estimatedComplexity: "low" | "medium" | "high";
   // After negotiation:
   devBrief?: { repo: string; constraints: string[]; definitionOfDone: string[] };
@@ -130,11 +133,13 @@ function SprintCard({
     <div
       style={{
         background: "#0f1116",
-        border: `1px solid ${sprint.negotiated ? "rgba(34,197,94,0.3)" : "#1c1d26"}`,
+        borderTop: `1px solid ${sprint.negotiated ? "rgba(34,197,94,0.3)" : "#1c1d26"}`,
+        borderRight: `1px solid ${sprint.negotiated ? "rgba(34,197,94,0.3)" : "#1c1d26"}`,
+        borderBottom: `1px solid ${sprint.negotiated ? "rgba(34,197,94,0.3)" : "#1c1d26"}`,
+        borderLeft: `3px solid ${agentColor}`,
         borderRadius: "12px",
         padding: "18px 20px",
         marginBottom: "12px",
-        borderLeft: `3px solid ${agentColor}`,
         position: "relative",
       }}
     >
@@ -243,9 +248,38 @@ function SprintCard({
         </div>
       </div>
 
+      {/* Skills */}
+      {sprint.skills && sprint.skills.length > 0 && (
+        <div style={{ display: "flex", gap: "4px", marginTop: "8px", flexWrap: "wrap" }}>
+          {sprint.skills.map((skill) => (
+            <span
+              key={skill}
+              style={{
+                fontSize: "10px",
+                color: "#3b82f6",
+                background: "rgba(59,130,246,0.1)",
+                border: "1px solid rgba(59,130,246,0.25)",
+                borderRadius: "4px",
+                padding: "2px 6px",
+                fontWeight: 500,
+              }}
+            >
+              🔧 {skill}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Human checkpoint indicator */}
+      {sprint.humanCheckpoint && (
+        <div style={{ marginTop: "6px", fontSize: "11px", color: "#eab308", display: "flex", alignItems: "center", gap: "4px" }}>
+          ⏸ Human review checkpoint after this sprint
+        </div>
+      )}
+
       {/* Task description */}
       {!editing ? (
-        <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>
+        <p style={{ margin: "8px 0 10px", fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>
           {sprint.task.length > 180 ? sprint.task.slice(0, 180) + "…" : sprint.task}
         </p>
       ) : (
@@ -371,6 +405,139 @@ function SprintCard({
   );
 }
 
+// ─── Dependency Graph (Mermaid) ───────────────────────────────────────────────
+
+function DependencyGraph({ sprints }: { sprints: DraftSprint[] }) {
+  const ref = useState<HTMLDivElement | null>(null);
+  const [rendered, setRendered] = useState(false);
+
+  // Build Mermaid graph definition
+  const mermaidDef = (() => {
+    const lines = ["graph LR"];
+    const agentColors: Record<string, string> = {
+      "frontend-dev": "#f97316",
+      dev: "#3b82f6",
+      qa: "#fb923c",
+      research: "#10b981",
+      content: "#ec4899",
+    };
+
+    // Create nodes
+    for (let i = 0; i < sprints.length; i++) {
+      const s = sprints[i];
+      const label = s.name.replace(/"/g, "'").slice(0, 40);
+      const skillsLabel = s.skills.length > 0 ? `<br/><small>${s.skills.slice(0, 2).join(", ")}</small>` : "";
+      lines.push(`  S${i}["${i + 1}. ${label}${skillsLabel}"]`);
+    }
+
+    // Create edges from dependencies
+    for (let i = 0; i < sprints.length; i++) {
+      const s = sprints[i];
+      for (const dep of s.dependencies) {
+        const depIdx = sprints.findIndex(d => d.name === dep);
+        if (depIdx >= 0) {
+          const outputLabel = sprints[depIdx].expectedOutputs?.[0]?.id ?? "";
+          lines.push(`  S${depIdx} -->|${outputLabel}| S${i}`);
+        }
+      }
+      // If no explicit deps but this is sprint 2+ in a chain, link sequentially
+      if (s.dependencies.length === 0 && i > 0 && sprints.some(other => other.dependencies.length > 0)) {
+        // Don't add implicit edges if any sprint has explicit deps
+      }
+    }
+
+    // Style nodes by agent
+    for (let i = 0; i < sprints.length; i++) {
+      const color = agentColors[sprints[i].agent.id] ?? "#9ca3af";
+      lines.push(`  style S${i} fill:${color}22,stroke:${color},color:#e0e0e8`);
+    }
+
+    // Checkpoint markers
+    for (let i = 0; i < sprints.length; i++) {
+      if (sprints[i].humanCheckpoint) {
+        lines.push(`  S${i} -.- CP${i}[⏸ Review]`);
+        lines.push(`  style CP${i} fill:#eab30822,stroke:#eab308,color:#eab308`);
+      }
+    }
+
+    return lines.join("\n");
+  })();
+
+  useEffect(() => {
+    // Dynamically load mermaid from CDN
+    const loadMermaid = async () => {
+      if (typeof window === "undefined") return;
+      if ((window as unknown as Record<string, unknown>).mermaid) {
+        renderGraph();
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+      script.onload = () => {
+        const m = (window as unknown as Record<string, { initialize: (c: unknown) => void; run: (o: unknown) => Promise<void> }>).mermaid;
+        m.initialize({
+          startOnLoad: false,
+          theme: "dark",
+          themeVariables: {
+            primaryColor: "#1c1d26",
+            primaryTextColor: "#e0e0e8",
+            primaryBorderColor: "#fb923c",
+            lineColor: "#555565",
+            secondaryColor: "#0f1116",
+            tertiaryColor: "#0a0a0e",
+            fontFamily: "inherit",
+          },
+        });
+        renderGraph();
+      };
+      document.head.appendChild(script);
+    };
+
+    const renderGraph = async () => {
+      const container = document.getElementById("mermaid-graph");
+      if (!container) return;
+      container.innerHTML = `<pre class="mermaid">${mermaidDef}</pre>`;
+      try {
+        const m = (window as unknown as Record<string, { run: (o: unknown) => Promise<void> }>).mermaid;
+        await m.run({ nodes: [container.querySelector(".mermaid")] });
+        setRendered(true);
+      } catch (err) {
+        console.error("Mermaid render error:", err);
+        container.innerHTML = `<pre style="color:#555565;font-size:12px">${mermaidDef}</pre>`;
+      }
+    };
+
+    loadMermaid();
+  }, [mermaidDef]);
+
+  return (
+    <div style={{
+      background: "#0f1116",
+      border: "1px solid #1c1d26",
+      borderRadius: "10px",
+      padding: "16px 20px",
+      marginBottom: "20px",
+    }}>
+      <div style={{
+        fontSize: "11px",
+        color: "#555565",
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase" as const,
+        marginBottom: "12px",
+      }}>
+        Sprint Chain
+      </div>
+      <div id="mermaid-graph" style={{ minHeight: "60px", display: "flex", justifyContent: "center" }}>
+        {!rendered && (
+          <div style={{ color: "#555565", fontSize: "12px", padding: "20px" }}>Loading graph...</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 function BuilderInner() {
@@ -426,6 +593,7 @@ function BuilderInner() {
               id: contract.agentConfig?.generator?.agentId || "dev",
               name: contract.agentConfig?.generator?.agentName || "Devin",
             },
+            skills: contract.agentAssignments?.[0]?.skills || [],
             evaluator: {
               id: contract.agentConfig?.evaluator?.agentId || "qa",
               name: contract.agentConfig?.evaluator?.agentName || "Quinn",
@@ -511,9 +679,12 @@ function BuilderInner() {
         task: s.task,
         sprintType: s.sprintType as DraftSprint["sprintType"],
         agent: s.agent,
+        skills: s.skills || [],
         evaluator: s.evaluator,
         suggestedQaTier: s.suggestedQaTier,
         dependencies: s.dependencies || [],
+        expectedOutputs: s.expectedOutputs,
+        humanCheckpoint: s.humanCheckpoint,
         estimatedComplexity: s.estimatedComplexity,
       }));
 
@@ -562,6 +733,7 @@ function BuilderInner() {
       task: "",
       sprintType: "code",
       agent: { id: "dev", name: "Devin" },
+      skills: [],
       evaluator: { id: "qa", name: "Quinn" },
       suggestedQaTier: "targeted",
       dependencies: [],
@@ -577,6 +749,28 @@ function BuilderInner() {
   const negotiateSprint = async (localId: string) => {
     const sprint = sprints.find(s => s.localId === localId);
     if (!sprint) return;
+
+    // Skip LLM negotiation for low-complexity sprints — use sensible defaults
+    if (sprint.estimatedComplexity === "low") {
+      const projectConfig = selectedProjectObj;
+      const repo = (projectConfig as { repo?: string })?.repo || ".";
+      updateSprint(localId, {
+        negotiated: true,
+        devBrief: {
+          repo,
+          constraints: ["Follow existing code patterns and conventions", "Maintain backward compatibility"],
+          definitionOfDone: ["Feature works as described", "No regressions introduced", "Code is clean and readable"],
+        },
+        qaBrief: {
+          tier: sprint.suggestedQaTier,
+          testUrl: "",
+          testFocus: ["Core functionality works as specified"],
+          passCriteria: ["Zero P0 defects", "Zero P1 defects"],
+          knownLimitations: [],
+        },
+      });
+      return;
+    }
 
     updateSprint(localId, { negotiating: true });
 
@@ -608,11 +802,8 @@ function BuilderInner() {
 
   const negotiateAll = async () => {
     setNegotiatingAll(true);
-    for (const sprint of sprints) {
-      if (!sprint.negotiated) {
-        await negotiateSprint(sprint.localId);
-      }
-    }
+    const unnegotiated = sprints.filter(s => !s.negotiated);
+    await Promise.all(unnegotiated.map(sprint => negotiateSprint(sprint.localId)));
     setNegotiatingAll(false);
   };
 
@@ -753,9 +944,12 @@ function BuilderInner() {
         task: s.task,
         sprintType: s.sprintType as DraftSprint["sprintType"],
         agent: s.agent,
+        skills: s.skills || [],
         evaluator: s.evaluator,
         suggestedQaTier: s.suggestedQaTier,
         dependencies: s.dependencies || [],
+        expectedOutputs: s.expectedOutputs,
+        humanCheckpoint: s.humanCheckpoint,
         estimatedComplexity: s.estimatedComplexity,
       }));
 
@@ -767,38 +961,53 @@ function BuilderInner() {
 
       setPlanReasoning(reasoning);
 
-      // Phase 2: Negotiate all contracts
-      const negotiatedSprints: DraftSprint[] = [];
-      for (let i = 0; i < draftSprints.length; i++) {
-        setYoloPhase(`Negotiating ${i + 1}/${draftSprints.length}…`);
-        const sprint = draftSprints[i];
-
-        try {
-          const negRes = await fetch("/api/builder/negotiate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sprint, projectId: selectedProject }),
-          });
-
-          if (negRes.ok) {
-            const negData = await negRes.json();
-            negotiatedSprints.push({
+      // Phase 2: Negotiate all contracts (parallel, skip low-complexity)
+      setYoloPhase(`Negotiating ${draftSprints.length} sprint(s)…`);
+      const negotiatedSprints = await Promise.all(
+        draftSprints.map(async (sprint): Promise<DraftSprint> => {
+          // Skip negotiation for low-complexity sprints
+          if (sprint.estimatedComplexity === "low") {
+            const repo = (selectedProjectObj as { repo?: string })?.repo || ".";
+            return {
               ...sprint,
               negotiated: true,
-              devBrief: negData.negotiated.devBrief,
-              qaBrief: negData.negotiated.qaBrief,
-              generatorBrief: negData.generatorBrief,
-              evaluatorBrief: negData.evaluatorBrief,
-            });
-          } else {
-            // If negotiation fails, include the sprint as-is
-            negotiatedSprints.push(sprint);
+              devBrief: {
+                repo,
+                constraints: ["Follow existing code patterns", "Maintain backward compatibility"],
+                definitionOfDone: ["Feature works as described", "No regressions introduced"],
+              },
+              qaBrief: {
+                tier: sprint.suggestedQaTier,
+                testUrl: "",
+                testFocus: ["Core functionality works as specified"],
+                passCriteria: ["Zero P0 defects", "Zero P1 defects"],
+                knownLimitations: [],
+              },
+            };
           }
-        } catch {
-          // On negotiation error, include the sprint as-is
-          negotiatedSprints.push(sprint);
-        }
-      }
+
+          try {
+            const negRes = await fetch("/api/builder/negotiate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sprint, projectId: selectedProject }),
+            });
+
+            if (negRes.ok) {
+              const negData = await negRes.json();
+              return {
+                ...sprint,
+                negotiated: true,
+                devBrief: negData.negotiated.devBrief,
+                qaBrief: negData.negotiated.qaBrief,
+                generatorBrief: negData.generatorBrief,
+                evaluatorBrief: negData.evaluatorBrief,
+              };
+            }
+          } catch { /* fall through */ }
+          return sprint;
+        })
+      );
 
       // Phase 3: Queue all sprints
       setYoloPhase("Queuing sprints…");
@@ -1035,6 +1244,11 @@ function BuilderInner() {
           </div>
           {planReasoning}
         </div>
+      )}
+
+      {/* Dependency graph (Mermaid) — shown when there are dependencies */}
+      {sprints.length > 1 && sprints.some(s => s.dependencies.length > 0) && (
+        <DependencyGraph sprints={sprints} />
       )}
 
       {/* Sprint cards */}

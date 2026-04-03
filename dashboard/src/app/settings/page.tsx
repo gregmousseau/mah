@@ -95,6 +95,36 @@ const btnSecondary: React.CSSProperties = {
 // ─── General Settings ─────────────────────────────────────────────────────────
 
 function GeneralSection({ config }: { config: MahConfig | null }) {
+  const [projectName, setProjectName] = useState("");
+  const [projectRepo, setProjectRepo] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (config) {
+      setProjectName(config.project?.name || "");
+      setProjectRepo(config.project?.repo || "");
+    }
+  }, [config]);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectName, projectRepo }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const changed = (config?.project?.name || "") !== projectName || (config?.project?.repo || "") !== projectRepo;
+
   return (
     <div style={card}>
       <div style={sectionTitle}>
@@ -104,7 +134,11 @@ function GeneralSection({ config }: { config: MahConfig | null }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
         <div>
           <div style={label}>Project Name</div>
-          <div style={readonlyField}>{config?.project?.name || "—"}</div>
+          <input
+            style={inputStyle}
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+          />
         </div>
         <div>
           <div style={label}>MAH Version</div>
@@ -112,7 +146,11 @@ function GeneralSection({ config }: { config: MahConfig | null }) {
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
           <div style={label}>Repository</div>
-          <div style={readonlyField}>{config?.project?.repo || "—"}</div>
+          <input
+            style={inputStyle}
+            value={projectRepo}
+            onChange={(e) => setProjectRepo(e.target.value)}
+          />
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
           <div style={label}>Sprint Data Directory</div>
@@ -121,6 +159,14 @@ function GeneralSection({ config }: { config: MahConfig | null }) {
           </div>
         </div>
       </div>
+      {changed && (
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "16px" }}>
+          <button style={btnPrimary} onClick={handleSave} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+          {saved && <span style={{ fontSize: "13px", color: "#22c55e" }}>Saved</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -284,6 +330,20 @@ function AgentSection() {
                 <div style={{ fontSize: "11px", color: "#555565", fontFamily: "monospace", marginTop: "3px" }}>
                   {agent.workspace}
                 </div>
+                {agent.skills && agent.skills.length > 0 && (
+                  <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
+                    {agent.skills.map(skill => (
+                      <span key={skill} style={{
+                        fontSize: "10px", color: "#3b82f6",
+                        background: "rgba(59,130,246,0.1)",
+                        border: "1px solid rgba(59,130,246,0.2)",
+                        borderRadius: "3px", padding: "1px 5px",
+                      }}>
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div style={{ fontSize: "11px", color: MUTED, flexShrink: 0 }}>{agent.platform}</div>
             </div>

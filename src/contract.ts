@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import type { SprintContract, ProjectConfig, Grader } from './types.js'
+import type { SprintContract, ProjectConfig, Grader, Skill } from './types.js'
+import type { ResolvedSkill } from './skills.js'
 
 export function generateContract(
   task: string,
@@ -69,9 +70,15 @@ export function generateContract(
   }
 }
 
-export function contractToDevPrompt(contract: SprintContract): string {
+export function contractToDevPrompt(contract: SprintContract, resolvedSkills?: ResolvedSkill[]): string {
   const { devBrief } = contract
-  return `You are a software developer working on: ${contract.task}
+
+  // Inject skill context at the top of the prompt
+  const skillBlocks = resolvedSkills && resolvedSkills.length > 0
+    ? `\n# Agent Skills\n\n${resolvedSkills.map(s => s.promptBlock).join('\n\n---\n\n')}\n\n---\n\n`
+    : ''
+
+  return `${skillBlocks}You are a software developer working on: ${contract.task}
 
 ## Repository
 ${devBrief.repo}
@@ -108,14 +115,19 @@ When done, provide a completion report in this format:
 export function contractToQAPrompt(
   contract: SprintContract,
   devOutput: string,
-  round: number
+  round: number,
+  resolvedSkills?: ResolvedSkill[]
 ): string {
   const { qaBrief } = contract
   const testUrlLine = qaBrief.testUrl
     ? `\n## Test URL\n${qaBrief.testUrl}\n`
     : ''
 
-  return `You are Quinn, a QA engineer. Evaluate the following development work.
+  const skillBlocks = resolvedSkills && resolvedSkills.length > 0
+    ? `\n# Agent Skills\n\n${resolvedSkills.map(s => s.promptBlock).join('\n\n---\n\n')}\n\n---\n\n`
+    : ''
+
+  return `${skillBlocks}You are Quinn, a QA engineer. Evaluate the following development work.
 
 ## Sprint
 ${contract.name}

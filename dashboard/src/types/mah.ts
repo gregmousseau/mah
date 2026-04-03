@@ -88,12 +88,33 @@ export interface AgentRoutingConfig {
   agentName: string;
 }
 
+export interface SprintArtifact {
+  id: string;
+  type: "file" | "snippet" | "summary";
+  path?: string;
+  content?: string;
+  description: string;
+}
+
+export interface AgentAssignment {
+  agentId: string;
+  role: "generator" | "evaluator" | "researcher";
+  skills: string[];
+  skillOverrides?: string;
+  model?: string;
+  reasoning: string;
+}
+
 export interface SprintContract {
   id: string;
   name: string;
   task: string;
   projectId?: string;
   status: "draft" | "approved" | "queued" | "scheduled" | "planned" | "dev" | "qa" | "running" | "passed" | "failed" | "escalated" | "cancelled";
+  agentAssignments?: AgentAssignment[];
+  outputs?: SprintArtifact[];
+  dependsOn?: string[];
+  humanCheckpoint?: boolean;
   scheduledFor?: string;
   queuedAt?: string;
   cancelledAt?: string;
@@ -130,10 +151,13 @@ export interface SprintPlanItem {
   task: string;
   sprintType: "code" | "frontend" | "research" | "content" | "fullstack";
   agent: { id: string; name: string; reason: string };
+  skills?: string[];
   evaluator: { id: string; name: string };
   suggestedQaTier: "smoke" | "targeted" | "full";
   suggestedDesignTier?: "quick" | "polished" | "impeccable";
   dependencies: string[];
+  expectedOutputs?: { id: string; description: string }[];
+  humanCheckpoint?: boolean;
   estimatedComplexity: "low" | "medium" | "high";
 }
 

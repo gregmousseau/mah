@@ -1,0 +1,61 @@
+{
+  "id": "sprint-20260402-211123-d055f8",
+  "name": "Fix the mobile hamburger menu animation",
+  "task": "Fix the mobile hamburger menu animation",
+  "status": "planned",
+  "graders": [
+    {
+      "id": "ux-quinn",
+      "type": "ux",
+      "name": "Quinn (UX)",
+      "agent": {
+        "type": "openclaw",
+        "model": "sonnet",
+        "workspace": "~/.openclaw/workspace-qa",
+        "testUrl": "http://localhost:3099"
+      },
+      "enabled": true
+    },
+    {
+      "id": "code-review",
+      "type": "code-review",
+      "name": "Code Reviewer",
+      "agent": {
+        "type": "openclaw",
+        "model": "claude-sonnet-4-5"
+      },
+      "enabled": true
+    }
+  ],
+  "devBrief": {
+    "repo": "~/pro/w",
+    "constraints": [
+      "Maintain backward compatibility",
+      "Follow existing code style and conventions",
+      "Keep changes minimal and focused on the task"
+    ],
+    "definitionOfDone": [
+      "Feature is implemented and working",
+      "Existing tests still pass",
+      "Code is clean and readable",
+      "Changes are committed to the repo"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "http://localhost:3099",
+    "testFocus": [
+      "Core functionality works as specified",
+      "No regressions in existing behavior",
+      "Edge cases are handled"
+    ],
+    "passCriteria": [
+      "No P0 or P1 defects",
+      "Application runs without errors",
+      "Task requirements are met"
+    ],
+    "knownLimitations": []
+  },
+  "iterations": [],
+  "createdAt": "2026-04-02T21:11:23.746Z"
+}

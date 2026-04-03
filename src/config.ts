@@ -18,6 +18,50 @@ const DEFAULTS: Partial<ProjectConfig> = {
 
 const SUPPORTED_AGENT_TYPES = ['openclaw', 'claude-cli', 'codex', 'custom']
 
+export interface NamedAgentConfig {
+  role: 'generator' | 'evaluator' | 'researcher'
+  specialty?: string
+  model: string
+  type?: string
+  cwd?: string
+  workspace?: string
+  testUrl?: string
+  defaultSkills?: string[]
+}
+
+export function loadNamedAgents(configPath?: string): Map<string, NamedAgentConfig> {
+  const path = configPath ?? findConfig()
+  if (!path) return new Map()
+
+  const raw = readFileSync(path, 'utf-8')
+  const parsed = yaml.load(raw) as Record<string, unknown>
+  if (!parsed || typeof parsed !== 'object') return new Map()
+
+  const agents = new Map<string, NamedAgentConfig>()
+  const agentsRaw = parsed.agents as Record<string, unknown> | undefined
+  if (!agentsRaw) return agents
+
+  for (const [id, value] of Object.entries(agentsRaw)) {
+    if (id === 'generator' || id === 'evaluator') continue // skip legacy flat format
+    if (!value || typeof value !== 'object') continue
+    const v = value as Record<string, unknown>
+    if (!v.role) continue // must have a role to be a named agent
+
+    agents.set(id, {
+      role: v.role as NamedAgentConfig['role'],
+      specialty: v.specialty as string | undefined,
+      model: (v.model as string) ?? 'sonnet',
+      type: (v.type as string) ?? 'openclaw',
+      cwd: v.cwd as string | undefined,
+      workspace: v.workspace as string | undefined,
+      testUrl: v.testUrl as string | undefined,
+      defaultSkills: v.defaultSkills as string[] | undefined,
+    })
+  }
+
+  return agents
+}
+
 export function loadConfig(configPath?: string): ProjectConfig {
   const path = configPath ?? findConfig()
   if (!path) {

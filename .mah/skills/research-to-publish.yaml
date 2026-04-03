@@ -1,0 +1,20 @@
+name: research-to-publish
+type: workflow
+description: "Full pipeline: research topic, draft content, publish to site"
+agent_types: [researcher, generator]
+steps:
+  - agent: researcher
+    action: "Deep research on topic — 5+ sources, structured findings with citations"
+    output: research-findings
+  - agent: generator
+    action: "Draft blog post from research findings, following blog-writing skill"
+    input: research-findings
+    output: blog-draft
+  - agent: generator
+    action: "Create PR or deploy draft to target site"
+    input: blog-draft
+gotchas:
+  - "Research phase should produce structured findings, not raw link dumps"
+  - "Content phase needs human review checkpoint before publishing"
+  - "Don't publish without verifying all facts from research made it accurately into the draft"
+tags: [content, publishing, multi-agent, workflow]

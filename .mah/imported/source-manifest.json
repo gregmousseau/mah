@@ -1,0 +1,12 @@
+{
+  "skill": {
+    "type": "openclaw",
+    "uri": "/home/greg/clawd/skills/humanizer/SKILL.md",
+    "importedAt": "2026-04-02T20:47:34.052Z"
+  },
+  "humanizer": {
+    "type": "openclaw",
+    "uri": "/home/greg/clawd/skills/humanizer/SKILL.md",
+    "importedAt": "2026-04-02T20:48:08.041Z"
+  }
+}

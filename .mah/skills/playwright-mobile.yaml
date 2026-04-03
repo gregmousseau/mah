@@ -1,0 +1,15 @@
+name: playwright-mobile
+type: capability
+description: "Playwright testing with mobile viewport and touch simulation"
+agent_types: [evaluator]
+gotchas:
+  - "Mobile viewport alone doesn't test touch — use tap() not click() for mobile assertions"
+  - "Hamburger menus may have animation delays — wait for visibility, don't just check existence"
+  - "iOS Safari and Chrome mobile render differently — test both WebKit and Chromium"
+  - "Sticky headers can obscure elements — scroll into view before interacting"
+  - "viewport.width=375 is iPhone SE, 390 is iPhone 15, 430 is iPhone 15 Pro Max"
+constraints:
+  - "Test at minimum: 375px (small phone), 768px (tablet), 1280px (desktop)"
+  - "All interactive elements must have minimum 44x44px touch target"
+  - "Check that nothing overflows horizontally on mobile viewports"
+tags: [qa, testing, mobile, accessibility]
