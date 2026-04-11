@@ -1,0 +1,51 @@
+{
+  "sprintId": "sprint-20260406-142948-c9215f",
+  "projectName": "GTA Labs",
+  "task": "Humanize the Data Ready offer page (content/offers/data-ready.mdx). Acceptance criteria: < 2 em dashes, 0 rule-of-three triplets, 0 promotional vocabulary. Keep the copy punchy and direct.",
+  "startTime": "2026-04-06T14:29:48.592Z",
+  "endTime": "2026-04-06T14:35:44.201Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 153427,
+      "model": "sonnet",
+      "costEstimate": 0.009957
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 163085,
+      "model": "sonnet",
+      "costEstimate": 0.00789
+    }
+  ],
+  "totals": {
+    "durationMs": 355609,
+    "estimatedCost": 0.017847000000000002,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 0
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 0
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "qa-r1"
+}

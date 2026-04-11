@@ -1,0 +1,38 @@
+{"ts":"2026-04-06T14:29:48.592Z","local":"10:29:48","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Humanize the Data Ready offer page (content/offers/data-r..."}
+{"ts":"2026-04-06T14:29:48.620Z","local":"10:29:48","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260406-142948-c9215f"}
+{"ts":"2026-04-06T14:29:48.625Z","local":"10:29:48","actor":"moe","type":"milestone","phase":"contract","summary":"Generator skills: react-forms, playwright-mobile"}
+{"ts":"2026-04-06T14:29:48.698Z","local":"10:29:48","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-04-06T14:32:22.127Z","local":"10:32:22","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (2m 33s / $0.0100)"}
+{"ts":"2026-04-06T14:32:22.128Z","local":"10:32:22","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-04-06T14:35:05.214Z","local":"10:35:05","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (2m 43s / $0.0079)"}
+{"ts":"2026-04-06T14:35:05.216Z","local":"10:35:05","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P2-01(P2)"}
+{"ts":"2026-04-06T14:35:05.216Z","local":"10:35:05","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-04-06T14:35:44.198Z","local":"10:35:44","actor":"system","type":"output","phase":"qa","summary":"Code review R1 complete (39.0s / $0.0086)"}
+{"ts":"2026-04-06T14:35:44.200Z","local":"10:35:44","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint CONDITIONAL PASS in 1 iteration(s)"}
+{"ts":"2026-04-06T15:08:48.482Z","local":"11:08:48","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Humanize all GTA Labs marketing content across content/of..."}
+{"ts":"2026-04-06T15:08:48.506Z","local":"11:08:48","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260406-150848-7d146b"}
+{"ts":"2026-04-06T15:08:48.510Z","local":"11:08:48","actor":"moe","type":"milestone","phase":"contract","summary":"Generator skills: react-forms, playwright-mobile"}
+{"ts":"2026-04-06T15:08:48.601Z","local":"11:08:48","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-04-06T15:18:36.144Z","local":"11:18:36","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (9m 47s)"}
+{"ts":"2026-04-06T15:18:36.146Z","local":"11:18:36","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-04-06T15:25:58.616Z","local":"11:25:58","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (7m 22s / $0.0179)"}
+{"ts":"2026-04-06T15:25:58.618Z","local":"11:25:58","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P1-01(P1), P1-02(P1), P2-01(P2), P3-01(P3)"}
+{"ts":"2026-04-06T15:25:58.619Z","local":"11:25:58","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-04-06T15:29:16.264Z","local":"11:29:16","actor":"system","type":"output","phase":"qa","summary":"Code review R1 complete (3m 17s / $0.0201)"}
+{"ts":"2026-04-06T15:29:16.267Z","local":"11:29:16","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R2"}
+{"ts":"2026-04-06T15:29:16.268Z","local":"11:29:16","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R2"}
+{"ts":"2026-04-06T15:39:03.550Z","local":"11:39:03","actor":"dev","type":"output","phase":"dev","summary":"R2 complete (9m 47s)"}
+{"ts":"2026-04-06T15:39:03.551Z","local":"11:39:03","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R2"}
+{"ts":"2026-04-06T15:44:11.606Z","local":"11:44:11","actor":"quinn","type":"output","phase":"qa","summary":"R2 verdict received (5m 8s / $0.0198)"}
+{"ts":"2026-04-06T15:44:11.607Z","local":"11:44:11","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P1-01(P1), P1-02(P1), P1-03(P1), P1-04(P1), P2-01(P2), P3-01(P3)"}
+{"ts":"2026-04-06T15:44:11.607Z","local":"11:44:11","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R2"}
+{"ts":"2026-04-06T15:47:33.647Z","local":"11:47:33","actor":"system","type":"output","phase":"qa","summary":"Code review R2 complete (3m 22s / $0.0181)"}
+{"ts":"2026-04-06T15:47:33.649Z","local":"11:47:33","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R3"}
+{"ts":"2026-04-06T15:47:33.650Z","local":"11:47:33","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R3"}
+{"ts":"2026-04-06T15:57:21.109Z","local":"11:57:21","actor":"dev","type":"output","phase":"dev","summary":"R3 complete (9m 47s)"}
+{"ts":"2026-04-06T15:57:21.110Z","local":"11:57:21","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R3"}
+{"ts":"2026-04-06T16:02:23.726Z","local":"12:02:23","actor":"quinn","type":"output","phase":"qa","summary":"R3 verdict received (5m 2s / $0.0113)"}
+{"ts":"2026-04-06T16:02:23.727Z","local":"12:02:23","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P2-01(P2), P3-01(P3), P3-02(P3)"}
+{"ts":"2026-04-06T16:02:23.728Z","local":"12:02:23","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R3"}
+{"ts":"2026-04-06T16:05:13.942Z","local":"12:05:13","actor":"system","type":"output","phase":"qa","summary":"Code review R3 complete (2m 50s / $0.0191)"}
+{"ts":"2026-04-06T16:05:13.943Z","local":"12:05:13","actor":"moe","type":"decision","phase":"human","summary":"Sprint ESCALATED after 3 iterations — requires human review"}

@@ -132,6 +132,7 @@ export class OpenClawAdapter implements AgentAdapter {
 
     const spawnEnv = { ...process.env }
     delete spawnEnv.CLAUDECODE
+    delete spawnEnv.ANTHROPIC_API_KEY  // Force OAuth/Max plan instead of API billing
     const claudePath = spawnEnv.HOME ? `${spawnEnv.HOME}/.local/bin/claude` : 'claude'
 
     return new Promise((resolve, reject) => {

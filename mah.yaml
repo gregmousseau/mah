@@ -1,6 +1,6 @@
 project:
-  name: "MAH"
-  repo: ~/clawd/projects/mah
+  name: "GTA Labs"
+  repo: ~/pro/web/apps/gta-labs
 
 priorities:
   speed: 2
@@ -12,12 +12,12 @@ agents:
   generator:
     type: openclaw
     model: sonnet
-    cwd: ~/clawd/projects/mah
+    cwd: ~/pro/web/apps/gta-labs
   evaluator:
     type: openclaw
     model: sonnet
     workspace: ~/.openclaw/workspace-qa
-    testUrl: http://localhost:3000
+    testUrl: http://localhost:3001
 
   # Named agents with skills
   frankie:
@@ -44,7 +44,7 @@ agents:
     role: generator
     specialty: content
     model: sonnet
-    defaultSkills: [blog-writing]
+    defaultSkills: [blog-writing, humanizer]
 
 qa:
   defaultTier: targeted
