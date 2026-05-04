@@ -1,0 +1,14 @@
+[
+  {
+    "id": "sprint-20260504-215702-fb35fd-src-app-components-ModelComparisonTeaser-tsx",
+    "type": "file",
+    "path": "src/app/components/ModelComparisonTeaser.tsx",
+    "description": "removed `title={c.tip}` from benchmark `<th>` headers; added inline SVG info icon with a CSS tooltip scoped to icon hover via `group/info:opacity-100`."
+  },
+  {
+    "id": "sprint-20260504-215702-fb35fd-summary",
+    "type": "summary",
+    "content": "Replaced the native HTML `title` attribute tooltip on the benchmark column headers in the Frontier Model Rankings table with a custom CSS-based tooltip that only appears when hovering a small inline \"i\" (info) icon.\n\n**Before:** `title={c.tip}` on the `<th>` element — browser shows a native tooltip when hovering anywhere over the column header cell.\n\n**After:** No `title` attribute. An SVG info icon sits next to the column label, and a styled tooltip floats above it only when that icon is hovered (using Tailwind's `group/info` named-group pattern).",
+    "description": "Sprint completion summary"
+  }
+]

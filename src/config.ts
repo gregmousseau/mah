@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import yaml from 'js-yaml'
+import { getAgentModel } from './lib/agentRegistry.js'
 import type { ProjectConfig } from './types.js'
 
 const DEFAULTS: Partial<ProjectConfig> = {
@@ -27,6 +28,7 @@ export interface NamedAgentConfig {
   workspace?: string
   testUrl?: string
   defaultSkills?: string[]
+  agentId?: string
 }
 
 export function loadNamedAgents(configPath?: string): Map<string, NamedAgentConfig> {
@@ -56,6 +58,7 @@ export function loadNamedAgents(configPath?: string): Map<string, NamedAgentConf
       workspace: v.workspace as string | undefined,
       testUrl: v.testUrl as string | undefined,
       defaultSkills: v.defaultSkills as string[] | undefined,
+      agentId: v.agentId as string | undefined,
     })
   }
 
@@ -136,12 +139,17 @@ function normalizeAgent(raw: unknown): ProjectConfig['agents']['generator'] {
     return { type: 'openclaw', model: 'sonnet' }
   }
   const agent = raw as Record<string, unknown>
+  const agentId = agent.agentId as string | undefined
+  const explicitModel = agent.model as string | undefined
+  // Resolution order: explicit yaml model → registry default for agentId → 'sonnet'
+  const model = explicitModel ?? (agentId ? getAgentModel(agentId) : undefined) ?? 'sonnet'
   return {
     type: (agent.type as string as ProjectConfig['agents']['generator']['type']) ?? 'openclaw',
-    model: (agent.model as string) ?? 'sonnet',
+    model,
     cwd: agent.cwd as string | undefined,
     workspace: agent.workspace as string | undefined,
     testUrl: agent.testUrl as string | undefined,
+    agentId,
   }
 }
 

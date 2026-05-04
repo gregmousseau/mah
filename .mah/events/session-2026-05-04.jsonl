@@ -1,0 +1,41 @@
+{"ts":"2026-05-04T21:57:02.667Z","local":"17:57:02","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Dashboard graph tooltips: only show on hover of \"i\" icon"}
+{"ts":"2026-05-04T21:57:02.696Z","local":"17:57:02","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260504-215702-fb35fd"}
+{"ts":"2026-05-04T21:57:02.701Z","local":"17:57:02","actor":"moe","type":"milestone","phase":"contract","summary":"Generator skills: react-forms, playwright-mobile"}
+{"ts":"2026-05-04T21:57:02.710Z","local":"17:57:02","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-05-04T22:00:14.065Z","local":"18:00:14","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Dashboard graph tooltips: only show on hover of \"i\" icon"}
+{"ts":"2026-05-04T22:00:14.122Z","local":"18:00:14","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260504-220014-f675bf"}
+{"ts":"2026-05-04T22:00:14.128Z","local":"18:00:14","actor":"moe","type":"milestone","phase":"contract","summary":"Generator skills: react-forms, playwright-mobile"}
+{"ts":"2026-05-04T22:00:14.215Z","local":"18:00:14","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-05-04T22:01:22.736Z","local":"18:01:22","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (4m 20s / $0.0084)"}
+{"ts":"2026-05-04T22:01:22.737Z","local":"18:01:22","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-05-04T22:02:44.355Z","local":"18:02:44","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (2m 30s / $0.0079)"}
+{"ts":"2026-05-04T22:02:44.357Z","local":"18:02:44","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-05-04T22:03:28.880Z","local":"18:03:28","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint contract created: Dashboard graph tooltips: only show on hover of \"i\" icon"}
+{"ts":"2026-05-04T22:03:28.904Z","local":"18:03:28","actor":"moe","type":"milestone","phase":"contract","summary":"Sprint ID: sprint-20260504-220328-e139ac"}
+{"ts":"2026-05-04T22:03:28.909Z","local":"18:03:28","actor":"moe","type":"milestone","phase":"contract","summary":"Generator skills: react-forms, playwright-mobile"}
+{"ts":"2026-05-04T22:03:28.918Z","local":"18:03:28","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R1"}
+{"ts":"2026-05-04T22:07:09.103Z","local":"18:07:09","actor":"dev","type":"output","phase":"dev","summary":"R1 complete (3m 40s / $0.0109)"}
+{"ts":"2026-05-04T22:07:09.104Z","local":"18:07:09","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R1"}
+{"ts":"2026-05-04T22:09:20.407Z","local":"18:09:20","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (6m 36s / $0.0109)"}
+{"ts":"2026-05-04T22:09:20.409Z","local":"18:09:20","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P3-01(P3), P3-02(P3)"}
+{"ts":"2026-05-04T22:09:20.410Z","local":"18:09:20","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-05-04T22:10:11.151Z","local":"18:10:11","actor":"system","type":"output","phase":"qa","summary":"Code review R1 complete (50.7s / $0.0100)"}
+{"ts":"2026-05-04T22:10:11.153Z","local":"18:10:11","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 1 iteration(s) [all graders passed]"}
+{"ts":"2026-05-04T22:10:45.819Z","local":"18:10:45","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (9m 23s)"}
+{"ts":"2026-05-04T22:10:45.824Z","local":"18:10:45","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-05-04T22:11:33.058Z","local":"18:11:33","actor":"quinn","type":"output","phase":"qa","summary":"R1 verdict received (4m 23s / $0.0131)"}
+{"ts":"2026-05-04T22:11:33.060Z","local":"18:11:33","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P2-01(P2), P3-01(P3)"}
+{"ts":"2026-05-04T22:11:33.060Z","local":"18:11:33","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R1"}
+{"ts":"2026-05-04T22:12:24.349Z","local":"18:12:24","actor":"system","type":"output","phase":"qa","summary":"Code review R1 complete (1m 38s / $0.0134)"}
+{"ts":"2026-05-04T22:12:24.354Z","local":"18:12:24","actor":"moe","type":"decision","phase":"dev","summary":"QA failed — sending findings back to dev for R2"}
+{"ts":"2026-05-04T22:12:24.355Z","local":"18:12:24","actor":"moe","type":"spawn","phase":"dev","summary":"Spawned dev agent R2"}
+{"ts":"2026-05-04T22:12:58.366Z","local":"18:12:58","actor":"system","type":"output","phase":"qa","summary":"Code review R1 complete (1m 25s / $0.0132)"}
+{"ts":"2026-05-04T22:12:58.368Z","local":"18:12:58","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint CONDITIONAL PASS in 1 iteration(s)"}
+{"ts":"2026-05-04T22:17:17.761Z","local":"18:17:17","actor":"dev","type":"output","phase":"dev","summary":"R2 complete (4m 53s / $0.0097)"}
+{"ts":"2026-05-04T22:17:17.763Z","local":"18:17:17","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Quinn (UX) for QA R2"}
+{"ts":"2026-05-04T22:18:30.984Z","local":"18:18:30","actor":"quinn","type":"output","phase":"qa","summary":"R2 verdict received (1m 13s / $0.0077)"}
+{"ts":"2026-05-04T22:18:30.985Z","local":"18:18:30","actor":"quinn","type":"output","phase":"qa","summary":"Defects: P3-01(P3), P3-02(P3)"}
+{"ts":"2026-05-04T22:18:30.986Z","local":"18:18:30","actor":"moe","type":"spawn","phase":"qa","summary":"Spawned Code Reviewer for code review R2"}
+{"ts":"2026-05-04T22:19:11.875Z","local":"18:19:11","actor":"system","type":"output","phase":"qa","summary":"Code review R2 complete (40.9s / $0.0103)"}
+{"ts":"2026-05-04T22:19:11.877Z","local":"18:19:11","actor":"system","type":"milestone","phase":"metrics","summary":"Sprint PASSED in 2 iteration(s) [all graders passed]"}
+{"ts":"2026-05-04T22:19:11.879Z","local":"18:19:11","actor":"system","type":"milestone","phase":"metrics","summary":"Extracted 2 artifact(s)"}

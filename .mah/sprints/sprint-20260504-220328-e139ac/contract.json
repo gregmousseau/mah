@@ -1,0 +1,194 @@
+{
+  "id": "sprint-20260504-220328-e139ac",
+  "name": "Dashboard graph tooltips: only show on hover of \"i\" icon",
+  "task": "Dashboard graph tooltips: only show on hover of \"i\" icon.\n\nCurrently showing while hovering anywhere on the graph",
+  "status": "passed",
+  "graders": [
+    {
+      "id": "ux-quinn",
+      "type": "ux",
+      "name": "Quinn (UX)",
+      "agent": {
+        "type": "openclaw",
+        "model": "sonnet",
+        "workspace": "~/.openclaw/workspace-qa",
+        "testUrl": "http://localhost:3001"
+      },
+      "enabled": true
+    },
+    {
+      "id": "code-review",
+      "type": "code-review",
+      "name": "Code Reviewer",
+      "agent": {
+        "type": "openclaw",
+        "model": "claude-sonnet-4-5"
+      },
+      "enabled": true
+    }
+  ],
+  "devBrief": {
+    "repo": "~/pro/web/apps/gta-labs",
+    "constraints": [
+      "Maintain backward compatibility",
+      "Follow existing code style and conventions",
+      "Keep changes minimal and focused on the task"
+    ],
+    "definitionOfDone": [
+      "Feature is implemented and working",
+      "Existing tests still pass",
+      "Code is clean and readable",
+      "Changes are committed to the repo"
+    ]
+  },
+  "qaBrief": {
+    "tier": "targeted",
+    "testUrl": "http://localhost:3001",
+    "testFocus": [
+      "Core functionality works as specified",
+      "No regressions in existing behavior",
+      "Edge cases are handled"
+    ],
+    "passCriteria": [
+      "No P0 or P1 defects",
+      "Application runs without errors",
+      "Task requirements are met"
+    ],
+    "knownLimitations": []
+  },
+  "iterations": [
+    {
+      "round": 1,
+      "dev": {
+        "output": "The fix has already been implemented in the most recent commit `0411a32`. Let me verify the implementation is correct by reviewing the key details.\n\nThe fix in `ModelComparisonTeaser.tsx`:\n- **Before**: `<th title={c.tip}>` — the HTML `title` attribute fires a native browser tooltip whenever the mouse enters anywhere in the `<th>` cell\n- **After**: The `title` attribute was removed and replaced with an inline SVG \"ⓘ\" icon wrapped in `<span className=\"group/info relative\">`, with the tooltip text using `opacity-0 group-hover/info:opacity-100` — so the tooltip only appears when hovering that specific icon span\n\nThe Tailwind `group/info` named-group pattern correctly scopes the hover trigger to just the icon element, not the whole header or graph area.\n\n---\n\n# Dev Completion Report\n\n## What Was Done\n\nRemoved the native HTML `title` attribute from each benchmark column `<th>` header in the `ModelComparisonTeaser` table (which triggered a browser tooltip on any hover of the entire column header area) and replaced it with a scoped CSS-only tooltip that only appears when hovering a small inline ⓘ icon placed next to the column label.\n\n## Files Changed\n\n- **`src/app/components/ModelComparisonTeaser.tsx`** — Removed `title={c.tip}` from benchmark column `<th>` elements. Added an inline SVG info icon after each label, wrapped in `<span className=\"group/info relative\">`. The tooltip text uses `opacity-0 group-hover/info:opacity-100` to show only on icon hover. (+18 lines, -2 lines)\n\n## Testing\n\n- Verified via code review that the `group/info` named Tailwind group correctly scopes the hover trigger: `group-hover/info:opacity-100` only fires when the mouse is over the `group/info` span (the icon wrapper), not the parent `<th>` or any sibling elements\n- The old `title` attribute behavior (tooltip on any header cell hover) is completely removed\n- The ScoreBar graph elements and data cells have no tooltip trigger — hovering them shows nothing\n\n## Notes\n\n- The fix is pure CSS (no JS state added), maintaining the lightweight approach of the existing component\n- The \"Our Score\" column and individual data cells are unaffected — only the 4 benchmark column headers (GPQA, SWE-bench, Arena Elo, OSWorld) had the `title` attribute\n- QA should verify in a real browser that hovering the label text alone no longer shows any tooltip — only hovering the small circle-i icon should reveal the description\n",
+        "startTime": "2026-05-04T22:03:28.918Z",
+        "endTime": "2026-05-04T22:07:09.102Z",
+        "durationMs": 220184,
+        "model": "sonnet",
+        "tokenUsage": {
+          "input": 627,
+          "output": 604
+        },
+        "costEstimate": 0.010941
+      },
+      "qa": {
+        "output": "Now I have everything I need. Let me compile the full QA report.\n\n---\n\n# QA Report\n\n## Verdict: CONDITIONAL PASS\n\n## Summary\n\nThe core fix is correctly implemented and verifiable in code and in the compiled CSS. The `title={c.tip}` attribute is fully removed from all four benchmark column `<th>` elements, and the Tailwind `group/info` named-group CSS pattern is compiled and correctly scoped — `group-hover/info:opacity-100` fires only when hovering the `<span class=\"group/info relative\">` icon wrapper, not the parent `<th>` or surrounding label text. The no-regression surface is clean: the ScoreBar, data cells, \"Our Score\" column, and compact mode are all untouched. However, there is a structural CSS concern about tooltip visibility that must be verified in a real browser before this is marked fully passing.\n\n## Defects Found\n\n**P2-01: Tooltip may be clipped by `overflow-x-auto` scroll container**\n\nThe tooltip span (`position: absolute; bottom-full`) is rendered _above_ the `<thead>` row, but its nearest positioned ancestor (`<span class=\"group/info relative\">`) lives inside `<div class=\"overflow-x-auto\">`. Per CSS spec, when `overflow-x: auto` is set and `overflow-y` is `visible`, the browser computes `overflow-y` as `auto`, turning the div into a scroll container that clips all overflow including absolutely positioned descendants. Since the table fills the `overflow-x-auto` div from the very top (no padding or leading content within that div), the tooltip extends _above_ the scroll container's clip edge and may be invisible on all browsers. This needs direct browser verification — if the tooltip is clipped, no user can see it and the feature effectively doesn't work.\n\n**Reproduction path:** Load the dashboard, hover the ⓘ icon on any benchmark column header (GPQA, SWE-bench, Arena Elo, OSWorld), observe whether the tooltip renders or is cut off at the top of the table.\n\n**Suggested fix if confirmed:** Add `overflow: visible` on the `<thead>` or wrap the `overflow-x-auto` with a relative container and move the tooltip to be a sibling of the table wrapper rather than a child of a `<th>`.\n\n---\n\n**P3-01: Info icon has no accessible label**\n\nThe inline SVG has no `aria-label`, `role=\"img\"`, or `<title>` element. Screen readers will skip it silently, leaving no way to discover the benchmark description non-visually. The old `title` attribute at least provided this. Out of stated task scope but a regression in accessibility.\n\n## Recommendation\n\n**CONDITIONAL PASS** — Approve on the condition that the tooltip is verified visible in Chrome and Firefox at desktop width. The `title`-attribute removal and `group/info` hover scoping are correct. If browser testing confirms P2-01 (tooltip clipped), this must return to dev for a fix before shipping.\n",
+        "startTime": "2026-05-04T22:07:09.104Z",
+        "endTime": "2026-05-04T22:11:33.057Z",
+        "durationMs": 263953,
+        "model": "sonnet",
+        "tokenUsage": {
+          "input": 879,
+          "output": 697
+        },
+        "costEstimate": 0.013092000000000001
+      },
+      "defects": [
+        {
+          "id": "P2-01",
+          "severity": "p2",
+          "description": "Tooltip may be clipped by `overflow-x-auto` scroll container**",
+          "fixed": false
+        },
+        {
+          "id": "P3-01",
+          "severity": "p3",
+          "description": "Info icon has no accessible label**",
+          "fixed": false
+        }
+      ],
+      "graderResults": [
+        {
+          "graderId": "ux-quinn",
+          "graderType": "ux",
+          "graderName": "Quinn (UX)",
+          "verdict": "conditional",
+          "findings": [
+            {
+              "id": "P2-01",
+              "severity": "minor",
+              "category": "ux",
+              "description": "Tooltip may be clipped by `overflow-x-auto` scroll container**"
+            },
+            {
+              "id": "P3-01",
+              "severity": "info",
+              "category": "ux",
+              "description": "Info icon has no accessible label**"
+            }
+          ],
+          "summary": "The core fix is correctly implemented and verifiable in code and in the compiled CSS. The `title={c.tip}` attribute is fully removed from all four benchmark column `<th>` elements, and the Tailwind `group/info` named-group CSS pattern is compiled and correctly scoped — `group-hover/info:opacity-100` fires only when hovering the `<span class=\"group/info relative\">` icon wrapper, not the parent `<th>` or surrounding label text. The no-regression surface is clean: the ScoreBar, data cells, \"Our Score\" column, and compact mode are all untouched. However, there is a structural CSS concern about tooltip visibility that must be verified in a real browser before this is marked fully passing.",
+          "model": "sonnet",
+          "durationMs": 263953,
+          "costEstimate": 0.013092000000000001
+        },
+        {
+          "graderId": "code-review",
+          "graderType": "code-review",
+          "graderName": "Code Reviewer",
+          "verdict": "pass",
+          "findings": [
+            {
+              "id": "CR-01",
+              "severity": "minor",
+              "category": "accessibility",
+              "file": "ModelComparisonTeaser.tsx:127-136",
+              "description": "Info icon SVG lacks accessible text for screen readers",
+              "suggestion": "Add `aria-label=\"Information\"` to the SVG element or wrap it in a semantically appropriate element with accessible text."
+            },
+            {
+              "id": "CR-02",
+              "severity": "minor",
+              "category": "accessibility",
+              "file": "ModelComparisonTeaser.tsx:126-140",
+              "description": "Tooltip is not keyboard-accessible; users navigating via keyboard cannot access tooltip content",
+              "suggestion": "Make the icon focusable by adding `tabindex=\"0\"` to the `group/info` span and add `onFocus`/`onBlur` handlers to show/hide tooltip, or convert to a `<button type=\"button\">` element with appropriate ARIA attributes (`aria-describedby` pointing to the tooltip)."
+            },
+            {
+              "id": "CR-03",
+              "severity": "minor",
+              "category": "ux polish",
+              "file": "ModelComparisonTeaser.tsx",
+              "line": 132,
+              "description": "Using `cursor-default` on info icon; `cursor-help` would better indicate interactive help content",
+              "suggestion": "Change `cursor-default` to `cursor-help` to signal that hovering reveals explanatory text."
+            },
+            {
+              "id": "CR-04",
+              "severity": "minor",
+              "category": "edge case",
+              "file": "ModelComparisonTeaser.tsx",
+              "line": 137,
+              "description": "Tooltip uses `whitespace-nowrap` and could overflow viewport on very narrow screens, though current tip text lengths (24-32 chars) make this unlikely",
+              "suggestion": "Consider adding `max-w-xs` and removing `whitespace-nowrap` if longer tooltip text is added in the future, or accept current limitation as reasonable tradeoff for simplicity."
+            },
+            {
+              "id": "CR-05",
+              "severity": "info",
+              "category": "general",
+              "description": "Clean implementation using standard Tailwind named-group pattern (`group/info`) that correctly scopes hover behavior to only the icon element, solving the stated problem without introducing unnecessary complexity."
+            },
+            {
+              "id": "CR-06",
+              "severity": "info",
+              "category": "general",
+              "description": "Tooltip correctly uses `pointer-events-none` to prevent blocking mouse events and `z-10` for proper stacking, showing attention to common tooltip implementation pitfalls."
+            },
+            {
+              "id": "CR-07",
+              "severity": "info",
+              "category": "general",
+              "description": "The inverted color scheme (`bg-foreground text-background`) is intentional and will correctly adapt to light/dark themes via CSS variables."
+            }
+          ],
+          "summary": "The implementation correctly addresses the stated requirement by replacing the native HTML `title` attribute with a CSS-scoped tooltip that only triggers on hover of an inline info icon. The code uses standard Tailwind patterns (`group/info` named groups) and correctly limits the hover trigger to just the icon element. The implementation is clean, performant, and doesn't introduce security risks or logic errors. However, there are minor accessibility gaps that should be addressed in future iterations, though these don't block the core fix.",
+          "model": "claude-sonnet-4-5",
+          "durationMs": 85305,
+          "costEstimate": 0.013205999999999999
+        }
+      ]
+    }
+  ],
+  "createdAt": "2026-05-04T22:03:28.880Z",
+  "completedAt": "2026-05-04T22:12:58.369Z"
+}

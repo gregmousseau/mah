@@ -1,0 +1,65 @@
+{
+  "id": "rise-and-shine",
+  "name": "Rise & Shine",
+  "description": "GPS-powered life operating system — goal tracking, habit building, relationship keeping, task scheduling, journaling. Built with Expo (React Native), Supabase, PowerSync, NativeWind. Based on Ali Abdaal's GPS Method and 5 Life Systems framework.",
+  "repo": "~/pro/rise",
+  "createdAt": "2026-04-11T15:55:00Z",
+  "config": {
+    "priorities": { "quality": 1, "speed": 2, "cost": 3 },
+    "defaultAgents": {
+      "generator": { "type": "openclaw", "model": "sonnet" },
+      "evaluator": { "type": "openclaw", "model": "sonnet" }
+    },
+    "qa": { "defaultTier": "targeted", "maxIterations": 3 },
+    "skills": ["react-forms", "playwright-mobile"],
+    "contentRoots": [
+      "components",
+      "lib",
+      "app",
+      "constants"
+    ],
+    "stack": {
+      "framework": "Expo (React Native)",
+      "language": "TypeScript",
+      "styling": "NativeWind (Tailwind CSS)",
+      "database": "Supabase + PowerSync (local-first SQLite)",
+      "state": "Zustand",
+      "routing": "Expo Router",
+      "platforms": ["web", "iOS", "Android", "macOS", "Windows", "Linux"]
+    },
+    "devServer": {
+      "command": "npx expo start --web --port 8082",
+      "url": "http://localhost:8082",
+      "testAccount": {
+        "email": "neo@test.local",
+        "password": "testneo123"
+      }
+    },
+    "conventions": {
+      "components": "components/ — React components organized by feature (goals/, tasks/, habits/, etc.)",
+      "stores": "lib/stores/ — Zustand stores, one per entity",
+      "repositories": "lib/db/repositories/ — Database CRUD, extends BaseRepository",
+      "services": "lib/services/ — Business logic and external integrations",
+      "types": "types/index.ts — All TypeScript interfaces",
+      "schema": "lib/db/schema.ts — SQLite table definitions",
+      "styling": "NativeWind className props, NOT StyleSheet.create",
+      "nullableFields": "All new fields must be nullable for backward compatibility"
+    },
+    "epics": {
+      "location": "docs/epics/",
+      "active": [
+        "EPIC-01-GPS-GOAL-ENGINE.md",
+        "EPIC-02-LIFE-SYSTEMS-DASHBOARD.md",
+        "EPIC-03-WEEKLY-REVIEW-AND-DAILY-CHECKIN.md",
+        "EPIC-04-RELATIONSHIP-SYSTEM.md",
+        "EPIC-05-QUARTERLY-QUESTS.md",
+        "EPIC-06-AGENT-INTEGRATION.md"
+      ]
+    },
+    "sprints": {
+      "location": "docs/sprints/",
+      "completed": ["RS-001", "RS-002", "RS-003", "RS-004", "RS-005"],
+      "next": ["RS-006", "RS-007", "RS-008", "RS-009", "RS-010"]
+    }
+  }
+}

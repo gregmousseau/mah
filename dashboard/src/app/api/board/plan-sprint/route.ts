@@ -65,6 +65,7 @@ async function runClaudeOpus(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const env = { ...process.env };
     delete env.CLAUDECODE;
+    delete env.ANTHROPIC_API_KEY;  // Force OAuth/Max plan instead of API billing
     const claudePath = env.HOME ? `${env.HOME}/.local/bin/claude` : "claude";
 
     const child = spawn(claudePath, ["--print", "--model", "opus", "--permission-mode", "bypassPermissions"], {

@@ -13,6 +13,7 @@ import {
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { loadNamedAgents } from './config.js'
+import { getAgentName } from './lib/agentRegistry.js'
 import type { ResolvedSkill } from './skills.js'
 import { parseQAReport } from './parser.js'
 import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
@@ -156,8 +157,26 @@ export async function runSprint(
 
   // 1. Generate contract
   const contract = generateContract(task, config, sprintId)
+
+  // Hydrate agentConfig from yaml when the contract didn't already specify one.
+  // Lets `agents.generator.agentId: awc` in mah.yaml drive Aria (or any registry
+  // agent) without the planner having to set it.
+  if (!contract.agentConfig) {
+    const genId = config.agents.generator.agentId
+    const evalId = config.agents.evaluator.agentId
+    if (genId || evalId) {
+      contract.agentConfig = {
+        generator: { agentId: genId ?? '', agentName: (genId && getAgentName(genId)) || genId || '' },
+        evaluator: { agentId: evalId ?? '', agentName: (evalId && getAgentName(evalId)) || evalId || '' },
+      }
+    }
+  }
+
   events.log('moe', 'milestone', 'contract', `Sprint contract created: ${contract.name}`)
   events.log('moe', 'milestone', 'contract', `Sprint ID: ${contract.id}`)
+  if (contract.agentConfig?.generator.agentId) {
+    events.log('moe', 'milestone', 'contract', `Generator agent: ${contract.agentConfig.generator.agentName} (${contract.agentConfig.generator.agentId})`)
+  }
 
   // Save initial contract
   saveContract(contract, sprintDir)

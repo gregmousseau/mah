@@ -9,6 +9,10 @@ export interface AgentRegistryEntry {
   workspace: string
   color: string
   icon: string
+  // Default model alias passed to the claude CLI when this agent is selected
+  // and the yaml didn't pin one. Lets `agentId: awc` imply Opus 4.7 without
+  // requiring callers to also set `model:`.
+  model?: string
 }
 
 export const AGENT_REGISTRY: Record<string, AgentRegistryEntry> = {
@@ -47,6 +51,14 @@ export const AGENT_REGISTRY: Record<string, AgentRegistryEntry> = {
     color: '#ec4899',
     icon: '✍️',
   },
+  awc: {
+    id: 'awc',
+    name: 'Aria',
+    workspace: '/home/greg/pro/awc-grief',
+    color: '#14b8a6',
+    icon: '🩺',
+    model: 'claude-opus-4-7',
+  },
 }
 
 export function getAgentWorkspace(agentId: string): string | undefined {
@@ -55,4 +67,8 @@ export function getAgentWorkspace(agentId: string): string | undefined {
 
 export function getAgentName(agentId: string): string | undefined {
   return AGENT_REGISTRY[agentId]?.name
+}
+
+export function getAgentModel(agentId: string): string | undefined {
+  return AGENT_REGISTRY[agentId]?.model
 }

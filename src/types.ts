@@ -73,6 +73,9 @@ export interface AgentConfig {
   cwd?: string
   workspace?: string
   testUrl?: string
+  // When set, the adapter loads SOUL.md from the agent's workspace and prepends
+  // it to the task. Required for project-scoped agents (e.g. 'awc' → Aria).
+  agentId?: string
 }
 
 // ─── Project ───

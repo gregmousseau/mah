@@ -1,0 +1,51 @@
+{
+  "sprintId": "sprint-20260504-220328-e139ac",
+  "projectName": "GTA Labs",
+  "task": "Dashboard graph tooltips: only show on hover of \"i\" icon.\n\nCurrently showing while hovering anywhere on the graph",
+  "startTime": "2026-05-04T22:03:28.880Z",
+  "endTime": "2026-05-04T22:12:58.369Z",
+  "phases": [
+    {
+      "phase": "dev",
+      "round": 1,
+      "durationMs": 220184,
+      "model": "sonnet",
+      "costEstimate": 0.010941
+    },
+    {
+      "phase": "qa",
+      "round": 1,
+      "durationMs": 263953,
+      "model": "sonnet",
+      "costEstimate": 0.013092000000000001
+    }
+  ],
+  "totals": {
+    "durationMs": 569489,
+    "estimatedCost": 0.024033,
+    "iterations": 1,
+    "humanWaitMs": 0
+  },
+  "quality": {
+    "defectsFound": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 1
+    },
+    "defectsFixed": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "defectsRemaining": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "p3": 1
+    }
+  },
+  "verdict": "pass",
+  "bottleneck": "qa-r1"
+}

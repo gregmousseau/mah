@@ -209,6 +209,122 @@ program
     }
   })
 
+// ─── mah linear-run ───
+
+program
+  .command('linear-run')
+  .description('Run a sprint pipeline from a Linear ticket (e.g. AWC-42)')
+  .argument('<ticket>', 'Linear ticket identifier or UUID (e.g. AWC-42)')
+  .option('--dry-run', 'Print the sprint contract that would be built; do not run or post')
+  .action(async (ticketArg: string, opts: { dryRun?: boolean }) => {
+    const { runSprint, printSprintSummary } = await import('./pipeline.js')
+    const { EventLogger } = await import('./events.js')
+    const { fetchTicket, postComment } = await import('./integrations/linear.js')
+
+    try {
+      console.log()
+      console.log(chalk.bold.cyan(`  MAH — Linear Run${opts.dryRun ? ' (dry)' : ''}`))
+      console.log(chalk.dim(`  Ticket: ${ticketArg}\n`))
+
+      // 1. Resolve ticket
+      const ticket = await fetchTicket(ticketArg)
+      console.log(chalk.bold(`  ${ticket.identifier}`) + chalk.dim(`  ${ticket.url}`))
+      console.log(`  ${ticket.title}`)
+      console.log(chalk.dim(`  state: ${ticket.state.name} · branch: ${ticket.branchName}\n`))
+
+      // 2. Build the task string from title + description
+      const task = ticket.description
+        ? `${ticket.title}\n\n${ticket.description}`
+        : ticket.title
+
+      const config = loadConfig()
+      const eventsDir = resolve(process.cwd(), '.mah/events')
+      const events = new EventLogger(eventsDir)
+
+      if (opts.dryRun) {
+        console.log(chalk.bold('  Sprint contract preview'))
+        console.log(`    name:        ${ticket.title}`)
+        console.log(`    sprint id:   ${ticket.identifier}`)
+        console.log(`    branch:      ${ticket.branchName}`)
+        console.log(`    generator:   ${config.agents.generator.agentId ?? '(default)'} / ${config.agents.generator.model}`)
+        console.log(`    evaluator:   ${config.agents.evaluator.agentId ?? '(default)'} / ${config.agents.evaluator.model}`)
+        console.log()
+        console.log(chalk.bold('  Task'))
+        console.log(chalk.dim(task.split('\n').map(l => `    ${l}`).join('\n')))
+        console.log()
+        console.log(chalk.dim('  (dry-run — nothing executed, nothing posted)\n'))
+        return
+      }
+
+      // 3. Run the sprint through the canonical entry
+      const { contract, metrics } = await runSprint(task, config, events)
+      printSprintSummary(contract, metrics)
+
+      // 4. Post results back to the Linear ticket
+      const verdict = contract.status
+      const suggestedNext =
+        verdict === 'passed' ? 'In Review' :
+        verdict === 'escalated' ? 'Needs Human Review' :
+        'In Progress'
+
+      const body = formatLinearComment(contract, metrics, ticket.branchName, suggestedNext)
+      try {
+        await postComment(ticket.id, body)
+        console.log(chalk.green(`  ✓ Posted scorecard to ${ticket.identifier}`))
+        console.log(chalk.dim(`    Suggested next state: ${suggestedNext} (not auto-applied)\n`))
+      } catch (err) {
+        console.error(chalk.yellow(`  ! Failed to post Linear comment: ${(err as Error).message}\n`))
+      }
+    } catch (err) {
+      console.error(chalk.red(`\nError: ${(err as Error).message}`))
+      process.exit(1)
+    }
+  })
+
+function formatLinearComment(
+  contract: SprintContract,
+  metrics: SprintMetrics,
+  branchName: string,
+  suggestedNext: string,
+): string {
+  const verdict = contract.status
+  const verdictBadge =
+    verdict === 'passed' ? '✅ PASSED' :
+    verdict === 'escalated' ? '⚠️ ESCALATED' :
+    verdict === 'failed' ? '❌ FAILED' :
+    `· ${verdict.toUpperCase()}`
+
+  const cost = `$${metrics.totals.estimatedCost.toFixed(2)}`
+  const durationMin = Math.round(metrics.totals.durationMs / 60000)
+  const iterations = metrics.totals.iterations
+
+  const defects = metrics.quality.defectsRemaining
+  const remaining = defects.p0 + defects.p1 + defects.p2 + defects.p3
+  const defectLine = remaining > 0
+    ? `**Defects remaining:** P0:${defects.p0} P1:${defects.p1} P2:${defects.p2} P3:${defects.p3}`
+    : '**Defects remaining:** none'
+
+  const lastIter = contract.iterations[contract.iterations.length - 1]
+  const graderLines = (lastIter?.graderResults ?? []).map(g => {
+    const v = g.verdict === 'pass' ? '✅' : g.verdict === 'conditional' ? '🟡' : '❌'
+    return `- ${v} **${g.graderName}** — ${g.verdict}${g.findings.length > 0 ? ` (${g.findings.length} findings)` : ''}`
+  }).join('\n')
+
+  return [
+    `### MAH Sprint — ${verdictBadge}`,
+    '',
+    `**Branch:** \`${branchName}\``,
+    `**Iterations:** ${iterations} · **Duration:** ${durationMin}m · **Cost:** ${cost}`,
+    defectLine,
+    '',
+    graderLines || '_No graders ran._',
+    '',
+    `**Recommended next state:** \`${suggestedNext}\` _(not auto-applied — slice 4)_`,
+    '',
+    `<sub>Sprint ID: \`${contract.id}\`</sub>`,
+  ].join('\n')
+}
+
 // ─── mah events ───
 
 program

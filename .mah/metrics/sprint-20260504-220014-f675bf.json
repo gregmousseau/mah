@@ -1,43 +1,29 @@
 {
-  "sprintId": "sprint-20260504-215702-fb35fd",
+  "sprintId": "sprint-20260504-220014-f675bf",
   "projectName": "GTA Labs",
   "task": "Dashboard graph tooltips: only show on hover of \"i\" icon.\n\nCurrently showing while hovering anywhere on the graph",
-  "startTime": "2026-05-04T21:57:02.667Z",
-  "endTime": "2026-05-04T22:19:11.879Z",
+  "startTime": "2026-05-04T22:00:14.065Z",
+  "endTime": "2026-05-04T22:10:11.154Z",
   "phases": [
     {
       "phase": "dev",
       "round": 1,
-      "durationMs": 260024,
+      "durationMs": 150138,
       "model": "sonnet",
-      "costEstimate": 0.008391
+      "costEstimate": 0.007911000000000001
     },
     {
       "phase": "qa",
       "round": 1,
-      "durationMs": 563080,
+      "durationMs": 396048,
       "model": "sonnet",
-      "costEstimate": 0
-    },
-    {
-      "phase": "dev",
-      "round": 2,
-      "durationMs": 293404,
-      "model": "sonnet",
-      "costEstimate": 0.009737999999999998
-    },
-    {
-      "phase": "qa",
-      "round": 2,
-      "durationMs": 73220,
-      "model": "sonnet",
-      "costEstimate": 0.007665
+      "costEstimate": 0.010881
     }
   ],
   "totals": {
-    "durationMs": 1329212,
-    "estimatedCost": 0.025793999999999997,
-    "iterations": 2,
+    "durationMs": 597089,
+    "estimatedCost": 0.018792000000000003,
+    "iterations": 1,
     "humanWaitMs": 0
   },
   "quality": {
