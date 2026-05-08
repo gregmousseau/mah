@@ -18,6 +18,7 @@ import { parseQAReport } from './parser.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
 import { loadNamedAgents } from './config.js'
+import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { EventLogger } from './events.js'
 import type {
@@ -233,7 +234,11 @@ async function runChainSprint(
 
   events.log('moe', 'spawn', 'dev', `Sprint ${contract.name} starting`)
 
+  let chainCrashError: Error | null = null
+  let lastChainPhase = 'pre-dev'
+  try {
   for (let round = 1; round <= config.qa.maxIterations; round++) {
+    lastChainPhase = `dev R${round}`
     // Dev phase
     contract.status = 'dev'
     events.log('moe', 'spawn', 'dev', `Dev R${round}`)
@@ -270,13 +275,27 @@ async function runChainSprint(
     const devDuration = formatDuration(devResult.timing.durationMs)
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration})`)
 
+    // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
+    const devEscalation = parseDevEscalation(devResult.output)
+    if (devEscalation) {
+      const fromTier = contract.qaBrief.tier
+      const toTier = bumpTier(fromTier, devEscalation.tierRequest)
+      if (toTier !== fromTier) {
+        contract.qaBrief.tier = toTier
+        events.log('dev', 'decision', 'qa',
+          `QA escalation: ${fromTier} → ${toTier} (${devEscalation.reason || 'no reason given'})`)
+      }
+    }
+
     // QA phase
+    lastChainPhase = `qa R${round}`
     contract.status = 'qa'
     const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
+    const tierBudget = budgetForContract(contract)
     const qaResult = await adapter.execute(qaPrompt, {
       model: config.agents.evaluator.model,
       cwd: config.agents.evaluator.workspace,
-      timeoutMs: 10 * 60 * 1000,
+      timeoutMs: tierBudget.timeoutMs,
       label: `chain-qa-${contract.id}-r${round}`,
     })
 
@@ -334,8 +353,14 @@ async function runChainSprint(
     lastDevOutput = devResult.output
     lastQAOutput = qaResult.output
   }
+  } catch (err) {
+    chainCrashError = err as Error
+    contract.status = 'failed'
+    events.log('moe', 'error', 'metrics',
+      `Chain sprint crashed during ${lastChainPhase}: ${chainCrashError.message}`)
+  }
 
-  // Save everything
+  // Save everything (always — even on crash)
   contract.completedAt = new Date().toISOString()
   writeFileSync(join(sprintFullDir, 'contract.json'), JSON.stringify(contract, null, 2))
   writeFileSync(join(sprintFullDir, 'transcript.json'), JSON.stringify(transcript, null, 2))
@@ -343,6 +368,7 @@ async function runChainSprint(
   const metrics = createSprintMetrics(contract, config)
   saveMetrics(metrics, sprintFullDir)
   saveMetrics(metrics, metricsDir)
+  if (chainCrashError) throw chainCrashError
 
   return { contract, metrics }
 }

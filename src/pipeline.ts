@@ -19,6 +19,7 @@ import { parseQAReport } from './parser.js'
 import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
+import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import type {
   ProjectConfig,
   SprintContract,
@@ -31,10 +32,14 @@ import type {
   AgentResult,
 } from './types.js'
 
-function writeNotification(contract: SprintContract, metrics: SprintMetrics): void {
+function writeNotification(
+  contract: SprintContract,
+  metrics: SprintMetrics,
+  crashError?: Error | null,
+): void {
   try {
     const notification = {
-      type: 'sprint_complete',
+      type: crashError ? 'sprint_crashed' : 'sprint_complete',
       sprintId: contract.id,
       name: contract.name,
       verdict: contract.status,
@@ -42,6 +47,7 @@ function writeNotification(contract: SprintContract, metrics: SprintMetrics): vo
       cost: metrics.totals.estimatedCost,
       duration: metrics.totals.durationMs,
       timestamp: new Date().toISOString(),
+      ...(crashError ? { error: { message: crashError.message, stack: crashError.stack } } : {}),
     }
     const notifPath = join(resolve(process.cwd(), '.mah'), 'notifications', 'latest.json')
     mkdirSync(join(resolve(process.cwd(), '.mah'), 'notifications'), { recursive: true })
@@ -145,12 +151,18 @@ function reverseSeverityMap(s: GraderResult['findings'][number]['severity']): 'p
   return 'p3'
 }
 
+export interface RunSprintResult {
+  contract: SprintContract
+  metrics: SprintMetrics
+  crashError?: Error
+}
+
 export async function runSprint(
   task: string,
   config: ProjectConfig,
   events: EventLogger,
   options?: { dryRun?: boolean }
-): Promise<{ contract: SprintContract; metrics: SprintMetrics }> {
+): Promise<RunSprintResult> {
   const sprintId = generateSprintId()
   const sprintDir = resolve(process.cwd(), config.sprints.directory)
   const metricsDir = resolve(process.cwd(), config.metrics.output)
@@ -229,7 +241,9 @@ export async function runSprint(
     writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
   }, 30_000)
 
-  // 3. Dev/QA loop
+  // 3. Dev/QA loop — wrapped so terminal-state always reaches metrics + notification
+  let crashError: Error | null = null
+  try {
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     console.log()
     console.log(chalk.bold.white(`  ─── Round ${round} / ${config.qa.maxIterations} ─────────────────────`))
@@ -275,6 +289,18 @@ export async function runSprint(
     const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
 
+    // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
+    const devEscalation = parseDevEscalation(devResult.output)
+    if (devEscalation) {
+      const fromTier = contract.qaBrief.tier
+      const toTier = bumpTier(fromTier, devEscalation.tierRequest)
+      if (toTier !== fromTier) {
+        contract.qaBrief.tier = toTier
+        events.log('dev', 'decision', 'qa',
+          `QA escalation: ${fromTier} → ${toTier} (${devEscalation.reason || 'no reason given'})`)
+      }
+    }
+
     // 3b. Run all enabled graders
     contract.status = 'qa'
     currentPhase = 'qa'
@@ -304,10 +330,13 @@ export async function runSprint(
         // ── Quinn (UX) grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evaluatorSkills)
+        const tierBudget = budgetForContract(contract)
+        events.log('moe', 'milestone', 'qa',
+          `Quinn tier=${contract.qaBrief.tier} budget=${Math.round(tierBudget.timeoutMs / 1000)}s scenarios≤${tierBudget.maxScenarios}`)
         const qaExecOptions = {
           model: grader.agent.model,
           cwd: grader.agent.workspace,
-          timeoutMs: 10 * 60 * 1000,
+          timeoutMs: tierBudget.timeoutMs,
           label: `qa-${contract.id}-r${round}`,
         }
         const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
@@ -467,6 +496,13 @@ export async function runSprint(
     lastDevOutput = devResult.output
     lastQAOutput = qaOutput
   }
+  } catch (err) {
+    crashError = err as Error
+    contract.status = 'failed'
+    events.log('moe', 'error', 'metrics',
+      `Orchestrator crashed during ${currentPhase} R${currentRound}: ${crashError.message}`)
+    try { saveContract(contract, sprintDir) } catch { /* best effort */ }
+  }
 
   // 4. Extract artifacts from last dev output
   if (contract.status === 'passed' && lastDevOutput) {
@@ -493,9 +529,9 @@ export async function runSprint(
   // 6. Write notification + clear heartbeat
   clearInterval(heartbeatInterval)
   clearHeartbeat()
-  writeNotification(contract, metrics)
+  writeNotification(contract, metrics, crashError)
 
-  return { contract, metrics }
+  return crashError ? { contract, metrics, crashError } : { contract, metrics }
 }
 
 /**
@@ -512,7 +548,7 @@ export async function runExistingContract(
   config: ProjectConfig,
   events: EventLogger,
   sprintFullPath: string,
-): Promise<{ contract: SprintContract; metrics: SprintMetrics }> {
+): Promise<RunSprintResult> {
   const metricsDir = resolve(process.cwd(), config.metrics.output)
   const sprintStartTime = Date.now()
 
@@ -593,7 +629,9 @@ export async function runExistingContract(
     writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
   }, 30_000)
 
-  // Dev/QA loop
+  // Dev/QA loop — wrapped so terminal-state always reaches metrics + notification
+  let crashError: Error | null = null
+  try {
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     // Skip rounds that completed in previous run
     if (round < resumeFromRound) {
@@ -678,6 +716,20 @@ export async function runExistingContract(
       events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
     }
 
+    // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
+    if (!skipDev) {
+      const devEscalation = parseDevEscalation(devResult.output)
+      if (devEscalation) {
+        const fromTier = contract.qaBrief.tier
+        const toTier = bumpTier(fromTier, devEscalation.tierRequest)
+        if (toTier !== fromTier) {
+          contract.qaBrief.tier = toTier
+          events.log('dev', 'decision', 'qa',
+            `QA escalation: ${fromTier} → ${toTier} (${devEscalation.reason || 'no reason given'})`)
+        }
+      }
+    }
+
     // QA phase — run all enabled graders
     contract.status = 'qa'
     currentPhase = 'qa'
@@ -705,10 +757,13 @@ export async function runExistingContract(
       if (grader.type === 'ux') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evalSkills2)
+        const tierBudget2 = budgetForContract(contract)
+        events.log('moe', 'milestone', 'qa',
+          `Quinn tier=${contract.qaBrief.tier} budget=${Math.round(tierBudget2.timeoutMs / 1000)}s scenarios≤${tierBudget2.maxScenarios}`)
         const qaExecOptions2 = {
           model: grader.agent.model,
           cwd: grader.agent.workspace,
-          timeoutMs: 10 * 60 * 1000,
+          timeoutMs: tierBudget2.timeoutMs,
           label: `qa-${contract.id}-r${round}`,
         }
         const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
@@ -859,6 +914,13 @@ export async function runExistingContract(
     lastDevOutput = devResult.output
     lastQAOutput = qaOutput
   }
+  } catch (err) {
+    crashError = err as Error
+    contract.status = 'failed'
+    events.log('moe', 'error', 'metrics',
+      `Orchestrator crashed during ${currentPhase} R${currentRound}: ${crashError.message}`)
+    try { saveContractDirect(contract, sprintFullPath) } catch { /* best effort */ }
+  }
 
   // Compute and save metrics
   contract.completedAt = new Date().toISOString()
@@ -870,9 +932,9 @@ export async function runExistingContract(
 
   clearInterval(heartbeatInterval)
   clearHeartbeat()
-  writeNotification(contract, metrics)
+  writeNotification(contract, metrics, crashError)
 
-  return { contract, metrics }
+  return crashError ? { contract, metrics, crashError } : { contract, metrics }
 }
 
 function printContractSummary(contract: SprintContract, generatorSkills?: ResolvedSkill[], evaluatorSkills?: ResolvedSkill[]): void {

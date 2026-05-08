@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { SprintContract, ProjectConfig, Grader, Skill } from './types.js'
 import type { ResolvedSkill } from './skills.js'
+import { budgetForContract } from './lib/qaTier.js'
 
 export function generateContract(
   task: string,
@@ -109,6 +110,13 @@ When done, provide a completion report in this format:
 
 ## Notes
 [Any caveats, assumptions, or things QA should know about]
+
+## QA Escalation
+[OPTIONAL — only include if you discovered risk during the work that warrants more QA than the current tier provides.]
+[Format:]
+[tier: smoke | targeted | full]
+[reason: short justification (e.g. "touched auth flow, needs login regression")]
+[Omit this section entirely if no escalation is needed.]
 `
 }
 
@@ -127,6 +135,9 @@ export function contractToQAPrompt(
     ? `\n# Agent Skills\n\n${resolvedSkills.map(s => s.promptBlock).join('\n\n---\n\n')}\n\n---\n\n`
     : ''
 
+  const budget = budgetForContract(contract)
+  const timeBudgetMin = Math.round(budget.timeoutMs / 60_000)
+
   return `${skillBlocks}You are Quinn, a QA engineer. Evaluate the following development work.
 
 ## Sprint
@@ -136,6 +147,10 @@ ${contract.name}
 ${contract.task}
 
 ## QA Tier: ${qaBrief.tier.toUpperCase()}
+**Time budget:** ~${timeBudgetMin} minute(s).
+**Scenario budget:** at most ${budget.maxScenarios} scenario(s).
+**Scope:** ${budget.scopeHint}
+Stay within these limits — return your verdict as soon as you have enough signal. Do not pad with exhaustive flows when the tier is smoke/targeted.
 ${testUrlLine}
 ## Test Focus
 ${qaBrief.testFocus.map(f => `- ${f}`).join('\n')}
@@ -209,6 +224,12 @@ When done, provide an updated completion report:
 
 ## Remaining Caveats
 [Anything that still needs attention or known limitations]
+
+## QA Escalation
+[OPTIONAL — same rules as before. Include only if a fix surfaced new QA risk.]
+[Format:]
+[tier: smoke | targeted | full]
+[reason: short justification]
 `
 }
 

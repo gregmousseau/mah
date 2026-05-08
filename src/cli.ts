@@ -256,25 +256,64 @@ program
         return
       }
 
-      // 3. Run the sprint through the canonical entry
-      const { contract, metrics } = await runSprint(task, config, events)
+      // 3. Run the sprint through the canonical entry — guarantee a Linear comment
+      //    even if runSprint throws before it can mark the contract failed.
+      let result: Awaited<ReturnType<typeof runSprint>>
+      try {
+        result = await runSprint(task, config, events)
+      } catch (sprintErr) {
+        const message = (sprintErr as Error).message
+        console.error(chalk.red(`\n  ✗ Sprint crashed: ${message}\n`))
+        try {
+          await postComment(
+            ticket.id,
+            [
+              `### MAH Sprint — 💥 CRASHED`,
+              '',
+              `**Branch:** \`${ticket.branchName}\``,
+              '',
+              `The MAH orchestrator crashed before producing a verdict.`,
+              '',
+              '```',
+              message,
+              '```',
+              '',
+              `<sub>Auto-posted by MAH so a crash never looks like a stuck run.</sub>`,
+            ].join('\n'),
+          )
+          console.log(chalk.yellow(`  ! Posted crash notice to ${ticket.identifier}\n`))
+        } catch (postErr) {
+          console.error(chalk.yellow(`  ! Failed to post crash notice: ${(postErr as Error).message}\n`))
+        }
+        throw sprintErr
+      }
+      const { contract, metrics, crashError } = result
       printSprintSummary(contract, metrics)
 
-      // 4. Post results back to the Linear ticket
+      // 4. Post results back to the Linear ticket — always, even on internal crash.
       const verdict = contract.status
       const suggestedNext =
         verdict === 'passed' ? 'In Review' :
         verdict === 'escalated' ? 'Needs Human Review' :
+        verdict === 'failed' ? 'Needs Human Review' :
         'In Progress'
 
-      const body = formatLinearComment(contract, metrics, ticket.branchName, suggestedNext)
+      const body = crashError
+        ? formatLinearCrashComment(contract, metrics, ticket.branchName, crashError)
+        : formatLinearComment(contract, metrics, ticket.branchName, suggestedNext)
       try {
         await postComment(ticket.id, body)
-        console.log(chalk.green(`  ✓ Posted scorecard to ${ticket.identifier}`))
-        console.log(chalk.dim(`    Suggested next state: ${suggestedNext} (not auto-applied)\n`))
+        if (crashError) {
+          console.log(chalk.yellow(`  ! Posted crash scorecard to ${ticket.identifier}\n`))
+        } else {
+          console.log(chalk.green(`  ✓ Posted scorecard to ${ticket.identifier}`))
+          console.log(chalk.dim(`    Suggested next state: ${suggestedNext} (not auto-applied)\n`))
+        }
       } catch (err) {
         console.error(chalk.yellow(`  ! Failed to post Linear comment: ${(err as Error).message}\n`))
       }
+
+      if (crashError) process.exit(1)
     } catch (err) {
       console.error(chalk.red(`\nError: ${(err as Error).message}`))
       process.exit(1)
@@ -322,6 +361,38 @@ function formatLinearComment(
     `**Recommended next state:** \`${suggestedNext}\` _(not auto-applied — slice 4)_`,
     '',
     `<sub>Sprint ID: \`${contract.id}\`</sub>`,
+  ].join('\n')
+}
+
+function formatLinearCrashComment(
+  contract: SprintContract,
+  metrics: SprintMetrics,
+  branchName: string,
+  err: Error,
+): string {
+  const cost = `$${metrics.totals.estimatedCost.toFixed(2)}`
+  const durationMin = Math.round(metrics.totals.durationMs / 60000)
+  const iterations = metrics.totals.iterations
+  const lastIter = contract.iterations[contract.iterations.length - 1]
+  const lastPhase = lastIter
+    ? (lastIter.qa ? 'qa' : 'dev') + ` R${lastIter.round}`
+    : 'pre-dev'
+
+  return [
+    `### MAH Sprint — 💥 CRASHED`,
+    '',
+    `**Branch:** \`${branchName}\``,
+    `**Iterations completed:** ${iterations} · **Duration:** ${durationMin}m · **Cost:** ${cost}`,
+    `**Last phase before crash:** ${lastPhase}`,
+    '',
+    '**Error**',
+    '```',
+    err.message,
+    '```',
+    '',
+    `**Recommended next state:** \`Needs Human Review\``,
+    '',
+    `<sub>Sprint ID: \`${contract.id}\` · Auto-posted by MAH terminal-state guarantee.</sub>`,
   ].join('\n')
 }
 
