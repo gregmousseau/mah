@@ -1,89 +1,50 @@
 import { NextResponse } from "next/server";
-import { readdirSync, readFileSync, existsSync, rmSync } from "fs";
+import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
-
-const MAH_ROOT = join(process.cwd(), "..");
-const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
-const METRICS_DIR = join(MAH_ROOT, ".mah", "metrics");
+import { primaryRoot, findSprint } from "@/lib/mahRoot";
 
 export async function GET(
-  _req: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-
   try {
-    if (!existsSync(SPRINTS_DIR)) {
-      return NextResponse.json({ error: "No sprints directory" }, { status: 404 });
-    }
+    const { id: sprintId } = await params;
+    const root = primaryRoot(process.cwd());
 
-    // Find dir matching the id prefix
-    const dirs = readdirSync(SPRINTS_DIR, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
+    const result = findSprint(sprintId, root);
 
-    const sprintDir = dirs.find(
-      (d) => d.startsWith(id) || d.replace(/^0+/, "") === id.replace(/^0+/, "")
-    );
-
-    if (!sprintDir) {
+    if (!result) {
       return NextResponse.json({ error: "Sprint not found" }, { status: 404 });
     }
 
-    const contractPath = join(SPRINTS_DIR, sprintDir, "contract.json");
-    const metricsPathOld = join(SPRINTS_DIR, sprintDir, "metrics.json");
+    // Also load transcript if it exists
+    const sprintsDir = join(result.root, ".mah", "sprints");
+    const dirs = readdirSync(sprintsDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
 
-    const contract = existsSync(contractPath)
-      ? JSON.parse(readFileSync(contractPath, "utf-8"))
-      : null;
-
-    let metrics = null;
-    // Try old location first (sprint-specific)
-    if (existsSync(metricsPathOld)) {
-      metrics = JSON.parse(readFileSync(metricsPathOld, "utf-8"));
-    }
-    // Then try new centralized location using sprint ID
-    else if (contract?.id) {
-      const metricsPathNew = join(METRICS_DIR, `${contract.id}.json`);
-      if (existsSync(metricsPathNew)) {
-        metrics = JSON.parse(readFileSync(metricsPathNew, "utf-8"));
+    let transcript = null;
+    for (const dir of dirs) {
+      const contractPath = join(sprintsDir, dir, "contract.json");
+      if (!existsSync(contractPath)) continue;
+      const contract = JSON.parse(readFileSync(contractPath, "utf-8"));
+      if (contract.id === sprintId) {
+        const transcriptPath = join(sprintsDir, dir, "transcript.json");
+        if (existsSync(transcriptPath)) {
+          transcript = JSON.parse(readFileSync(transcriptPath, "utf-8"));
+        }
+        break;
       }
     }
 
-    return NextResponse.json({ contract, metrics });
+    return NextResponse.json({
+      contract: result.contract,
+      metrics: result.metrics,
+      transcript,
+      projectRoot: result.root,
+    });
   } catch (err) {
     console.error("Failed to load sprint:", err);
     return NextResponse.json({ error: "Failed to load sprint" }, { status: 500 });
-  }
-}
-
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-
-  try {
-    if (!existsSync(SPRINTS_DIR)) {
-      return NextResponse.json({ error: "No sprints directory" }, { status: 404 });
-    }
-
-    const dirs = readdirSync(SPRINTS_DIR, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
-
-    const sprintDir = dirs.find(
-      (d) => d.startsWith(id) || d.replace(/^0+/, "") === id.replace(/^0+/, "")
-    );
-
-    if (!sprintDir) {
-      return NextResponse.json({ error: "Sprint not found" }, { status: 404 });
-    }
-
-    rmSync(join(SPRINTS_DIR, sprintDir), { recursive: true, force: true });
-    return NextResponse.json({ success: true, id });
-  } catch (err) {
-    console.error("Failed to delete sprint:", err);
-    return NextResponse.json({ error: "Failed to delete sprint" }, { status: 500 });
   }
 }

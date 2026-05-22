@@ -1,0 +1,16 @@
+{
+  "id": "awc-grief",
+  "name": "AWC Grief",
+  "description": "AWC (Aria Wellness Centre) grief counseling platform — patient intake, therapist matching, scheduling, and clinical notes.",
+  "repo": "~/pro/awc-grief",
+  "mahRoot": "~/pro/awc-grief",
+  "createdAt": "2026-05-07T22:57:00Z",
+  "config": {
+    "priorities": { "quality": 1, "speed": 2, "cost": 3 },
+    "defaultAgents": {
+      "generator": { "type": "openclaw", "model": "minimax" },
+      "evaluator": { "type": "openclaw", "model": "minimax" }
+    },
+    "qa": { "defaultTier": "targeted", "maxIterations": 3 }
+  }
+}

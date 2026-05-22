@@ -1,31 +1,10 @@
 import { NextResponse } from "next/server";
-import { readdirSync, readFileSync, existsSync } from "fs";
-import { join } from "path";
-
-const MAH_ROOT = join(process.cwd(), "..");
-const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
-const METRICS_DIR = join(MAH_ROOT, ".mah", "metrics");
-
-function isRealSprint(dirName: string, contract: Record<string, unknown> | null): boolean {
-  if (!contract) return false;
-  // A "real" sprint has a short numeric ID (001, 002, etc.)
-  const id = contract.id as string || "";
-  if (/^\d{3}$/.test(id)) return true;
-  // Or a dir that starts with a 3-digit number
-  if (/^\d{3}-/.test(dirName)) return true;
-  return false;
-}
+import { primaryRoot, loadAllSprints } from "@/lib/mahRoot";
 
 export async function GET() {
   try {
-    if (!existsSync(SPRINTS_DIR)) {
-      return NextResponse.json({ totalSprints: 0, passRate: 0, avgIterations: 0, totalCost: 0 });
-    }
-
-    const dirs = readdirSync(SPRINTS_DIR, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name)
-      .sort();
+    const root = primaryRoot(process.cwd());
+    const allSprints = loadAllSprints(root);
 
     let totalSprints = 0;
     let completedSprints = 0;
@@ -34,50 +13,29 @@ export async function GET() {
     let totalCost = 0;
     const costPerSprint: { id: string; name: string; cost: number; date: string }[] = [];
 
-    for (const dir of dirs) {
-      const metricsPathOld = join(SPRINTS_DIR, dir, "metrics.json");
-      const contractPath = join(SPRINTS_DIR, dir, "contract.json");
+    for (const sprint of allSprints) {
+      const status = sprint.status;
+      const isActive = ["running", "dev", "qa", "queued"].includes(status);
 
-      const contract = existsSync(contractPath)
-        ? JSON.parse(readFileSync(contractPath, "utf-8"))
-        : null;
-
-      // Skip placeholder/test sprints
-      if (!isRealSprint(dir, contract)) continue;
-
-      let metrics = null;
-      // Try old location first (sprint-specific)
-      if (existsSync(metricsPathOld)) {
-        metrics = JSON.parse(readFileSync(metricsPathOld, "utf-8"));
-      }
-      // Then try new centralized location using sprint ID
-      else if (contract?.id) {
-        const metricsPathNew = join(METRICS_DIR, `${contract.id}.json`);
-        if (existsSync(metricsPathNew)) {
-          metrics = JSON.parse(readFileSync(metricsPathNew, "utf-8"));
-        }
-      }
-
-      if (!metrics) {
-        // Running sprint with no metrics yet — count it but don't affect pass rate
-        if (contract?.status === "running" || contract?.status === "dev" || contract?.status === "qa") {
-          totalSprints++;
-        }
-        continue;
+      if (!isActive && sprint.verdict === "unknown" && sprint.iterations === 0) {
+        continue; // skip non-active sprints with no data
       }
 
       totalSprints++;
-      completedSprints++;
-      if (metrics.verdict === "pass" || metrics.verdict === "conditional") passed++;
-      totalIterations += metrics.totals?.iterations || 0;
-      totalCost += metrics.totals?.estimatedCost || 0;
 
-      costPerSprint.push({
-        id: metrics.sprintId,
-        name: metrics.task,
-        cost: metrics.totals?.estimatedCost || 0,
-        date: contract?.createdAt || metrics.startTime,
-      });
+      if (sprint.verdict !== "unknown") {
+        completedSprints++;
+        if (sprint.verdict === "pass" || sprint.verdict === "conditional") passed++;
+        totalIterations += sprint.iterations;
+        totalCost += sprint.totalCost;
+
+        costPerSprint.push({
+          id: sprint.id,
+          name: sprint.name,
+          cost: sprint.totalCost,
+          date: sprint.createdAt || "",
+        });
+      }
     }
 
     return NextResponse.json({

@@ -1,19 +1,7 @@
 import { NextResponse } from "next/server";
-import { readFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-
-const MAH_ROOT = join(process.cwd(), "..");
-const PROJECTS_DIR = join(MAH_ROOT, ".mah", "projects");
-const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
-const METRICS_DIR = join(MAH_ROOT, ".mah", "metrics");
-
-function isRealSprint(dirName: string, contract: Record<string, unknown> | null): boolean {
-  if (!contract) return false;
-  const id = contract.id as string || "";
-  if (/^\d{3}$/.test(id)) return true;
-  if (/^\d{3}-/.test(dirName)) return true;
-  return false;
-}
+import { primaryRoot, loadAllSprints, loadProjects, resolveMahRoot } from "@/lib/mahRoot";
 
 export async function GET(
   _request: Request,
@@ -21,7 +9,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const projectFile = join(PROJECTS_DIR, `${id}.json`);
+    const root = primaryRoot(process.cwd());
+    const projectsDir = join(root, ".mah", "projects");
+    const projectFile = join(projectsDir, `${id}.json`);
 
     if (!existsSync(projectFile)) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -29,68 +19,30 @@ export async function GET(
 
     const project = JSON.parse(readFileSync(projectFile, "utf-8"));
 
-    // Load sprints for this project
-    const sprintDirs = existsSync(SPRINTS_DIR)
-      ? readdirSync(SPRINTS_DIR, { withFileTypes: true })
-          .filter((d) => d.isDirectory())
-          .map((d) => d.name)
-      : [];
+    // Load sprints from all roots (primary + project-specific)
+    const allSprints = loadAllSprints(root);
 
-    const sprints = sprintDirs
-      .map((dir) => {
-        const contractPath = join(SPRINTS_DIR, dir, "contract.json");
-        const metricsPathOld = join(SPRINTS_DIR, dir, "metrics.json");
-
-        let contract = null;
-        let metrics = null;
-
-        if (existsSync(contractPath)) {
-          contract = JSON.parse(readFileSync(contractPath, "utf-8"));
-        }
-
-        // Try old location first (sprint-specific)
-        if (existsSync(metricsPathOld)) {
-          metrics = JSON.parse(readFileSync(metricsPathOld, "utf-8"));
-        }
-        // Then try new centralized location using sprint ID
-        else if (contract?.id) {
-          const metricsPathNew = join(METRICS_DIR, `${contract.id}.json`);
-          if (existsSync(metricsPathNew)) {
-            metrics = JSON.parse(readFileSync(metricsPathNew, "utf-8"));
-          }
-        }
-
-        return { dir, contract, metrics };
-      })
-      .filter(({ dir, contract }) => isRealSprint(dir, contract))
-      .filter(({ contract }) => contract?.projectId === id)
-      .map(({ contract, metrics }) => ({
-        id: contract?.id || "",
-        name: contract?.name || "",
-        status: contract?.status || "unknown",
-        verdict: metrics?.verdict || (contract?.status === "passed" ? "pass" : "unknown"),
-        iterations: metrics?.totals?.iterations || contract?.iterations?.length || 0,
-        totalCost: metrics?.totals?.estimatedCost || 0,
-        createdAt: contract?.createdAt || null,
-        completedAt: contract?.completedAt || null,
-        projectId: contract?.projectId || null,
-      }))
+    const projectSprints = allSprints
+      .filter((s) => s.projectId === id)
       .sort((a, b) => {
         if (!a.createdAt) return 1;
         if (!b.createdAt) return -1;
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
 
-    const passedSprints = sprints.filter(
+    const passedSprints = projectSprints.filter(
       (s) => s.verdict === "pass" || s.status === "passed"
     );
-    const passRate = sprints.length > 0
-      ? Math.round((passedSprints.length / sprints.length) * 100)
+    const passRate = projectSprints.length > 0
+      ? Math.round((passedSprints.length / projectSprints.length) * 100)
       : 0;
-    const totalCost = sprints.reduce((sum, s) => sum + (s.totalCost || 0), 0);
-    const avgIterations = sprints.length > 0
-      ? sprints.reduce((sum, s) => sum + (s.iterations || 0), 0) / sprints.length
+    const totalCost = projectSprints.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+    const avgIterations = projectSprints.length > 0
+      ? projectSprints.reduce((sum, s) => sum + (s.iterations || 0), 0) / projectSprints.length
       : 0;
+
+    // Strip internal fields from sprint output
+    const sprints = projectSprints.map(({ projectRoot, ...rest }) => rest);
 
     return NextResponse.json({
       ...project,
