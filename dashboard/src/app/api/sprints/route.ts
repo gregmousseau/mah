@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { readdirSync, readFileSync, existsSync } from "fs";
-import { join } from "path";
 import {
   primaryRoot,
   loadAllSprints,
-  isRealSprint,
   loadProjects,
   resolveMahRoot,
 } from "@/lib/mahRoot";
@@ -17,18 +14,27 @@ export async function GET(request: Request) {
     const root = primaryRoot(process.cwd());
     const allSprints = loadAllSprints(root);
 
-    // Build root map for project filtering
+    // Build root → projectId map for resolving projects by sprint source root
     const projects = loadProjects(root);
+    const rootToProjectId = new Map<string, string>();
     const projectRootMap = new Map<string, string>();
     for (const p of projects) {
-      projectRootMap.set(p.id, resolveMahRoot(p, root));
+      const pRoot = resolveMahRoot(p, root);
+      rootToProjectId.set(pRoot, p.id);
+      projectRootMap.set(p.id, pRoot);
     }
 
-    const filtered = allSprints
+    // Resolve each sprint to a project ID (via projectId or source root)
+    const resolved = allSprints.map((sprint) => {
+      const resolvedProjectId = sprint.projectId || rootToProjectId.get(sprint.projectRoot) || null;
+      return { ...sprint, resolvedProjectId };
+    });
+
+    const filtered = resolved
       .filter((sprint) => {
         if (!projectFilter) return true;
-        if (sprint.projectId === projectFilter) return true;
-        // Match by root if projectFilter resolves to a known root
+        if (sprint.resolvedProjectId === projectFilter) return true;
+        // Fallback: match by root
         const filterRoot = projectRootMap.get(projectFilter);
         return filterRoot && sprint.projectRoot === filterRoot;
       })

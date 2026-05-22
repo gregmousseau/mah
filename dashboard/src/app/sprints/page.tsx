@@ -125,7 +125,7 @@ export default function SprintsPage() {
   // Status counts (before status filter, after other filters)
   const statusCounts = useMemo(() => {
     const base = allSprints.filter((s) => {
-      if (projectFilter !== "all" && (s.projectId || null) !== (projectFilter === "none" ? null : projectFilter)) return false;
+      if (projectFilter !== "all" && s.resolvedProjectId !== projectFilter) return false;
       if (searchText && !s.name.toLowerCase().includes(searchText.toLowerCase())) return false;
       if (agentFilter !== "all" && s.agentConfig?.generator?.agentId !== agentFilter) return false;
       return true;
@@ -143,7 +143,7 @@ export default function SprintsPage() {
   // Apply all filters + sort
   const filteredSprints = useMemo(() => {
     let result = allSprints.filter((s) => {
-      if (projectFilter !== "all" && (s.projectId || null) !== (projectFilter === "none" ? null : projectFilter)) return false;
+      if (projectFilter !== "all" && s.resolvedProjectId !== projectFilter) return false;
       if (searchText && !s.name.toLowerCase().includes(searchText.toLowerCase())) return false;
       if (statusFilter !== "All") {
         const statusMap: Record<StatusFilter, string> = { All: "", Draft: "draft", Running: "running", Passed: "passed", Failed: "failed" };
@@ -469,7 +469,7 @@ export default function SprintsPage() {
                 )}
               </div>
               <div>
-                <ProjectBadge projectId={sprint.projectId} projects={allProjects} />
+                <ProjectBadge projectId={sprint.resolvedProjectId} projects={allProjects} />
               </div>
               <div style={{ fontSize: "12px", color: "#9ca3af" }}>
                 {sprint.createdAt ? formatDate(sprint.createdAt) : "—"}

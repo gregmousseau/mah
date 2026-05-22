@@ -225,6 +225,7 @@ export interface SprintSummary {
   completedAt?: string;
   scheduledFor?: string;
   projectId?: string;
+  resolvedProjectId?: string | null;
   agentConfig?: {
     generator: AgentRoutingConfig;
     evaluator: AgentRoutingConfig;
