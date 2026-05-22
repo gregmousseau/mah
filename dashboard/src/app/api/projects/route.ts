@@ -20,7 +20,10 @@ export async function GET() {
     const allSprints = loadAllSprints(root);
 
     const enriched = projects.map((project) => {
-      const projectSprints = allSprints.filter((s) => s.projectId === project.id);
+      const projectRoot = resolveMahRoot(project, root);
+      const projectSprints = allSprints.filter(
+        (s) => s.projectId === project.id || s.projectRoot === projectRoot
+      );
       const passedSprints = projectSprints.filter(
         (s) => s.verdict === "pass" || s.status === "passed"
       );

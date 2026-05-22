@@ -22,8 +22,9 @@ export async function GET(
     // Load sprints from all roots (primary + project-specific)
     const allSprints = loadAllSprints(root);
 
+    const projectRoot = resolveMahRoot(project, root);
     const projectSprints = allSprints
-      .filter((s) => s.projectId === id)
+      .filter((s) => s.projectId === id || s.projectRoot === projectRoot)
       .sort((a, b) => {
         if (!a.createdAt) return 1;
         if (!b.createdAt) return -1;
