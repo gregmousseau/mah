@@ -1,62 +1,47 @@
 import Link from "next/link";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
 import type { Project } from "@/types/mah";
-
-const MAH_ROOT = resolve(process.cwd(), "..");
-const PROJECTS_DIR = join(MAH_ROOT, ".mah", "projects");
-const SPRINTS_DIR = join(MAH_ROOT, ".mah", "sprints");
+import {
+  primaryRoot,
+  loadProjects,
+  loadAllSprints,
+  resolveMahRoot,
+} from "@/lib/mahRoot";
 
 function getProjects(): Project[] {
-  if (!existsSync(PROJECTS_DIR)) return [];
+  const root = primaryRoot(process.cwd());
+  const projects = loadProjects(root);
+  const allSprints = loadAllSprints(root);
 
-  const files = readdirSync(PROJECTS_DIR).filter(f => f.endsWith(".json"));
-  const projects: Project[] = [];
+  return projects.map((project): Project => {
+    const projectRoot = resolveMahRoot(project, root);
+    const projectSprints = allSprints.filter(
+      (s) => s.projectId === project.id || s.projectRoot === projectRoot
+    );
 
-  for (const file of files) {
-    try {
-      const raw = JSON.parse(readFileSync(join(PROJECTS_DIR, file), "utf-8"));
+    const passedSprints = projectSprints.filter(
+      (s) => s.verdict === "pass" || s.status === "passed"
+    );
+    const passRate = projectSprints.length > 0
+      ? Math.round((passedSprints.length / projectSprints.length) * 100)
+      : 0;
+    const totalCost = projectSprints.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+    const sortedByDate = [...projectSprints]
+      .filter((s) => s.createdAt)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
 
-      // Count sprints for this project
-      let sprintCount = 0;
-      let passCount = 0;
-      let totalCost = 0;
-      let lastDate = "";
-
-      if (existsSync(SPRINTS_DIR)) {
-        const sprintDirs = readdirSync(SPRINTS_DIR, { withFileTypes: true })
-          .filter(d => d.isDirectory());
-
-        for (const dir of sprintDirs) {
-          const contractPath = join(SPRINTS_DIR, dir.name, "contract.json");
-          if (!existsSync(contractPath)) continue;
-          try {
-            const contract = JSON.parse(readFileSync(contractPath, "utf-8"));
-            if (contract.projectId !== raw.id) continue;
-            sprintCount++;
-            if (contract.status === "passed") passCount++;
-            if (contract.createdAt > lastDate) lastDate = contract.createdAt;
-
-            const metricsPath = join(SPRINTS_DIR, dir.name, "metrics.json");
-            if (existsSync(metricsPath)) {
-              const metrics = JSON.parse(readFileSync(metricsPath, "utf-8"));
-              totalCost += metrics.totals?.estimatedCost ?? 0;
-            }
-          } catch { /* skip */ }
-        }
-      }
-
-      projects.push({
-        ...raw,
-        sprintCount,
-        passRate: sprintCount > 0 ? Math.round((passCount / sprintCount) * 100) : 0,
-        totalCost: Math.round(totalCost * 1000) / 1000,
-        lastSprintDate: lastDate || undefined,
-      });
-    } catch { /* skip */ }
-  }
-
-  return projects;
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      repo: project.repo,
+      createdAt: project.createdAt ?? new Date().toISOString(),
+      config: project.config as Project['config'],
+      sprintCount: projectSprints.length,
+      passRate,
+      totalCost: Math.round(totalCost * 1000) / 1000,
+      lastSprintDate: sortedByDate[0]?.createdAt || undefined,
+    };
+  });
 }
 
 function formatDate(iso: string) {
