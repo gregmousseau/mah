@@ -49,6 +49,12 @@ test('fail-closed verdict rejects zero, missing, failed, timed-out, and conditio
   assert.equal(evaluateDeliveryVerdict(graders, [result('ux', 'pass'), result('code', 'pass')]).verdict, 'pass')
 })
 
+test('chain-style QA pass cannot advance without the configured code-review result', () => {
+  const delivery = evaluateDeliveryVerdict(graders, [result('ux', 'pass')], 'fail-closed')
+  assert.equal(delivery.verdict, 'fail')
+  assert.match(delivery.failures[0]?.message ?? '', /Code.*produced no result/)
+})
+
 test('legacy rollback retains the previous permissive aggregation', () => {
   assert.equal(evaluateDeliveryVerdict([], [], 'legacy').verdict, 'pass')
   assert.equal(

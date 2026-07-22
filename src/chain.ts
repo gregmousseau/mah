@@ -15,6 +15,7 @@ import {
   contractToDevFixPrompt,
 } from './contract.js'
 import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
+import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
 import { loadNamedAgents, resolveVerdictMode } from './config.js'
@@ -22,9 +23,12 @@ import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { EventLogger } from './events.js'
 import {
-  buildRepairFeedback,
+  buildConsolidatedRepairBrief,
   classifyDeliveryError,
+  evaluateDeliveryVerdict,
+  failedGraderResult,
   inspectDeliveryPreflight,
+  materialGraderFindings,
   verifyDeliveryIdentity,
 } from './reliability.js'
 import type {
@@ -333,21 +337,76 @@ async function runChainSprint(
     })
 
     const qaReport = parseQAReport(qaResult.output)
-    const deliveryFailures: DeliveryFailure[] = []
-    if (!qaResult.success) {
-      deliveryFailures.push({
-        kind: 'harness',
-        stage: 'chain-qa',
-        message: qaResult.output || 'Chain QA agent failed.',
-      })
+    const graders = contract.graders?.filter((grader) => grader.enabled) ?? [{
+      id: 'ux-quinn',
+      type: 'ux' as const,
+      name: 'Quinn (UX)',
+      enabled: true,
+      agent: config.agents.evaluator,
+    }]
+    const graderResults: GraderResult[] = []
+    const uxGrader = graders.find((grader) => grader.type === 'ux')
+    if (uxGrader) {
+      if (!qaResult.success) {
+        graderResults.push(failedGraderResult(uxGrader, qaResult.output || 'Chain QA agent failed.'))
+      } else {
+        graderResults.push({
+          graderId: uxGrader.id,
+          graderType: 'ux',
+          graderName: uxGrader.name,
+          verdict: qaReport.verdict,
+          findings: qaReport.defects.map((defect) => ({
+            id: defect.id,
+            severity: chainFindingSeverity(defect.severity),
+            category: 'ux',
+            description: defect.description,
+          })),
+          summary: qaReport.summary,
+          model: uxGrader.agent.model,
+          durationMs: qaResult.timing.durationMs,
+          costEstimate: qaResult.costEstimate ?? 0,
+          executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
+        })
+      }
     }
-    if (config.qa.verdictMode !== 'legacy' && !hasExplicitQAVerdict(qaResult.output)) {
-      deliveryFailures.push({
-        kind: 'harness',
-        stage: 'chain-qa',
-        message: 'Chain QA produced no explicit required verdict.',
-      })
+
+    for (const grader of graders.filter((candidate) => candidate.type === 'code-review')) {
+      try {
+        const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
+        const crResult = await adapter.execute(crPrompt, {
+          model: grader.agent.model,
+          cwd: config.agents.generator.cwd,
+          timeoutMs: 5 * 60 * 1000,
+          label: `cr-${contract.id}-r${round}`,
+        })
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        transcript.phases.push({
+          phase: 'qa',
+          round,
+          actor: 'code-reviewer',
+          model: grader.agent.model,
+          startTime: new Date(crResult.timing.startMs).toISOString(),
+          endTime: new Date(crResult.timing.endMs).toISOString(),
+          promptSent: crPrompt.slice(0, 500) + '...',
+          responseReceived: crResult.output,
+          tokenUsage: crResult.tokenUsage,
+          costEstimate: crResult.costEstimate,
+        })
+        graderResults.push(parseCodeReviewResult(
+          crResult.output,
+          grader.id,
+          grader.name,
+          grader.agent.model,
+          crResult.timing.durationMs,
+          crResult.costEstimate ?? 0,
+        ))
+      } catch (error) {
+        graderResults.push(failedGraderResult(grader, error))
+      }
     }
+
+    const delivery = evaluateDeliveryVerdict(graders, graderResults, config.qa.verdictMode)
+    const deliveryFailures: DeliveryFailure[] = [...delivery.failures]
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
         config.agents.generator.cwd ?? contract.devBrief.repo,
@@ -357,7 +416,7 @@ async function runChainSprint(
       )
       if (failure) deliveryFailures.push(failure)
     }
-    const effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : qaReport.verdict
+    const effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : delivery.verdict
     const qaDuration = formatDuration(qaResult.timing.durationMs)
     events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)
 
@@ -382,7 +441,13 @@ async function runChainSprint(
         tokenUsage: qaResult.tokenUsage,
         costEstimate: qaResult.costEstimate,
       },
-      defects: qaReport.defects,
+      defects: materialGraderFindings(graderResults).map((finding) => ({
+        id: finding.id,
+        severity: chainDefectSeverity(finding.severity),
+        description: finding.description,
+        fixed: false,
+      })),
+      graderResults,
       deliveryFailures,
       candidateIdentity,
     }
@@ -401,7 +466,7 @@ async function runChainSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = buildRepairFeedback(qaResult.output, deliveryFailures)
+    lastQAOutput = buildConsolidatedRepairBrief(graderResults, deliveryFailures)
   }
   } catch (err) {
     chainCrashError = err as Error
@@ -430,6 +495,20 @@ function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
+}
+
+function chainFindingSeverity(severity: 'p0' | 'p1' | 'p2' | 'p3'): 'critical' | 'major' | 'minor' | 'info' {
+  if (severity === 'p0') return 'critical'
+  if (severity === 'p1') return 'major'
+  if (severity === 'p2') return 'minor'
+  return 'info'
+}
+
+function chainDefectSeverity(severity: 'critical' | 'major' | 'minor' | 'info'): 'p0' | 'p1' | 'p2' | 'p3' {
+  if (severity === 'critical') return 'p0'
+  if (severity === 'major') return 'p1'
+  if (severity === 'minor') return 'p2'
+  return 'p3'
 }
 
 // ─── Format Chain Results ───
