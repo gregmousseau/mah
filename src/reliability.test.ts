@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
@@ -114,6 +114,13 @@ test('preflight rejects uncommitted candidate changes but permits the local MAH 
   assert.doesNotThrow(() => inspectDeliveryPreflight(root, {
     ignoredStatePaths: [join(root, 'runtime', 'metrics')],
   }))
+  mkdirSync(join(root, '.mah', 'projects'), { recursive: true })
+  writeFileSync(join(root, '.mah', 'projects', 'awc.json'), '{}\n')
+  assert.throws(
+    () => inspectDeliveryPreflight(root, { ignoredStatePaths: ['runtime/metrics'] }),
+    /candidate worktree is not clean/i,
+  )
+  rmSync(join(root, '.mah', 'projects'), { recursive: true })
   writeFileSync(join(root, 'tracked.txt'), 'dirty\n')
   assert.throws(() => inspectDeliveryPreflight(root), /candidate worktree is not clean/i)
 })

@@ -188,7 +188,15 @@ function isIgnoredHarnessPath(
 ): boolean {
   if (path === '.env.mah.local') return true
   const normalized = path.replaceAll('\\', '/').replace(/^\.\//, '')
-  const ignored = ['.mah', ...configuredPaths]
+  const ignored = [
+    '.mah/events',
+    '.mah/metrics',
+    '.mah/queue',
+    '.mah/sprints',
+    '.mah/heartbeat.json',
+    '.mah/notifications/latest.json',
+    ...configuredPaths,
+  ]
     .map((candidate) => relative(repo, resolve(repo, candidate)).replaceAll('\\', '/').replace(/\/+$/, ''))
     .filter((candidate) => candidate && !candidate.startsWith('../') && !candidate.startsWith('/'))
   return ignored.some((candidate) => normalized === candidate || normalized.startsWith(`${candidate}/`))
