@@ -161,6 +161,15 @@ export function restoreRepairFeedback(
   return buildConsolidatedRepairBrief(results, failures)
 }
 
+export function canResumeQAWithPinnedCandidate(
+  identity: DeliveryIdentity | undefined,
+  identityRound: number | undefined,
+  resumeRound: number,
+  mode: VerdictMode | undefined,
+): boolean {
+  return mode === 'legacy' || (identity !== undefined && identityRound === resumeRound)
+}
+
 function isMaterialFinding(finding: GraderFinding): boolean {
   return finding.severity !== 'info'
 }

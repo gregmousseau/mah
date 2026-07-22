@@ -8,6 +8,7 @@ import type { Grader, GraderResult } from './types.js'
 import {
   buildConsolidatedRepairBrief,
   buildRepairFeedback,
+  canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   identityMismatch,
@@ -98,6 +99,14 @@ test('resume repair feedback rebuilds the persisted consolidated brief', () => {
   assert.match(feedback, /UX.*Earlier grader failed/)
   assert.match(feedback, /PREFLIGHT.*Dirty artifact/)
   assert.doesNotMatch(feedback, /raw final grader only/)
+})
+
+test('QA resume requires a candidate identity pinned to the same round', () => {
+  const identity = { candidateSha: 'a'.repeat(40), dependencyFingerprint: null }
+  assert.equal(canResumeQAWithPinnedCandidate(undefined, undefined, 2, 'fail-closed'), false)
+  assert.equal(canResumeQAWithPinnedCandidate(identity, 1, 2, 'fail-closed'), false)
+  assert.equal(canResumeQAWithPinnedCandidate(identity, 2, 2, 'fail-closed'), true)
+  assert.equal(canResumeQAWithPinnedCandidate(undefined, undefined, 2, 'legacy'), true)
 })
 
 test('normal linked worktree gitfiles and local env files pass preflight', () => {

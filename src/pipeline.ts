@@ -22,6 +22,7 @@ import { EventLogger } from './events.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import {
   buildConsolidatedRepairBrief,
+  canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   failedGraderResult,
@@ -633,9 +634,19 @@ export async function runExistingContract(
         if (lastPhase.phase === 'dev') {
           // Dev completed, QA crashed — resume from QA of same round
           resumeFromRound = lastPhase.round
-          resumeFromPhase = 'qa'
           lastDevOutput = lastPhase.responseReceived
-          events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} QA phase (dev output carried forward)`)
+          if (canResumeQAWithPinnedCandidate(
+            contract.activeCandidateIdentity,
+            contract.activeCandidateRound,
+            resumeFromRound,
+            config.qa.verdictMode,
+          )) {
+            resumeFromPhase = 'qa'
+            events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} QA phase (dev output carried forward)`)
+          } else {
+            resumeFromPhase = 'dev'
+            events.log('moe', 'milestone', 'resume', `Rerunning dev R${resumeFromRound}: no same-round candidate identity was pinned before the crash`)
+          }
         } else if (lastPhase.phase === 'qa') {
           // QA completed, crashed before next round — resume from next round dev
           resumeFromRound = lastPhase.round + 1
