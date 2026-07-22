@@ -10,7 +10,8 @@
     "dev": "tsx src/cli.ts",
     "build": "tsc",
     "mah": "tsx src/cli.ts",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "canary:reliability": "tsx scripts/reliability-canary.ts"
   },
   "keywords": [],
   "author": "",

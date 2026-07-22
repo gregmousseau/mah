@@ -19,7 +19,7 @@ no symlink to a primary worktree environment is required.
 
 ## Canary
 
-1. Run unit/replay tests and `npm run build`.
+1. Run unit/replay tests, `npm run build`, and `npm run canary:reliability`.
 2. Run one isolated AWC sprint with `qa.verdictMode: fail-closed`.
 3. Verify the contract records every grader result, any delivery failures, and the
    candidate identity used for the verdict.
