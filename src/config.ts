@@ -6,7 +6,7 @@ import type { ProjectConfig } from './types.js'
 
 const DEFAULTS: Partial<ProjectConfig> = {
   priorities: { speed: 1, quality: 2, cost: 3 },
-  qa: { defaultTier: 'targeted', maxIterations: 3 },
+  qa: { defaultTier: 'targeted', maxIterations: 3, verdictMode: 'fail-closed' },
   human: {
     notificationChannel: '',
     responseTimeoutMinutes: 30,
@@ -118,6 +118,10 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
     qa: {
       defaultTier: (qa.defaultTier as 'smoke' | 'targeted' | 'full') ?? DEFAULTS.qa!.defaultTier,
       maxIterations: (qa.maxIterations as number) ?? DEFAULTS.qa!.maxIterations,
+      verdictMode:
+        (process.env.MAH_VERDICT_MODE as ProjectConfig['qa']['verdictMode']) ??
+        (qa.verdictMode as ProjectConfig['qa']['verdictMode']) ??
+        DEFAULTS.qa!.verdictMode,
     },
     human: {
       notificationChannel: (human.notificationChannel as string) ?? DEFAULTS.human!.notificationChannel,
@@ -176,5 +180,8 @@ function validate(config: ProjectConfig): void {
   // QA max iterations must be positive
   if (config.qa.maxIterations < 1) {
     throw new Error('qa.maxIterations must be at least 1')
+  }
+  if (!['fail-closed', 'legacy'].includes(config.qa.verdictMode ?? '')) {
+    throw new Error('qa.verdictMode must be "fail-closed" or "legacy"')
   }
 }

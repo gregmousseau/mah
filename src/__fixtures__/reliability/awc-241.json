@@ -1,0 +1,38 @@
+{
+  "name": "AWC-241 mixed grader product finding",
+  "configuredGraders": [
+    { "id": "ux", "name": "Quinn", "enabled": true },
+    { "id": "code", "name": "Code Reviewer", "enabled": true }
+  ],
+  "results": [
+    {
+      "graderId": "ux",
+      "graderType": "ux",
+      "graderName": "Quinn",
+      "verdict": "pass",
+      "findings": [],
+      "summary": "Product path passed.",
+      "model": "fixture",
+      "durationMs": 1,
+      "costEstimate": 0
+    },
+    {
+      "graderId": "code",
+      "graderType": "code-review",
+      "graderName": "Code Reviewer",
+      "verdict": "conditional",
+      "findings": [
+        {
+          "id": "CR-01",
+          "severity": "major",
+          "category": "delivery",
+          "description": "A required release-contract finding must return to the developer loop."
+        }
+      ],
+      "summary": "One required repair remains.",
+      "model": "fixture",
+      "durationMs": 1,
+      "costEstimate": 0
+    }
+  ]
+}

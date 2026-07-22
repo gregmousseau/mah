@@ -341,7 +341,10 @@ async function runChainSprint(
     }
     contract.iterations.push(iteration)
 
-    if (qaReport.verdict === 'pass' || qaReport.verdict === 'conditional') {
+    if (
+      qaReport.verdict === 'pass' ||
+      (qaReport.verdict === 'conditional' && config.qa.verdictMode === 'legacy')
+    ) {
       contract.status = 'passed'
       break
     }

@@ -49,3 +49,4 @@ agents:
 qa:
   defaultTier: targeted
   maxIterations: 3
+  verdictMode: fail-closed

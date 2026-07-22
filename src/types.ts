@@ -21,6 +21,21 @@ export interface GraderResult {
   model: string
   durationMs: number
   costEstimate: number
+  executionStatus?: 'completed' | 'missing' | 'failed' | 'timed_out'
+}
+
+export type VerdictMode = 'fail-closed' | 'legacy'
+
+export interface DeliveryFailure {
+  kind: 'product' | 'harness' | 'preflight' | 'identity'
+  stage: string
+  message: string
+  graderId?: string
+}
+
+export interface DeliveryIdentity {
+  candidateSha: string
+  dependencyFingerprint: string | null
 }
 
 export interface GraderFinding {
@@ -52,6 +67,7 @@ export interface ProjectConfig {
   qa: {
     defaultTier: 'smoke' | 'targeted' | 'full'
     maxIterations: number
+    verdictMode?: VerdictMode
   }
   human: {
     notificationChannel: string
@@ -126,6 +142,7 @@ export interface SprintContract {
   inputs?: SprintInput[]
   dependsOn?: string[]
   humanCheckpoint?: boolean
+  deliveryFailures?: DeliveryFailure[]
   iterations: SprintIteration[]
   createdAt: string
   completedAt?: string
@@ -137,6 +154,8 @@ export interface SprintIteration {
   qa?: PhaseResult
   defects: Defect[]
   graderResults?: GraderResult[]  // results from all graders this round
+  deliveryFailures?: DeliveryFailure[]
+  candidateIdentity?: DeliveryIdentity
 }
 
 export interface PhaseResult {
