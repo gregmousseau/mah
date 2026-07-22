@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import yaml from 'js-yaml'
 import { getAgentModel } from './lib/agentRegistry.js'
-import type { ProjectConfig } from './types.js'
+import type { ProjectConfig, VerdictMode } from './types.js'
 
 const DEFAULTS: Partial<ProjectConfig> = {
   priorities: { speed: 1, quality: 2, cost: 3 },
@@ -18,6 +18,17 @@ const DEFAULTS: Partial<ProjectConfig> = {
 }
 
 const SUPPORTED_AGENT_TYPES = ['openclaw', 'claude-cli', 'codex', 'custom']
+
+export function resolveVerdictMode(
+  configured: VerdictMode | undefined,
+  override = process.env.MAH_VERDICT_MODE,
+): VerdictMode {
+  const mode = override ?? configured ?? 'fail-closed'
+  if (mode !== 'fail-closed' && mode !== 'legacy') {
+    throw new Error('qa.verdictMode must be "fail-closed" or "legacy"')
+  }
+  return mode
+}
 
 export interface NamedAgentConfig {
   role: 'generator' | 'evaluator' | 'researcher'
@@ -118,10 +129,7 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
     qa: {
       defaultTier: (qa.defaultTier as 'smoke' | 'targeted' | 'full') ?? DEFAULTS.qa!.defaultTier,
       maxIterations: (qa.maxIterations as number) ?? DEFAULTS.qa!.maxIterations,
-      verdictMode:
-        (process.env.MAH_VERDICT_MODE as ProjectConfig['qa']['verdictMode']) ??
-        (qa.verdictMode as ProjectConfig['qa']['verdictMode']) ??
-        DEFAULTS.qa!.verdictMode,
+      verdictMode: resolveVerdictMode(qa.verdictMode as ProjectConfig['qa']['verdictMode']),
     },
     human: {
       notificationChannel: (human.notificationChannel as string) ?? DEFAULTS.human!.notificationChannel,

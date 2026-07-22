@@ -17,7 +17,7 @@ import {
 import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
-import { loadNamedAgents } from './config.js'
+import { loadNamedAgents, resolveVerdictMode } from './config.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { EventLogger } from './events.js'
@@ -66,6 +66,7 @@ export async function runChain(
     onCheckpoint?: (sprintIndex: number, contract: SprintContract) => Promise<boolean>
   },
 ): Promise<ChainResult> {
+  config.qa.verdictMode = resolveVerdictMode(config.qa.verdictMode)
   const results: ChainResult['sprints'] = []
   const sprintDir = resolve(process.cwd(), config.sprints.directory)
   const metricsDir = resolve(process.cwd(), config.metrics.output)

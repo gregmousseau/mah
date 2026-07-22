@@ -12,7 +12,7 @@ import {
 } from './contract.js'
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
-import { loadNamedAgents } from './config.js'
+import { loadNamedAgents, resolveVerdictMode } from './config.js'
 import { getAgentName } from './lib/agentRegistry.js'
 import type { ResolvedSkill } from './skills.js'
 import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
@@ -26,6 +26,7 @@ import {
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   failedGraderResult,
+  hasCompleteRequiredGraderResults,
   identityMismatch,
   inspectDeliveryPreflight,
   materialGraderFindings,
@@ -168,6 +169,7 @@ export async function runSprint(
   events: EventLogger,
   options?: { dryRun?: boolean }
 ): Promise<RunSprintResult> {
+  config.qa.verdictMode = resolveVerdictMode(config.qa.verdictMode)
   const sprintId = generateSprintId()
   const sprintDir = resolve(process.cwd(), config.sprints.directory)
   const metricsDir = resolve(process.cwd(), config.metrics.output)
@@ -590,6 +592,7 @@ export async function runExistingContract(
   events: EventLogger,
   sprintFullPath: string,
 ): Promise<RunSprintResult> {
+  config.qa.verdictMode = resolveVerdictMode(config.qa.verdictMode)
   const metricsDir = resolve(process.cwd(), config.metrics.output)
   const sprintStartTime = Date.now()
 
@@ -648,19 +651,37 @@ export async function runExistingContract(
             events.log('moe', 'milestone', 'resume', `Rerunning dev R${resumeFromRound}: no same-round candidate identity was pinned before the crash`)
           }
         } else if (lastPhase.phase === 'qa') {
-          // QA completed, crashed before next round — resume from next round dev
-          resumeFromRound = lastPhase.round + 1
-          resumeFromPhase = 'dev'
           const lastIteration = contract.iterations.find((iteration) => iteration.round === lastPhase.round)
-          lastQAOutput = restoreRepairFeedback(
-            lastPhase.responseReceived,
-            lastIteration?.graderResults,
-            lastIteration?.deliveryFailures,
-          )
-          // Also get the dev output from this round
           const devPhase = previousTranscript.phases.find(p => p.phase === 'dev' && p.round === lastPhase.round)
           if (devPhase) lastDevOutput = devPhase.responseReceived
-          events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} dev phase (previous QA findings carried forward)`)
+          const configuredGraders = contract.graders ?? [
+            { id: 'ux-quinn', enabled: true },
+          ]
+          if (hasCompleteRequiredGraderResults(
+            configuredGraders,
+            lastIteration?.graderResults,
+            config.qa.verdictMode,
+          )) {
+            // All required graders were aggregated before the crash; advance to repair.
+            resumeFromRound = lastPhase.round + 1
+            resumeFromPhase = 'dev'
+            lastQAOutput = restoreRepairFeedback(
+              lastPhase.responseReceived,
+              lastIteration?.graderResults,
+              lastIteration?.deliveryFailures,
+            )
+            events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} dev phase (previous QA findings carried forward)`)
+          } else {
+            // A grader transcript exists, but aggregation was not persisted; rerun the round.
+            resumeFromRound = lastPhase.round
+            resumeFromPhase = canResumeQAWithPinnedCandidate(
+              contract.activeCandidateIdentity,
+              contract.activeCandidateRound,
+              resumeFromRound,
+              config.qa.verdictMode,
+            ) ? 'qa' : 'dev'
+            events.log('moe', 'milestone', 'resume', `Rerunning ${resumeFromPhase} R${resumeFromRound}: required grader aggregation was incomplete`)
+          }
         }
       }
     }

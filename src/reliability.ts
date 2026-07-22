@@ -170,6 +170,18 @@ export function canResumeQAWithPinnedCandidate(
   return mode === 'legacy' || (identity !== undefined && identityRound === resumeRound)
 }
 
+export function hasCompleteRequiredGraderResults(
+  configuredGraders: Pick<Grader, 'id' | 'enabled'>[],
+  results: GraderResult[] | undefined,
+  mode: VerdictMode | undefined,
+): boolean {
+  if (mode === 'legacy') return true
+  const requiredIds = configuredGraders.filter((grader) => grader.enabled).map((grader) => grader.id)
+  if (requiredIds.length === 0 || !results) return false
+  const resultIds = new Set(results.map((result) => result.graderId))
+  return requiredIds.every((id) => resultIds.has(id))
+}
+
 function isMaterialFinding(finding: GraderFinding): boolean {
   return finding.severity !== 'info'
 }

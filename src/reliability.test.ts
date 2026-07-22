@@ -12,6 +12,7 @@ import {
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   identityMismatch,
+  hasCompleteRequiredGraderResults,
   inspectDeliveryPreflight,
   materialGraderFindings,
   restoreRepairFeedback,
@@ -107,6 +108,17 @@ test('QA resume requires a candidate identity pinned to the same round', () => {
   assert.equal(canResumeQAWithPinnedCandidate(identity, 1, 2, 'fail-closed'), false)
   assert.equal(canResumeQAWithPinnedCandidate(identity, 2, 2, 'fail-closed'), true)
   assert.equal(canResumeQAWithPinnedCandidate(undefined, undefined, 2, 'legacy'), true)
+})
+
+test('resume advances only after every required grader result was persisted', () => {
+  assert.equal(hasCompleteRequiredGraderResults(graders, undefined, 'fail-closed'), false)
+  assert.equal(hasCompleteRequiredGraderResults(graders, [result('ux', 'pass')], 'fail-closed'), false)
+  assert.equal(hasCompleteRequiredGraderResults(
+    graders,
+    [result('ux', 'pass'), result('code', 'fail')],
+    'fail-closed',
+  ), true)
+  assert.equal(hasCompleteRequiredGraderResults(graders, undefined, 'legacy'), true)
 })
 
 test('normal linked worktree gitfiles and local env files pass preflight', () => {

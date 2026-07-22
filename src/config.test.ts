@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { loadConfig } from './config.js'
+import { loadConfig, resolveVerdictMode } from './config.js'
 
 test('verdict mode defaults fail closed and supports an explicit legacy rollback', () => {
   const root = mkdtempSync(join(tmpdir(), 'mah-248-config-'))
@@ -32,4 +32,10 @@ qa:
   assert.equal(loadConfig(defaultPath).qa.verdictMode, 'fail-closed')
   assert.equal(loadConfig(legacyPath).qa.verdictMode, 'legacy')
   assert.throws(() => loadConfig(invalidPath), /verdictMode/)
+})
+
+test('direct config entry points honor the verdict mode environment override', () => {
+  assert.equal(resolveVerdictMode('fail-closed', 'legacy'), 'legacy')
+  assert.equal(resolveVerdictMode(undefined, undefined), 'fail-closed')
+  assert.throws(() => resolveVerdictMode('fail-closed', 'permissive'), /verdictMode/)
 })
