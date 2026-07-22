@@ -22,6 +22,7 @@ import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { EventLogger } from './events.js'
 import {
+  buildRepairFeedback,
   classifyDeliveryError,
   inspectDeliveryPreflight,
   verifyDeliveryIdentity,
@@ -303,6 +304,7 @@ async function runChainSprint(
         ).identity
     if (candidateIdentity) {
       contract.activeCandidateIdentity = candidateIdentity
+      contract.activeCandidateRound = round
       writeFileSync(join(sprintFullDir, 'contract.json'), JSON.stringify(contract, null, 2))
     }
     lastChainPhase = `qa R${round}`
@@ -398,7 +400,7 @@ async function runChainSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = qaResult.output
+    lastQAOutput = buildRepairFeedback(qaResult.output, deliveryFailures)
   }
   } catch (err) {
     chainCrashError = err as Error

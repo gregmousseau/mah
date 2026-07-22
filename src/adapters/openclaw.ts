@@ -209,11 +209,7 @@ export class OpenClawAdapter implements AgentAdapter {
     // Simulate a brief delay
     await new Promise(r => setTimeout(r, 200))
 
-    const output = label.startsWith('qa-')
-      ? generateMockQAReport()
-      : label.startsWith('cr-')
-        ? generateMockCodeReviewReport()
-        : generateMockDevOutput(task)
+    const output = generateMockOutput(task, label)
 
     const endMs = Date.now()
     const inputTokens = Math.ceil(task.length / 4)
@@ -254,6 +250,12 @@ verified through manual testing.
 ## Notes
 This is a mock output — claude CLI was not available at runtime.
 `
+}
+
+export function generateMockOutput(task: string, label: string): string {
+  if (label.startsWith('qa-') || label.startsWith('chain-qa-')) return generateMockQAReport()
+  if (label.startsWith('cr-')) return generateMockCodeReviewReport()
+  return generateMockDevOutput(task)
 }
 
 function generateMockQAReport(): string {

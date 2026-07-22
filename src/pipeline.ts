@@ -333,6 +333,7 @@ export async function runSprint(
         ).identity
     if (candidateIdentity) {
       contract.activeCandidateIdentity = candidateIdentity
+      contract.activeCandidateRound = round
       saveContract(contract, sprintDir)
     }
 
@@ -795,7 +796,11 @@ export async function runExistingContract(
           { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
         ).identity
     if (candidateIdentity) {
-      if (skipDev && contract.activeCandidateIdentity) {
+      if (
+        skipDev &&
+        contract.activeCandidateIdentity &&
+        contract.activeCandidateRound === round
+      ) {
         const resumedMismatch = identityMismatch(
           contract.activeCandidateIdentity,
           candidateIdentity,
@@ -803,6 +808,7 @@ export async function runExistingContract(
         if (resumedMismatch) throw new Error(resumedMismatch.message)
       }
       contract.activeCandidateIdentity = candidateIdentity
+      contract.activeCandidateRound = round
       saveContractDirect(contract, sprintFullPath)
     }
 

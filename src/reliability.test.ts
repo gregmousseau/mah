@@ -7,6 +7,7 @@ import test from 'node:test'
 import type { Grader, GraderResult } from './types.js'
 import {
   buildConsolidatedRepairBrief,
+  buildRepairFeedback,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   identityMismatch,
@@ -76,6 +77,16 @@ test('repair brief preserves a conditional grader summary when it has no parsed 
     { ...result('code', 'conditional'), graderName: 'Code', summary: 'Review the release contract.' },
   ])
   assert.match(brief, /\[Code\] CONDITIONAL.*Review the release contract/)
+})
+
+test('repair feedback includes fail-closed delivery evidence for the next dev round', () => {
+  const feedback = buildRepairFeedback('## Verdict: PASS', [{
+    kind: 'identity',
+    stage: 'chain-qa-r1-final-preflight',
+    message: 'Candidate identity changed.',
+  }])
+  assert.match(feedback, /Verdict: PASS/)
+  assert.match(feedback, /IDENTITY.*chain-qa-r1-final-preflight.*Candidate identity changed/)
 })
 
 test('normal linked worktree gitfiles and local env files pass preflight', () => {

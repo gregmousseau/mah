@@ -5,7 +5,7 @@ import {
   parseCodeReviewResult,
 } from './graders/code-review.js'
 import { hasExplicitQAVerdict } from './parser.js'
-import { generateMockCodeReviewReport } from './adapters/openclaw.js'
+import { generateMockCodeReviewReport, generateMockOutput } from './adapters/openclaw.js'
 
 test('required grader verdict output is explicit and cannot be inferred as completed', () => {
   const incomplete = `## Code Review Report
@@ -38,4 +38,9 @@ test('mock code review output includes a completed explicit verdict', () => {
   assert.equal(hasExplicitCodeReviewVerdict(output), true)
   assert.equal(parsed.verdict, 'pass')
   assert.equal(parsed.executionStatus, 'completed')
+})
+
+test('chain QA mock labels produce an explicit QA verdict', () => {
+  const output = generateMockOutput('review this', 'chain-qa-awc-248-r1')
+  assert.equal(hasExplicitQAVerdict(output), true)
 })

@@ -139,6 +139,14 @@ export function buildConsolidatedRepairBrief(
   return lines.join('\n')
 }
 
+export function buildRepairFeedback(
+  rawGraderOutput: string,
+  failures: DeliveryFailure[],
+): string {
+  if (failures.length === 0) return rawGraderOutput
+  return `${rawGraderOutput}\n\n${buildConsolidatedRepairBrief([], failures)}`
+}
+
 function isMaterialFinding(finding: GraderFinding): boolean {
   return finding.severity !== 'info'
 }
