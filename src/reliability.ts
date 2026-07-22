@@ -192,12 +192,13 @@ export function materialGraderFindings(results: GraderResult[]): GraderFinding[]
 
 export function inspectDeliveryPreflight(
   repoPath: string,
-  options: { ignoredStatePaths?: string[] } = {},
+  options: { ignoredStatePaths?: string[]; invocationPath?: string } = {},
 ): {
   identity: DeliveryIdentity
   envFile: string | null
 } {
   const requestedRepo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
+  const invocationPath = resolve(options.invocationPath ?? process.cwd())
   let repo: string
   try {
     repo = execFileSync('git', ['rev-parse', '--show-toplevel'], {
@@ -223,6 +224,7 @@ export function inspectDeliveryPreflight(
       line.slice(3),
       repo,
       requestedRepo,
+      invocationPath,
       options.ignoredStatePaths,
     ))
   if (dirtyEntries.length > 0) {
@@ -234,7 +236,7 @@ export function inspectDeliveryPreflight(
   const envCandidates = [
     resolve(requestedRepo, '.env.mah.local'),
     resolve(repo, '.env.mah.local'),
-    resolve(process.cwd(), '.env.mah.local'),
+    resolve(invocationPath, '.env.mah.local'),
   ]
   const envFile = envCandidates.find((candidate) => existsSync(candidate)) ?? null
   return { identity: { candidateSha, dependencyFingerprint }, envFile }
@@ -244,6 +246,7 @@ function isIgnoredHarnessPath(
   path: string,
   repo: string,
   requestedRepo: string,
+  invocationPath: string,
   configuredPaths: string[] = [],
 ): boolean {
   const normalized = path.replaceAll('\\', '/').replace(/^\.\//, '')
@@ -255,7 +258,7 @@ function isIgnoredHarnessPath(
     '.mah/heartbeat.json',
     '.mah/notifications/latest.json',
   ]
-  const ignored = [repo, requestedRepo]
+  const ignored = [repo, requestedRepo, invocationPath]
     .flatMap((base) => ['.env.mah.local', ...runtimePaths].map((candidate) => resolve(base, candidate)))
     .concat(configuredPaths.map((candidate) => resolve(requestedRepo, candidate)))
     .map((candidate) => relative(repo, candidate).replaceAll('\\', '/').replace(/\/+$/, ''))
@@ -310,7 +313,7 @@ export function classifyDeliveryError(error: unknown, stage: string): DeliveryFa
 export function verifyDeliveryIdentity(
   repoPath: string,
   expected: DeliveryIdentity,
-  options: { ignoredStatePaths?: string[] } = {},
+  options: { ignoredStatePaths?: string[]; invocationPath?: string } = {},
   stage = 'delivery-verdict',
 ): DeliveryFailure | null {
   try {

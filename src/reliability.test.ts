@@ -164,6 +164,24 @@ test('preflight resolves a monorepo package directory to its Git worktree root',
   assert.equal(checked.envFile, join(app, '.env.mah.local'))
 })
 
+test('preflight permits an invocation-local MAH env file inside the worktree', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-248-invocation-env-'))
+  const app = join(root, 'apps', 'portal')
+  const invocation = join(root, 'tools', 'mah')
+  mkdirSync(app, { recursive: true })
+  mkdirSync(invocation, { recursive: true })
+  execFileSync('git', ['init'], { cwd: root })
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root })
+  execFileSync('git', ['config', 'user.name', 'MAH Test'], { cwd: root })
+  writeFileSync(join(app, 'index.ts'), 'export {}\n')
+  execFileSync('git', ['add', '.'], { cwd: root })
+  execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root })
+  writeFileSync(join(invocation, '.env.mah.local'), 'FIXTURE=1\n')
+
+  const checked = inspectDeliveryPreflight(app, { invocationPath: invocation })
+  assert.equal(checked.envFile, join(invocation, '.env.mah.local'))
+})
+
 test('persisted defect findings exclude informational observations', () => {
   const findings = materialGraderFindings([{
     ...result('code', 'pass'),
