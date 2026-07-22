@@ -18,6 +18,14 @@ test('required grader verdict output is explicit and cannot be inferred as compl
   assert.equal(parsed.executionStatus, 'missing')
   assert.equal(hasExplicitCodeReviewVerdict(incomplete), false)
   assert.equal(hasExplicitCodeReviewVerdict('**Verdict:** ✅ PASS'), true)
+  assert.equal(
+    parseCodeReviewResult('**Verdict:** ❌ FAIL', 'code', 'Code', 'fixture', 1, 0).verdict,
+    'fail',
+  )
+  assert.equal(
+    parseCodeReviewResult('**Verdict:** ⚠️ CONDITIONAL PASS', 'code', 'Code', 'fixture', 1, 0).verdict,
+    'conditional',
+  )
   assert.equal(hasExplicitQAVerdict('**Verdict:** ⚠️ CONDITIONAL PASS'), true)
   assert.equal(hasExplicitQAVerdict('**Verdict:** ❌ FAIL'), true)
   assert.equal(hasExplicitQAVerdict('Everything appears to pass.'), false)

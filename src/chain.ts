@@ -14,13 +14,18 @@ import {
   contractToQAPrompt,
   contractToDevFixPrompt,
 } from './contract.js'
-import { parseQAReport } from './parser.js'
+import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
 import { loadNamedAgents } from './config.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { EventLogger } from './events.js'
+import {
+  classifyDeliveryError,
+  identityMismatch,
+  inspectDeliveryPreflight,
+} from './reliability.js'
 import type {
   ProjectConfig,
   SprintContract,
@@ -33,6 +38,7 @@ import type {
   SprintArtifact,
   SprintInput,
   AgentAssignment,
+  DeliveryFailure,
 } from './types.js'
 import type { ProposedSprint, SprintProposal } from './planner.js'
 import type { ResolvedSkill } from './skills.js'
@@ -274,6 +280,7 @@ async function runChainSprint(
 
     const devDuration = formatDuration(devResult.timing.durationMs)
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration})`)
+    if (!devResult.success) throw new Error(`Dev agent failed before QA: ${devResult.output.slice(0, 500)}`)
 
     // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
     const devEscalation = parseDevEscalation(devResult.output)
@@ -288,6 +295,16 @@ async function runChainSprint(
     }
 
     // QA phase
+    const candidateIdentity = config.qa.verdictMode === 'legacy'
+      ? undefined
+      : inspectDeliveryPreflight(
+          config.agents.generator.cwd ?? contract.devBrief.repo,
+          { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+        ).identity
+    if (candidateIdentity) {
+      contract.activeCandidateIdentity = candidateIdentity
+      writeFileSync(join(sprintFullDir, 'contract.json'), JSON.stringify(contract, null, 2))
+    }
     lastChainPhase = `qa R${round}`
     contract.status = 'qa'
     const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
@@ -313,8 +330,32 @@ async function runChainSprint(
     })
 
     const qaReport = parseQAReport(qaResult.output)
+    const deliveryFailures: DeliveryFailure[] = []
+    if (!qaResult.success) {
+      deliveryFailures.push({
+        kind: 'harness',
+        stage: 'chain-qa',
+        message: qaResult.output || 'Chain QA agent failed.',
+      })
+    }
+    if (config.qa.verdictMode !== 'legacy' && !hasExplicitQAVerdict(qaResult.output)) {
+      deliveryFailures.push({
+        kind: 'harness',
+        stage: 'chain-qa',
+        message: 'Chain QA produced no explicit required verdict.',
+      })
+    }
+    if (candidateIdentity) {
+      const finalIdentity = inspectDeliveryPreflight(
+        config.agents.generator.cwd ?? contract.devBrief.repo,
+        { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+      ).identity
+      const mismatch = identityMismatch(candidateIdentity, finalIdentity)
+      if (mismatch) deliveryFailures.push(mismatch)
+    }
+    const effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : qaReport.verdict
     const qaDuration = formatDuration(qaResult.timing.durationMs)
-    events.log('quinn', 'output', 'qa', `R${round} verdict: ${qaReport.verdict} (${qaDuration})`)
+    events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)
 
     // Record iteration
     const iteration: SprintIteration = {
@@ -338,12 +379,14 @@ async function runChainSprint(
         costEstimate: qaResult.costEstimate,
       },
       defects: qaReport.defects,
+      deliveryFailures,
+      candidateIdentity,
     }
     contract.iterations.push(iteration)
 
     if (
-      qaReport.verdict === 'pass' ||
-      (qaReport.verdict === 'conditional' && config.qa.verdictMode === 'legacy')
+      effectiveVerdict === 'pass' ||
+      (effectiveVerdict === 'conditional' && config.qa.verdictMode === 'legacy')
     ) {
       contract.status = 'passed'
       break
@@ -359,6 +402,7 @@ async function runChainSprint(
   } catch (err) {
     chainCrashError = err as Error
     contract.status = 'failed'
+    contract.deliveryFailures = [classifyDeliveryError(err, lastChainPhase)]
     events.log('moe', 'error', 'metrics',
       `Chain sprint crashed during ${lastChainPhase}: ${chainCrashError.message}`)
   }
