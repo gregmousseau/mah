@@ -327,6 +327,7 @@ export async function runSprint(
       ? undefined
       : inspectDeliveryPreflight(
           config.agents.generator.cwd ?? contract.devBrief.repo,
+          { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
         ).identity
     if (candidateIdentity) {
       contract.activeCandidateIdentity = candidateIdentity
@@ -469,6 +470,7 @@ export async function runSprint(
     if (candidateIdentity) {
       const finalIdentity = inspectDeliveryPreflight(
         config.agents.generator.cwd ?? contract.devBrief.repo,
+        { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
       ).identity
       const mismatch = identityMismatch(candidateIdentity, finalIdentity)
       if (mismatch) delivery.failures.push(mismatch)
@@ -787,6 +789,7 @@ export async function runExistingContract(
       ? undefined
       : inspectDeliveryPreflight(
           config.agents.generator.cwd ?? contract.devBrief.repo,
+          { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
         ).identity
     if (candidateIdentity) {
       if (skipDev && contract.activeCandidateIdentity) {
@@ -930,6 +933,7 @@ export async function runExistingContract(
     if (candidateIdentity) {
       const finalIdentity = inspectDeliveryPreflight(
         config.agents.generator.cwd ?? contract.devBrief.repo,
+        { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
       ).identity
       const mismatch = identityMismatch(candidateIdentity, finalIdentity)
       if (mismatch) delivery.failures.push(mismatch)

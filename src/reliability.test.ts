@@ -107,6 +107,13 @@ test('preflight rejects uncommitted candidate changes but permits the local MAH 
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root })
   writeFileSync(join(root, '.env.mah.local'), 'FIXTURE=1\n')
   assert.doesNotThrow(() => inspectDeliveryPreflight(root))
+  mkdirSync(join(root, '.mah', 'sprints'), { recursive: true })
+  writeFileSync(join(root, '.mah', 'sprints', 'contract.json'), '{}\n')
+  mkdirSync(join(root, 'runtime', 'metrics'), { recursive: true })
+  writeFileSync(join(root, 'runtime', 'metrics', 'latest.json'), '{}\n')
+  assert.doesNotThrow(() => inspectDeliveryPreflight(root, {
+    ignoredStatePaths: [join(root, 'runtime', 'metrics')],
+  }))
   writeFileSync(join(root, 'tracked.txt'), 'dirty\n')
   assert.throws(() => inspectDeliveryPreflight(root), /candidate worktree is not clean/i)
 })

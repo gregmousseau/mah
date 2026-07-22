@@ -28,7 +28,7 @@ export function parseQAReport(output: string): QAReport {
 }
 
 export function hasExplicitQAVerdict(output: string): boolean {
-  return /verdict\s*:\s*(?:conditional\s+pass|pass|fail)/i.test(output)
+  return /(?:\*\*)?verdict\s*:(?:\*\*)?\s*(?:✅|⚠️|❌)?\s*(?:conditional\s+pass|pass|fail)/i.test(output)
 }
 
 function detectVerdict(output: string): QAReport['verdict'] {

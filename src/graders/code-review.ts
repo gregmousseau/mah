@@ -119,7 +119,7 @@ export function parseCodeReviewResult(
 }
 
 export function hasExplicitCodeReviewVerdict(output: string): boolean {
-  return /(?:\*\*)?Verdict:(?:\*\*)?\s*(?:PASS|CONDITIONAL|FAIL)/i.test(output)
+  return /(?:\*\*)?Verdict:(?:\*\*)?\s*(?:✅|⚠️|❌)?\s*(?:PASS|CONDITIONAL|FAIL)/i.test(output)
 }
 
 function detectVerdict(output: string): GraderResult['verdict'] {

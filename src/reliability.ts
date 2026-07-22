@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { resolve } from 'node:path'
+import { relative, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import type {
   DeliveryFailure,
@@ -143,7 +143,10 @@ function isMaterialFinding(finding: GraderFinding): boolean {
   return finding.severity !== 'info'
 }
 
-export function inspectDeliveryPreflight(repoPath: string): {
+export function inspectDeliveryPreflight(
+  repoPath: string,
+  options: { ignoredStatePaths?: string[] } = {},
+): {
   identity: DeliveryIdentity
   envFile: string | null
 } {
@@ -166,7 +169,7 @@ export function inspectDeliveryPreflight(repoPath: string): {
   )
     .split('\n')
     .filter(Boolean)
-    .filter((line) => line.slice(3) !== '.env.mah.local')
+    .filter((line) => !isIgnoredHarnessPath(line.slice(3), repo, options.ignoredStatePaths))
   if (dirtyEntries.length > 0) {
     throw new Error(
       `Preflight: candidate worktree is not clean (${dirtyEntries.slice(0, 3).join(', ')}).`,
@@ -176,6 +179,19 @@ export function inspectDeliveryPreflight(repoPath: string): {
   const envCandidates = [resolve(repo, '.env.mah.local'), resolve(process.cwd(), '.env.mah.local')]
   const envFile = envCandidates.find((candidate) => existsSync(candidate)) ?? null
   return { identity: { candidateSha, dependencyFingerprint }, envFile }
+}
+
+function isIgnoredHarnessPath(
+  path: string,
+  repo: string,
+  configuredPaths: string[] = [],
+): boolean {
+  if (path === '.env.mah.local') return true
+  const normalized = path.replaceAll('\\', '/').replace(/^\.\//, '')
+  const ignored = ['.mah', ...configuredPaths]
+    .map((candidate) => relative(repo, resolve(repo, candidate)).replaceAll('\\', '/').replace(/\/+$/, ''))
+    .filter((candidate) => candidate && !candidate.startsWith('../') && !candidate.startsWith('/'))
+  return ignored.some((candidate) => normalized === candidate || normalized.startsWith(`${candidate}/`))
 }
 
 function joinHome(path: string): string {
