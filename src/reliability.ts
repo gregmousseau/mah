@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { relative, resolve } from 'node:path'
 import { homedir } from 'node:os'
@@ -143,6 +143,10 @@ function isMaterialFinding(finding: GraderFinding): boolean {
   return finding.severity !== 'info'
 }
 
+export function materialGraderFindings(results: GraderResult[]): GraderFinding[] {
+  return results.flatMap((result) => result.findings).filter(isMaterialFinding)
+}
+
 export function inspectDeliveryPreflight(
   repoPath: string,
   options: { ignoredStatePaths?: string[] } = {},
@@ -150,12 +154,15 @@ export function inspectDeliveryPreflight(
   identity: DeliveryIdentity
   envFile: string | null
 } {
-  const repo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
-  const gitEntry = resolve(repo, '.git')
-  if (!existsSync(gitEntry)) throw new Error(`Preflight: ${repo} has no .git entry.`)
-  const gitStat = statSync(gitEntry)
-  if (!gitStat.isDirectory() && !gitStat.isFile()) {
-    throw new Error(`Preflight: ${gitEntry} is neither a git directory nor a worktree gitfile.`)
+  const requestedRepo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
+  let repo: string
+  try {
+    repo = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: requestedRepo,
+      encoding: 'utf8',
+    }).trim()
+  } catch {
+    throw new Error(`Preflight: ${requestedRepo} is not inside a Git worktree.`)
   }
 
   const candidateSha = execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -169,14 +176,23 @@ export function inspectDeliveryPreflight(
   )
     .split('\n')
     .filter(Boolean)
-    .filter((line) => !isIgnoredHarnessPath(line.slice(3), repo, options.ignoredStatePaths))
+    .filter((line) => !isIgnoredHarnessPath(
+      line.slice(3),
+      repo,
+      requestedRepo,
+      options.ignoredStatePaths,
+    ))
   if (dirtyEntries.length > 0) {
     throw new Error(
       `Preflight: candidate worktree is not clean (${dirtyEntries.slice(0, 3).join(', ')}).`,
     )
   }
   const dependencyFingerprint = fingerprintDependencyLock(repo)
-  const envCandidates = [resolve(repo, '.env.mah.local'), resolve(process.cwd(), '.env.mah.local')]
+  const envCandidates = [
+    resolve(requestedRepo, '.env.mah.local'),
+    resolve(repo, '.env.mah.local'),
+    resolve(process.cwd(), '.env.mah.local'),
+  ]
   const envFile = envCandidates.find((candidate) => existsSync(candidate)) ?? null
   return { identity: { candidateSha, dependencyFingerprint }, envFile }
 }
@@ -184,20 +200,22 @@ export function inspectDeliveryPreflight(
 function isIgnoredHarnessPath(
   path: string,
   repo: string,
+  requestedRepo: string,
   configuredPaths: string[] = [],
 ): boolean {
-  if (path === '.env.mah.local') return true
   const normalized = path.replaceAll('\\', '/').replace(/^\.\//, '')
-  const ignored = [
+  const runtimePaths = [
     '.mah/events',
     '.mah/metrics',
     '.mah/queue',
     '.mah/sprints',
     '.mah/heartbeat.json',
     '.mah/notifications/latest.json',
-    ...configuredPaths,
   ]
-    .map((candidate) => relative(repo, resolve(repo, candidate)).replaceAll('\\', '/').replace(/\/+$/, ''))
+  const ignored = [repo, requestedRepo]
+    .flatMap((base) => ['.env.mah.local', ...runtimePaths].map((candidate) => resolve(base, candidate)))
+    .concat(configuredPaths.map((candidate) => resolve(requestedRepo, candidate)))
+    .map((candidate) => relative(repo, candidate).replaceAll('\\', '/').replace(/\/+$/, ''))
     .filter((candidate) => candidate && !candidate.startsWith('../') && !candidate.startsWith('/'))
   return ignored.some((candidate) => normalized === candidate || normalized.startsWith(`${candidate}/`))
 }

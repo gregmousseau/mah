@@ -27,6 +27,7 @@ import {
   failedGraderResult,
   identityMismatch,
   inspectDeliveryPreflight,
+  materialGraderFindings,
   verifyDeliveryIdentity,
 } from './reliability.js'
 import type {
@@ -481,7 +482,7 @@ export async function runSprint(
 
     // Extract QA defects from UX grader result (for backward compat)
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const qaDefects = graderResults.flatMap(result => result.findings).map(f => ({
+    const qaDefects = materialGraderFindings(graderResults).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
       description: f.description,
@@ -944,7 +945,7 @@ export async function runExistingContract(
     const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const qaDefects = graderResults.flatMap(result => result.findings).map(f => ({
+    const qaDefects = materialGraderFindings(graderResults).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
       description: f.description,

@@ -11,6 +11,7 @@ import {
   evaluateDeliveryVerdict,
   identityMismatch,
   inspectDeliveryPreflight,
+  materialGraderFindings,
   verifyDeliveryIdentity,
 } from './reliability.js'
 
@@ -96,6 +97,39 @@ test('normal linked worktree gitfiles and local env files pass preflight', () =>
   assert.match(checked.identity.candidateSha, /^[a-f0-9]{40}$/)
   assert.match(checked.identity.dependencyFingerprint ?? '', /^package-lock\.json:sha256:/)
   assert.equal(checked.envFile, join(worktree, '.env.mah.local'))
+})
+
+test('preflight resolves a monorepo package directory to its Git worktree root', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-248-monorepo-'))
+  const app = join(root, 'apps', 'portal')
+  mkdirSync(app, { recursive: true })
+  execFileSync('git', ['init'], { cwd: root })
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root })
+  execFileSync('git', ['config', 'user.name', 'MAH Test'], { cwd: root })
+  writeFileSync(join(root, 'package-lock.json'), '{"lockfileVersion":3}\n')
+  writeFileSync(join(app, 'index.ts'), 'export {}\n')
+  execFileSync('git', ['add', '.'], { cwd: root })
+  execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root })
+  writeFileSync(join(app, '.env.mah.local'), 'FIXTURE=1\n')
+
+  const checked = inspectDeliveryPreflight(app)
+  assert.equal(checked.identity.candidateSha, execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim())
+  assert.match(checked.identity.dependencyFingerprint ?? '', /^package-lock\.json:sha256:/)
+  assert.equal(checked.envFile, join(app, '.env.mah.local'))
+})
+
+test('persisted defect findings exclude informational observations', () => {
+  const findings = materialGraderFindings([{
+    ...result('code', 'pass'),
+    findings: [
+      { id: 'CR-INFO', severity: 'info', category: 'note', description: 'Observation only.' },
+      { id: 'CR-MAJOR', severity: 'major', category: 'bug', description: 'Material defect.' },
+    ],
+  }])
+  assert.deepEqual(findings.map((finding) => finding.id), ['CR-MAJOR'])
 })
 
 test('preflight rejects uncommitted candidate changes but permits the local MAH env file', () => {
