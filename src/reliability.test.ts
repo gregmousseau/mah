@@ -222,9 +222,12 @@ test('historical AWC-241 replay returns code-review findings to repair', () => {
 test('historical AWC-194 replay classifies a reviewer interruption as harness failure', () => {
   const fixture = readFixture('awc-194')
   const delivery = evaluateDeliveryVerdict(fixture.configuredGraders, fixture.results)
+  const brief = buildConsolidatedRepairBrief(fixture.results, delivery.failures)
   assert.equal(delivery.verdict, 'fail')
   assert.equal(delivery.failures[0]?.kind, 'harness')
   assert.doesNotMatch(delivery.failures[0]?.message ?? '', /product path failed/i)
+  assert.match(brief, /\[HARNESS\]/)
+  assert.doesNotMatch(brief, /\[Code Reviewer\] FAIL/)
 })
 
 function statIsFile(path: string): boolean {

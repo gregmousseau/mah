@@ -122,7 +122,12 @@ export function buildConsolidatedRepairBrief(
       )
       if (finding.suggestion) lines.push(`  Suggestion: ${finding.suggestion}`)
     }
-    if (result.verdict !== 'pass' && graderFindingCount === 0 && result.summary.trim()) {
+    if (
+      result.verdict !== 'pass' &&
+      (result.executionStatus ?? 'completed') === 'completed' &&
+      graderFindingCount === 0 &&
+      result.summary.trim()
+    ) {
       materialCount += 1
       lines.push(`- [${result.graderName}] ${result.verdict.toUpperCase()} — ${result.summary.trim()}`)
     }
