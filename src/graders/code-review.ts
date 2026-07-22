@@ -134,7 +134,7 @@ function detectVerdict(output: string): GraderResult['verdict'] {
 
 function explicitCodeReviewVerdict(output: string): GraderResult['verdict'] | null {
   const match = output.match(
-    /(?:\*\*)?Verdict:(?:\*\*)?\s*(?:✅|⚠️|❌)?\s*(PASS|CONDITIONAL(?:\s+PASS)?|FAIL)/i,
+    /^[ \t]*(?:\*\*)?Verdict:(?:\*\*)?[ \t]*(?:✅|⚠️|❌)?[ \t]*(PASS|CONDITIONAL(?:[ \t]+PASS)?|FAIL)[ \t]*(?:\*\*)?[ \t]*$/im,
   )
   if (!match) return null
   const verdict = match[1].toLowerCase()

@@ -329,7 +329,7 @@ export async function runSprint(
       ? undefined
       : inspectDeliveryPreflight(
           config.agents.generator.cwd ?? contract.devBrief.repo,
-          { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+          { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
         ).identity
     if (candidateIdentity) {
       contract.activeCandidateIdentity = candidateIdentity
@@ -474,7 +474,7 @@ export async function runSprint(
       const failure = verifyDeliveryIdentity(
         config.agents.generator.cwd ?? contract.devBrief.repo,
         candidateIdentity,
-        { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+        { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
         `qa-r${round}-final-preflight`,
       )
       if (failure) delivery.failures.push(failure)
@@ -793,7 +793,7 @@ export async function runExistingContract(
       ? undefined
       : inspectDeliveryPreflight(
           config.agents.generator.cwd ?? contract.devBrief.repo,
-          { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+          { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
         ).identity
     if (candidateIdentity) {
       if (
@@ -943,7 +943,7 @@ export async function runExistingContract(
       const failure = verifyDeliveryIdentity(
         config.agents.generator.cwd ?? contract.devBrief.repo,
         candidateIdentity,
-        { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+        { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
         `qa-r${round}-final-preflight`,
       )
       if (failure) delivery.failures.push(failure)

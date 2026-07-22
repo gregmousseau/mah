@@ -300,7 +300,7 @@ async function runChainSprint(
       ? undefined
       : inspectDeliveryPreflight(
           config.agents.generator.cwd ?? contract.devBrief.repo,
-          { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+          { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
         ).identity
     if (candidateIdentity) {
       contract.activeCandidateIdentity = candidateIdentity
@@ -351,7 +351,7 @@ async function runChainSprint(
       const failure = verifyDeliveryIdentity(
         config.agents.generator.cwd ?? contract.devBrief.repo,
         candidateIdentity,
-        { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
+        { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
         `chain-qa-r${round}-final-preflight`,
       )
       if (failure) deliveryFailures.push(failure)
