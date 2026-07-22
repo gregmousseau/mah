@@ -59,6 +59,9 @@ export function evaluateDeliveryVerdict(
   }
 
   if (failures.length > 0) return { verdict: 'fail', failures }
+  if (results.some((result) => result.findings.some(isMaterialFinding))) {
+    return { verdict: 'fail', failures: [] }
+  }
   if (results.some((result) => result.verdict === 'fail')) {
     return { verdict: 'fail', failures: [] }
   }

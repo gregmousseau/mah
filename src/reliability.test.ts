@@ -55,6 +55,23 @@ test('chain-style QA pass cannot advance without the configured code-review resu
   assert.match(delivery.failures[0]?.message ?? '', /Code.*produced no result/)
 })
 
+test('a PASS verdict cannot override a material grader finding', () => {
+  const contradictory = {
+    ...result('code', 'pass'),
+    findings: [{
+      id: 'CR-01',
+      severity: 'major' as const,
+      category: 'bug',
+      description: 'Material defect contradicts PASS.',
+    }],
+  }
+  assert.equal(evaluateDeliveryVerdict(
+    graders,
+    [result('ux', 'pass'), contradictory],
+    'fail-closed',
+  ).verdict, 'fail')
+})
+
 test('legacy rollback retains the previous permissive aggregation', () => {
   assert.equal(evaluateDeliveryVerdict([], [], 'legacy').verdict, 'pass')
   assert.equal(
