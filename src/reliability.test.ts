@@ -13,6 +13,7 @@ import {
   identityMismatch,
   inspectDeliveryPreflight,
   materialGraderFindings,
+  restoreRepairFeedback,
   verifyDeliveryIdentity,
 } from './reliability.js'
 
@@ -87,6 +88,16 @@ test('repair feedback includes fail-closed delivery evidence for the next dev ro
   }])
   assert.match(feedback, /Verdict: PASS/)
   assert.match(feedback, /IDENTITY.*chain-qa-r1-final-preflight.*Candidate identity changed/)
+})
+
+test('resume repair feedback rebuilds the persisted consolidated brief', () => {
+  const feedback = restoreRepairFeedback('raw final grader only', [
+    { ...result('ux', 'fail'), graderName: 'UX', summary: 'Earlier grader failed.' },
+    { ...result('code', 'pass'), graderName: 'Code' },
+  ], [{ kind: 'preflight', stage: 'qa-r1-final-preflight', message: 'Dirty artifact.' }])
+  assert.match(feedback, /UX.*Earlier grader failed/)
+  assert.match(feedback, /PREFLIGHT.*Dirty artifact/)
+  assert.doesNotMatch(feedback, /raw final grader only/)
 })
 
 test('normal linked worktree gitfiles and local env files pass preflight', () => {

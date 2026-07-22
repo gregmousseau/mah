@@ -31,6 +31,8 @@ test('required grader verdict output is explicit and cannot be inferred as compl
   )
   assert.equal(hasExplicitQAVerdict('**Verdict:** ⚠️ CONDITIONAL PASS'), true)
   assert.equal(hasExplicitQAVerdict('**Verdict:** ❌ FAIL'), true)
+  assert.equal(hasExplicitQAVerdict('## Verdict: PASS / CONDITIONAL PASS / FAIL'), false)
+  assert.equal(hasExplicitQAVerdict('**Verdict:** FAILED'), false)
   assert.equal(hasExplicitQAVerdict('Everything appears to pass.'), false)
 })
 

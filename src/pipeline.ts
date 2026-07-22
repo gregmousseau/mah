@@ -28,6 +28,7 @@ import {
   identityMismatch,
   inspectDeliveryPreflight,
   materialGraderFindings,
+  restoreRepairFeedback,
   verifyDeliveryIdentity,
 } from './reliability.js'
 import type {
@@ -639,7 +640,12 @@ export async function runExistingContract(
           // QA completed, crashed before next round — resume from next round dev
           resumeFromRound = lastPhase.round + 1
           resumeFromPhase = 'dev'
-          lastQAOutput = lastPhase.responseReceived
+          const lastIteration = contract.iterations.find((iteration) => iteration.round === lastPhase.round)
+          lastQAOutput = restoreRepairFeedback(
+            lastPhase.responseReceived,
+            lastIteration?.graderResults,
+            lastIteration?.deliveryFailures,
+          )
           // Also get the dev output from this round
           const devPhase = previousTranscript.phases.find(p => p.phase === 'dev' && p.round === lastPhase.round)
           if (devPhase) lastDevOutput = devPhase.responseReceived

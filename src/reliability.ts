@@ -147,6 +147,15 @@ export function buildRepairFeedback(
   return `${rawGraderOutput}\n\n${buildConsolidatedRepairBrief([], failures)}`
 }
 
+export function restoreRepairFeedback(
+  rawGraderOutput: string,
+  results: GraderResult[] | undefined,
+  failures: DeliveryFailure[] = [],
+): string {
+  if (!results) return rawGraderOutput
+  return buildConsolidatedRepairBrief(results, failures)
+}
+
 function isMaterialFinding(finding: GraderFinding): boolean {
   return finding.severity !== 'info'
 }
