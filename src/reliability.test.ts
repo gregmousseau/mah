@@ -7,6 +7,7 @@ import test from 'node:test'
 import type { Grader, GraderResult } from './types.js'
 import {
   buildConsolidatedRepairBrief,
+  classifyDeliveryError,
   evaluateDeliveryVerdict,
   identityMismatch,
   inspectDeliveryPreflight,
@@ -115,6 +116,10 @@ test('identity mismatch blocks a merge-ready verdict', () => {
   assert.equal(identityMismatch(expected, expected), null)
   assert.equal(identityMismatch(expected, { ...expected, candidateSha: 'b'.repeat(40) })?.kind, 'identity')
   assert.equal(identityMismatch(expected, { ...expected, dependencyFingerprint: 'lock:b' })?.kind, 'identity')
+  assert.equal(
+    classifyDeliveryError(identityMismatch(expected, { ...expected, candidateSha: 'b'.repeat(40) })?.message, 'resume').kind,
+    'identity',
+  )
 })
 
 test('historical AWC-241 replay returns code-review findings to repair', () => {

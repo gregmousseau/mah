@@ -143,6 +143,7 @@ export interface SprintContract {
   dependsOn?: string[]
   humanCheckpoint?: boolean
   deliveryFailures?: DeliveryFailure[]
+  activeCandidateIdentity?: DeliveryIdentity
   iterations: SprintIteration[]
   createdAt: string
   completedAt?: string

@@ -212,7 +212,11 @@ export function identityMismatch(
 export function classifyDeliveryError(error: unknown, stage: string): DeliveryFailure {
   const message = error instanceof Error ? error.message : String(error)
   return {
-    kind: /^preflight:/i.test(message) ? 'preflight' : 'harness',
+    kind: /^preflight:/i.test(message)
+      ? 'preflight'
+      : /^candidate identity/i.test(message)
+        ? 'identity'
+        : 'harness',
     stage,
     message,
   }

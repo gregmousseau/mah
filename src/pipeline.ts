@@ -328,6 +328,10 @@ export async function runSprint(
       : inspectDeliveryPreflight(
           config.agents.generator.cwd ?? contract.devBrief.repo,
         ).identity
+    if (candidateIdentity) {
+      contract.activeCandidateIdentity = candidateIdentity
+      saveContract(contract, sprintDir)
+    }
 
     let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
 
@@ -783,6 +787,17 @@ export async function runExistingContract(
       : inspectDeliveryPreflight(
           config.agents.generator.cwd ?? contract.devBrief.repo,
         ).identity
+    if (candidateIdentity) {
+      if (skipDev && contract.activeCandidateIdentity) {
+        const resumedMismatch = identityMismatch(
+          contract.activeCandidateIdentity,
+          candidateIdentity,
+        )
+        if (resumedMismatch) throw new Error(resumedMismatch.message)
+      }
+      contract.activeCandidateIdentity = candidateIdentity
+      saveContractDirect(contract, sprintFullPath)
+    }
 
     let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
 
