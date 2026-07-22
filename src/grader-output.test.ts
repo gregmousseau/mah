@@ -5,6 +5,7 @@ import {
   parseCodeReviewResult,
 } from './graders/code-review.js'
 import { hasExplicitQAVerdict } from './parser.js'
+import { generateMockCodeReviewReport } from './adapters/openclaw.js'
 
 test('required grader verdict output is explicit and cannot be inferred as completed', () => {
   const incomplete = `## Code Review Report
@@ -29,4 +30,12 @@ test('required grader verdict output is explicit and cannot be inferred as compl
   assert.equal(hasExplicitQAVerdict('**Verdict:** ⚠️ CONDITIONAL PASS'), true)
   assert.equal(hasExplicitQAVerdict('**Verdict:** ❌ FAIL'), true)
   assert.equal(hasExplicitQAVerdict('Everything appears to pass.'), false)
+})
+
+test('mock code review output includes a completed explicit verdict', () => {
+  const output = generateMockCodeReviewReport()
+  const parsed = parseCodeReviewResult(output, 'code', 'Code', 'mock', 1, 0)
+  assert.equal(hasExplicitCodeReviewVerdict(output), true)
+  assert.equal(parsed.verdict, 'pass')
+  assert.equal(parsed.executionStatus, 'completed')
 })

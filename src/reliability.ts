@@ -245,3 +245,18 @@ export function classifyDeliveryError(error: unknown, stage: string): DeliveryFa
     message,
   }
 }
+
+export function verifyDeliveryIdentity(
+  repoPath: string,
+  expected: DeliveryIdentity,
+  options: { ignoredStatePaths?: string[] } = {},
+  stage = 'delivery-verdict',
+): DeliveryFailure | null {
+  try {
+    const actual = inspectDeliveryPreflight(repoPath, options).identity
+    const mismatch = identityMismatch(expected, actual)
+    return mismatch ? { ...mismatch, stage } : null
+  } catch (error) {
+    return classifyDeliveryError(error, stage)
+  }
+}

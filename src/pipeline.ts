@@ -27,6 +27,7 @@ import {
   failedGraderResult,
   identityMismatch,
   inspectDeliveryPreflight,
+  verifyDeliveryIdentity,
 } from './reliability.js'
 import type {
   ProjectConfig,
@@ -468,12 +469,13 @@ export async function runSprint(
       config.qa.verdictMode,
     )
     if (candidateIdentity) {
-      const finalIdentity = inspectDeliveryPreflight(
+      const failure = verifyDeliveryIdentity(
         config.agents.generator.cwd ?? contract.devBrief.repo,
+        candidateIdentity,
         { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
-      ).identity
-      const mismatch = identityMismatch(candidateIdentity, finalIdentity)
-      if (mismatch) delivery.failures.push(mismatch)
+        `qa-r${round}-final-preflight`,
+      )
+      if (failure) delivery.failures.push(failure)
     }
     const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
@@ -931,12 +933,13 @@ export async function runExistingContract(
       config.qa.verdictMode,
     )
     if (candidateIdentity) {
-      const finalIdentity = inspectDeliveryPreflight(
+      const failure = verifyDeliveryIdentity(
         config.agents.generator.cwd ?? contract.devBrief.repo,
+        candidateIdentity,
         { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
-      ).identity
-      const mismatch = identityMismatch(candidateIdentity, finalIdentity)
-      if (mismatch) delivery.failures.push(mismatch)
+        `qa-r${round}-final-preflight`,
+      )
+      if (failure) delivery.failures.push(failure)
     }
     const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 

@@ -23,8 +23,8 @@ import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } fro
 import { EventLogger } from './events.js'
 import {
   classifyDeliveryError,
-  identityMismatch,
   inspectDeliveryPreflight,
+  verifyDeliveryIdentity,
 } from './reliability.js'
 import type {
   ProjectConfig,
@@ -346,12 +346,13 @@ async function runChainSprint(
       })
     }
     if (candidateIdentity) {
-      const finalIdentity = inspectDeliveryPreflight(
+      const failure = verifyDeliveryIdentity(
         config.agents.generator.cwd ?? contract.devBrief.repo,
+        candidateIdentity,
         { ignoredStatePaths: [config.sprints.directory, config.metrics.output] },
-      ).identity
-      const mismatch = identityMismatch(candidateIdentity, finalIdentity)
-      if (mismatch) deliveryFailures.push(mismatch)
+        `chain-qa-r${round}-final-preflight`,
+      )
+      if (failure) deliveryFailures.push(failure)
     }
     const effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : qaReport.verdict
     const qaDuration = formatDuration(qaResult.timing.durationMs)

@@ -11,6 +11,7 @@ import {
   evaluateDeliveryVerdict,
   identityMismatch,
   inspectDeliveryPreflight,
+  verifyDeliveryIdentity,
 } from './reliability.js'
 
 const graders: Grader[] = [
@@ -134,6 +135,23 @@ test('identity mismatch blocks a merge-ready verdict', () => {
     classifyDeliveryError(identityMismatch(expected, { ...expected, candidateSha: 'b'.repeat(40) })?.message, 'resume').kind,
     'identity',
   )
+})
+
+test('final preflight failures are returned as delivery evidence instead of thrown', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-248-final-preflight-'))
+  execFileSync('git', ['init'], { cwd: root })
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root })
+  execFileSync('git', ['config', 'user.name', 'MAH Test'], { cwd: root })
+  writeFileSync(join(root, 'tracked.txt'), 'clean\n')
+  execFileSync('git', ['add', '.'], { cwd: root })
+  execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root })
+  const expected = inspectDeliveryPreflight(root).identity
+  writeFileSync(join(root, 'grader-artifact.txt'), 'left behind\n')
+
+  const failure = verifyDeliveryIdentity(root, expected, {}, 'qa-r1-final-preflight')
+  assert.equal(failure?.kind, 'preflight')
+  assert.equal(failure?.stage, 'qa-r1-final-preflight')
+  assert.match(failure?.message ?? '', /candidate worktree is not clean/i)
 })
 
 test('historical AWC-241 replay returns code-review findings to repair', () => {
