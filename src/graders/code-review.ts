@@ -114,7 +114,12 @@ export function parseCodeReviewResult(
     model,
     durationMs,
     costEstimate,
+    executionStatus: hasExplicitCodeReviewVerdict(output) ? 'completed' : 'missing',
   }
+}
+
+export function hasExplicitCodeReviewVerdict(output: string): boolean {
+  return /(?:\*\*)?Verdict:(?:\*\*)?\s*(?:PASS|CONDITIONAL|FAIL)/i.test(output)
 }
 
 function detectVerdict(output: string): GraderResult['verdict'] {

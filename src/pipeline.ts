@@ -15,7 +15,7 @@ import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } fro
 import { loadNamedAgents } from './config.js'
 import { getAgentName } from './lib/agentRegistry.js'
 import type { ResolvedSkill } from './skills.js'
-import { parseQAReport } from './parser.js'
+import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
 import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
@@ -399,6 +399,7 @@ export async function runSprint(
           model: grader.agent.model,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
+          executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
         }
         graderResults.push(uxGraderResult)
 
@@ -862,6 +863,7 @@ export async function runExistingContract(
           model: grader.agent.model,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
+          executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
         }
         graderResults.push(uxGraderResult)
 
