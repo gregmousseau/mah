@@ -12,14 +12,27 @@ import {
 } from './contract.js'
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
-import { loadNamedAgents } from './config.js'
+import { loadNamedAgents, resolveVerdictMode } from './config.js'
 import { getAgentName } from './lib/agentRegistry.js'
 import type { ResolvedSkill } from './skills.js'
-import { parseQAReport } from './parser.js'
+import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
 import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
+import {
+  buildConsolidatedRepairBrief,
+  canResumeQAWithPinnedCandidate,
+  classifyDeliveryError,
+  evaluateDeliveryVerdict,
+  failedGraderResult,
+  hasCompleteRequiredGraderResults,
+  identityMismatch,
+  inspectDeliveryPreflight,
+  materialGraderFindings,
+  restoreRepairFeedback,
+  verifyDeliveryIdentity,
+} from './reliability.js'
 import type {
   ProjectConfig,
   SprintContract,
@@ -130,13 +143,6 @@ function formatDuration(ms: number): string {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
 }
 
-export function aggregateGraderVerdicts(results: GraderResult[]): GraderResult['verdict'] {
-  if (results.length === 0) return 'pass'
-  if (results.some(r => r.verdict === 'fail')) return 'fail'
-  if (results.some(r => r.verdict === 'conditional')) return 'conditional'
-  return 'pass'
-}
-
 function severityMap(s: 'p0' | 'p1' | 'p2' | 'p3'): GraderResult['findings'][number]['severity'] {
   if (s === 'p0') return 'critical'
   if (s === 'p1') return 'major'
@@ -163,6 +169,7 @@ export async function runSprint(
   events: EventLogger,
   options?: { dryRun?: boolean }
 ): Promise<RunSprintResult> {
+  config.qa.verdictMode = resolveVerdictMode(config.qa.verdictMode)
   const sprintId = generateSprintId()
   const sprintDir = resolve(process.cwd(), config.sprints.directory)
   const metricsDir = resolve(process.cwd(), config.metrics.output)
@@ -288,6 +295,7 @@ export async function runSprint(
     const devDuration = formatDuration(devResult.timing.durationMs)
     const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
+    if (!devResult.success) throw new Error(`Dev agent failed before QA: ${devResult.output.slice(0, 500)}`)
 
     // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
     const devEscalation = parseDevEscalation(devResult.output)
@@ -321,12 +329,23 @@ export async function runSprint(
         testUrl: config.agents.evaluator.testUrl,
       },
     }))
+    const candidateIdentity = config.qa.verdictMode === 'legacy'
+      ? undefined
+      : inspectDeliveryPreflight(
+          config.agents.generator.cwd ?? contract.devBrief.repo,
+          { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+        ).identity
+    if (candidateIdentity) {
+      contract.activeCandidateIdentity = candidateIdentity
+      contract.activeCandidateRound = round
+      saveContract(contract, sprintDir)
+    }
 
     let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
-    let qaOutput = ''
 
     for (const grader of graders) {
-      if (grader.type === 'ux') {
+      try {
+        if (grader.type === 'ux') {
         // ── Quinn (UX) grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evaluatorSkills)
@@ -343,6 +362,7 @@ export async function runSprint(
         qaResult = evaluatorAgentId
           ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId, qaExecOptions)
           : await adapter.execute(qaPrompt, qaExecOptions)
+        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -365,8 +385,6 @@ export async function runSprint(
 
         // Convert QA report to GraderResult format
         const qaReport = parseQAReport(qaResult.output)
-        qaOutput = qaResult.output
-
         // Map QA defect severities (p0/p1 → fail, etc.) to grader verdict
         let uxVerdict: GraderResult['verdict'] = qaReport.verdict
         if (qaReport.verdict === 'conditional') {
@@ -389,6 +407,7 @@ export async function runSprint(
           model: grader.agent.model,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
+          executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
         }
         graderResults.push(uxGraderResult)
 
@@ -400,7 +419,7 @@ export async function runSprint(
           events.log('quinn', 'output', 'qa', `Defects: ${defectSummary}`)
         }
 
-      } else if (grader.type === 'code-review') {
+        } else if (grader.type === 'code-review') {
         // ── Code Review grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
@@ -410,6 +429,7 @@ export async function runSprint(
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
 
         const crTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -439,15 +459,35 @@ export async function runSprint(
           crResult.costEstimate ?? 0
         )
         graderResults.push(crGraderResult)
+        }
+      } catch (error) {
+        if (grader.type === 'ux') qaResult = null
+        graderResults.push(failedGraderResult(grader, error))
+        events.log('moe', 'error', 'qa',
+          `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
     // 3c. Aggregate verdict across all graders
-    const aggregateVerdict = aggregateGraderVerdicts(graderResults)
+    const delivery = evaluateDeliveryVerdict(
+      graders,
+      graderResults,
+      config.qa.verdictMode,
+    )
+    if (candidateIdentity) {
+      const failure = verifyDeliveryIdentity(
+        config.agents.generator.cwd ?? contract.devBrief.repo,
+        candidateIdentity,
+        { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+        `qa-r${round}-final-preflight`,
+      )
+      if (failure) delivery.failures.push(failure)
+    }
+    const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     // Extract QA defects from UX grader result (for backward compat)
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const qaDefects = uxResult?.findings.map(f => ({
+    const qaDefects = materialGraderFindings(graderResults).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
       description: f.description,
@@ -461,6 +501,8 @@ export async function runSprint(
       qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
       defects: qaDefects,
       graderResults,
+      deliveryFailures: delivery.failures,
+      candidateIdentity,
     }
     contract.iterations.push(iteration)
 
@@ -494,11 +536,12 @@ export async function runSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = qaOutput
+    lastQAOutput = buildConsolidatedRepairBrief(graderResults, delivery.failures)
   }
   } catch (err) {
     crashError = err as Error
     contract.status = 'failed'
+    contract.deliveryFailures = [classifyDeliveryError(err, `${currentPhase}-r${currentRound}`)]
     events.log('moe', 'error', 'metrics',
       `Orchestrator crashed during ${currentPhase} R${currentRound}: ${crashError.message}`)
     try { saveContract(contract, sprintDir) } catch { /* best effort */ }
@@ -549,6 +592,7 @@ export async function runExistingContract(
   events: EventLogger,
   sprintFullPath: string,
 ): Promise<RunSprintResult> {
+  config.qa.verdictMode = resolveVerdictMode(config.qa.verdictMode)
   const metricsDir = resolve(process.cwd(), config.metrics.output)
   const sprintStartTime = Date.now()
 
@@ -593,18 +637,51 @@ export async function runExistingContract(
         if (lastPhase.phase === 'dev') {
           // Dev completed, QA crashed — resume from QA of same round
           resumeFromRound = lastPhase.round
-          resumeFromPhase = 'qa'
           lastDevOutput = lastPhase.responseReceived
-          events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} QA phase (dev output carried forward)`)
+          if (canResumeQAWithPinnedCandidate(
+            contract.activeCandidateIdentity,
+            contract.activeCandidateRound,
+            resumeFromRound,
+            config.qa.verdictMode,
+          )) {
+            resumeFromPhase = 'qa'
+            events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} QA phase (dev output carried forward)`)
+          } else {
+            resumeFromPhase = 'dev'
+            events.log('moe', 'milestone', 'resume', `Rerunning dev R${resumeFromRound}: no same-round candidate identity was pinned before the crash`)
+          }
         } else if (lastPhase.phase === 'qa') {
-          // QA completed, crashed before next round — resume from next round dev
-          resumeFromRound = lastPhase.round + 1
-          resumeFromPhase = 'dev'
-          lastQAOutput = lastPhase.responseReceived
-          // Also get the dev output from this round
+          const lastIteration = contract.iterations.find((iteration) => iteration.round === lastPhase.round)
           const devPhase = previousTranscript.phases.find(p => p.phase === 'dev' && p.round === lastPhase.round)
           if (devPhase) lastDevOutput = devPhase.responseReceived
-          events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} dev phase (previous QA findings carried forward)`)
+          const configuredGraders = contract.graders ?? [
+            { id: 'ux-quinn', enabled: true },
+          ]
+          if (hasCompleteRequiredGraderResults(
+            configuredGraders,
+            lastIteration?.graderResults,
+            config.qa.verdictMode,
+          )) {
+            // All required graders were aggregated before the crash; advance to repair.
+            resumeFromRound = lastPhase.round + 1
+            resumeFromPhase = 'dev'
+            lastQAOutput = restoreRepairFeedback(
+              lastPhase.responseReceived,
+              lastIteration?.graderResults,
+              lastIteration?.deliveryFailures,
+            )
+            events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} dev phase (previous QA findings carried forward)`)
+          } else {
+            // A grader transcript exists, but aggregation was not persisted; rerun the round.
+            resumeFromRound = lastPhase.round
+            resumeFromPhase = canResumeQAWithPinnedCandidate(
+              contract.activeCandidateIdentity,
+              contract.activeCandidateRound,
+              resumeFromRound,
+              config.qa.verdictMode,
+            ) ? 'qa' : 'dev'
+            events.log('moe', 'milestone', 'resume', `Rerunning ${resumeFromPhase} R${resumeFromRound}: required grader aggregation was incomplete`)
+          }
         }
       }
     }
@@ -714,6 +791,7 @@ export async function runExistingContract(
       const devDuration = formatDuration(devResult.timing.durationMs)
       const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
       events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
+      if (!devResult.success) throw new Error(`Dev agent failed before QA: ${devResult.output.slice(0, 500)}`)
     }
 
     // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
@@ -749,12 +827,34 @@ export async function runExistingContract(
         testUrl: config.agents.evaluator.testUrl,
       },
     }))
+    const candidateIdentity = config.qa.verdictMode === 'legacy'
+      ? undefined
+      : inspectDeliveryPreflight(
+          config.agents.generator.cwd ?? contract.devBrief.repo,
+          { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+        ).identity
+    if (candidateIdentity) {
+      if (
+        skipDev &&
+        contract.activeCandidateIdentity &&
+        contract.activeCandidateRound === round
+      ) {
+        const resumedMismatch = identityMismatch(
+          contract.activeCandidateIdentity,
+          candidateIdentity,
+        )
+        if (resumedMismatch) throw new Error(resumedMismatch.message)
+      }
+      contract.activeCandidateIdentity = candidateIdentity
+      contract.activeCandidateRound = round
+      saveContractDirect(contract, sprintFullPath)
+    }
 
     let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
-    let qaOutput = ''
 
     for (const grader of graders) {
-      if (grader.type === 'ux') {
+      try {
+        if (grader.type === 'ux') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evalSkills2)
         const tierBudget2 = budgetForContract(contract)
@@ -770,6 +870,7 @@ export async function runExistingContract(
         qaResult = evaluatorAgentId2
           ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId2, qaExecOptions2)
           : await adapter.execute(qaPrompt, qaExecOptions2)
+        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -791,8 +892,6 @@ export async function runExistingContract(
         events.log('quinn', 'output', 'qa', `R${round} verdict received (${qaDuration}${qaCost ? ' / ' + qaCost : ''})`)
 
         const qaReport = parseQAReport(qaResult.output)
-        qaOutput = qaResult.output
-
         let uxVerdict: GraderResult['verdict'] = qaReport.verdict
         if (qaReport.verdict === 'conditional') {
           const hasBlocking = qaReport.defects.some(d => d.severity === 'p0' || d.severity === 'p1')
@@ -814,6 +913,7 @@ export async function runExistingContract(
           model: grader.agent.model,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
+          executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
         }
         graderResults.push(uxGraderResult)
 
@@ -824,7 +924,7 @@ export async function runExistingContract(
           events.log('quinn', 'output', 'qa', `Defects: ${defectSummary}`)
         }
 
-      } else if (grader.type === 'code-review') {
+        } else if (grader.type === 'code-review') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
         const crResult = await adapter.execute(crPrompt, {
@@ -833,6 +933,7 @@ export async function runExistingContract(
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
 
         const crTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -862,13 +963,33 @@ export async function runExistingContract(
           crResult.costEstimate ?? 0
         )
         graderResults.push(crGraderResult)
+        }
+      } catch (error) {
+        if (grader.type === 'ux') qaResult = null
+        graderResults.push(failedGraderResult(grader, error))
+        events.log('moe', 'error', 'qa',
+          `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
-    const aggregateVerdict = aggregateGraderVerdicts(graderResults)
+    const delivery = evaluateDeliveryVerdict(
+      graders,
+      graderResults,
+      config.qa.verdictMode,
+    )
+    if (candidateIdentity) {
+      const failure = verifyDeliveryIdentity(
+        config.agents.generator.cwd ?? contract.devBrief.repo,
+        candidateIdentity,
+        { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+        `qa-r${round}-final-preflight`,
+      )
+      if (failure) delivery.failures.push(failure)
+    }
+    const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const qaDefects = uxResult?.findings.map(f => ({
+    const qaDefects = materialGraderFindings(graderResults).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
       description: f.description,
@@ -881,6 +1002,8 @@ export async function runExistingContract(
       qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
       defects: qaDefects,
       graderResults,
+      deliveryFailures: delivery.failures,
+      candidateIdentity,
     }
     contract.iterations.push(iteration)
 
@@ -912,11 +1035,12 @@ export async function runExistingContract(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = qaOutput
+    lastQAOutput = buildConsolidatedRepairBrief(graderResults, delivery.failures)
   }
   } catch (err) {
     crashError = err as Error
     contract.status = 'failed'
+    contract.deliveryFailures = [classifyDeliveryError(err, `${currentPhase}-r${currentRound}`)]
     events.log('moe', 'error', 'metrics',
       `Orchestrator crashed during ${currentPhase} R${currentRound}: ${crashError.message}`)
     try { saveContractDirect(contract, sprintFullPath) } catch { /* best effort */ }

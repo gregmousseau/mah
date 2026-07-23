@@ -14,6 +14,8 @@ Core execution loop. Handles:
 - Heartbeat writing for dashboard polling
 - Transcript persistence for crash recovery
 - Notification on completion
+- Fail-closed delivery verdicts with consolidated cross-grader repair briefs
+- Exact candidate SHA and dependency-lock identity checks around grader execution
 
 Two entry points:
 - `runSprint()` — full pipeline from task string (CLI usage)
@@ -31,6 +33,14 @@ Parses QA agent markdown output into structured `QAReport` with verdict and defe
 
 ### `config.ts`
 Loads and validates `mah.yaml` project configuration.
+
+`qa.verdictMode` defaults to `fail-closed`. Set `MAH_VERDICT_MODE=legacy` only as
+a temporary rollback during canary recovery; legacy mode can treat zero graders
+or conditional output permissively and must not be used for merge-ready claims.
+
+### `reliability.ts`
+Fail-closed grader completeness, harness-vs-product failure classification,
+deduplicated repair briefs, linked-worktree preflight, and exact delivery identity.
 
 ### `metrics.ts`
 Computes sprint metrics: duration, cost, defect counts, bottleneck analysis.

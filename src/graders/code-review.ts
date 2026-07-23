@@ -114,27 +114,32 @@ export function parseCodeReviewResult(
     model,
     durationMs,
     costEstimate,
+    executionStatus: hasExplicitCodeReviewVerdict(output) ? 'completed' : 'missing',
   }
 }
 
-function detectVerdict(output: string): GraderResult['verdict'] {
-  const verdictPatterns: Array<{ re: RegExp; verdict: GraderResult['verdict'] }> = [
-    { re: /\*\*Verdict:\*\*\s*FAIL/i,        verdict: 'fail' },
-    { re: /\*\*Verdict:\*\*\s*CONDITIONAL/i,  verdict: 'conditional' },
-    { re: /\*\*Verdict:\*\*\s*PASS/i,         verdict: 'pass' },
-    { re: /Verdict:\s*FAIL/i,                 verdict: 'fail' },
-    { re: /Verdict:\s*CONDITIONAL/i,          verdict: 'conditional' },
-    { re: /Verdict:\s*PASS/i,                 verdict: 'pass' },
-  ]
+export function hasExplicitCodeReviewVerdict(output: string): boolean {
+  return explicitCodeReviewVerdict(output) !== null
+}
 
-  for (const { re, verdict } of verdictPatterns) {
-    if (re.test(output)) return verdict
-  }
+function detectVerdict(output: string): GraderResult['verdict'] {
+  const explicit = explicitCodeReviewVerdict(output)
+  if (explicit) return explicit
 
   // Infer from findings if no explicit verdict
   if (/### Critical\n(?![-\s]*None)/i.test(output)) return 'fail'
   if (/### Major\n(?![-\s]*None)/i.test(output)) return 'conditional'
   return 'pass'
+}
+
+function explicitCodeReviewVerdict(output: string): GraderResult['verdict'] | null {
+  const match = output.match(
+    /^[ \t]*(?:\*\*)?Verdict:(?:\*\*)?[ \t]*(?:✅|⚠️|❌)?[ \t]*(PASS|CONDITIONAL(?:[ \t]+PASS)?|FAIL)[ \t]*(?:\*\*)?[ \t]*$/im,
+  )
+  if (!match) return null
+  const verdict = match[1].toLowerCase()
+  if (verdict.startsWith('conditional')) return 'conditional'
+  return verdict as 'pass' | 'fail'
 }
 
 function parseFindings(output: string): GraderFinding[] {

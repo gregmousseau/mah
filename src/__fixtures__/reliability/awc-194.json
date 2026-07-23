@@ -1,0 +1,32 @@
+{
+  "name": "AWC-194 grader harness interruption",
+  "configuredGraders": [
+    { "id": "ux", "name": "Quinn", "enabled": true },
+    { "id": "code", "name": "Code Reviewer", "enabled": true }
+  ],
+  "results": [
+    {
+      "graderId": "ux",
+      "graderType": "ux",
+      "graderName": "Quinn",
+      "verdict": "pass",
+      "findings": [],
+      "summary": "Executed product checks passed.",
+      "model": "fixture",
+      "durationMs": 1,
+      "costEstimate": 0
+    },
+    {
+      "graderId": "code",
+      "graderType": "code-review",
+      "graderName": "Code Reviewer",
+      "verdict": "fail",
+      "findings": [],
+      "summary": "Reviewer could not execute because the harness requested unavailable escalation.",
+      "model": "fixture",
+      "durationMs": 1,
+      "costEstimate": 0,
+      "executionStatus": "failed"
+    }
+  ]
+}

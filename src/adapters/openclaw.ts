@@ -209,10 +209,7 @@ export class OpenClawAdapter implements AgentAdapter {
     // Simulate a brief delay
     await new Promise(r => setTimeout(r, 200))
 
-    const isMockQA = label.startsWith('qa-')
-    const output = isMockQA
-      ? generateMockQAReport()
-      : generateMockDevOutput(task)
+    const output = generateMockOutput(task, label)
 
     const endMs = Date.now()
     const inputTokens = Math.ceil(task.length / 4)
@@ -255,6 +252,12 @@ This is a mock output — claude CLI was not available at runtime.
 `
 }
 
+export function generateMockOutput(task: string, label: string): string {
+  if (label.startsWith('qa-') || label.startsWith('chain-qa-')) return generateMockQAReport()
+  if (label.startsWith('cr-')) return generateMockCodeReviewReport()
+  return generateMockDevOutput(task)
+}
+
 function generateMockQAReport(): string {
   return `# QA Report
 
@@ -285,5 +288,27 @@ Ready for production deployment.
 
 ---
 *This is a mock QA report — claude CLI was not available at runtime.*
+`
+}
+
+export function generateMockCodeReviewReport(): string {
+  return `## Code Review Report
+
+**Verdict:** PASS
+
+### Summary
+The implementation is internally consistent and has no blocking review findings.
+
+### Critical
+- None
+
+### Major
+- None
+
+### Minor
+- None
+
+### Info
+- [CR-01] Mock review completed because the claude CLI was unavailable.
 `
 }
