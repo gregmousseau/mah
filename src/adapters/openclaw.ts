@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
 import { getAgentWorkspace, getAgentName } from '../lib/agentRegistry.js'
+import { AdapterPreflightError } from './errors.js'
 
 // Frontend design tiers — like QA tiers but for UI quality
 export type DesignTier = 'quick' | 'polished' | 'impeccable'
@@ -37,7 +38,7 @@ function inferDesignTier(task: string): DesignTier {
   return 'quick'
 }
 
-function buildAgentContext(agentId: string, task: string, designTier?: DesignTier): string {
+export function buildAgentContext(agentId: string, task: string, designTier?: DesignTier): string {
   const workspace = getAgentWorkspace(agentId)
   const agentName = getAgentName(agentId) || agentId
 
@@ -108,6 +109,27 @@ export class OpenClawAdapter implements AgentAdapter {
     return this.executeClaude(task, options)
   }
 
+  async preflight(options: ExecuteOptions): Promise<void> {
+    if (this.useMock) {
+      throw new Error('Claude CLI is unavailable; delivery runs may not use the mock adapter')
+    }
+    const result = await this.executeClaude('Reply with exactly: MAH_PROVIDER_OK', {
+      ...options,
+      cwd: options.cwd ?? process.cwd(),
+      timeoutMs: Math.min(options.timeoutMs ?? 60_000, 60_000),
+    })
+    if (
+      !result.success ||
+      result.provider !== 'claude' ||
+      !result.output.includes('MAH_PROVIDER_OK')
+    ) {
+      throw new AdapterPreflightError(
+        `Claude provider/model preflight failed for ${options.model ?? 'sonnet'}`,
+        result,
+      )
+    }
+  }
+
   /**
    * Execute a task with an agent's SOUL.md prepended as context.
    * Falls back to plain execute() if the agent workspace doesn't exist.
@@ -133,7 +155,7 @@ export class OpenClawAdapter implements AgentAdapter {
     const spawnEnv = { ...process.env }
     delete spawnEnv.CLAUDECODE
     delete spawnEnv.ANTHROPIC_API_KEY  // Force OAuth/Max plan instead of API billing
-    const claudePath = spawnEnv.HOME ? `${spawnEnv.HOME}/.local/bin/claude` : 'claude'
+    const claudePath = process.env.CLAUDE_CMD ?? 'claude'
 
     return new Promise((resolve, reject) => {
       const child = spawn(claudePath, args, {
@@ -165,6 +187,8 @@ export class OpenClawAdapter implements AgentAdapter {
         resolve({
           success: false,
           output: stdout || `[Timeout after ${timeoutMs / 1000}s]`,
+          provider: 'claude',
+          model,
           timing: { startMs, endMs, durationMs: endMs - startMs },
         })
       }, timeoutMs)
@@ -182,6 +206,8 @@ export class OpenClawAdapter implements AgentAdapter {
         resolve({
           success,
           output: stdout || (success ? '' : `[Process exited with code ${code}]\n${stderr}`),
+          provider: 'claude',
+          model,
           timing: { startMs, endMs, durationMs },
           tokenUsage: { input: inputTokens, output: outputTokens },
           costEstimate: estimateCost(model, inputTokens, outputTokens),
@@ -191,13 +217,14 @@ export class OpenClawAdapter implements AgentAdapter {
       child.on('error', (err: NodeJS.ErrnoException) => {
         clearTimeout(timer)
         const endMs = Date.now()
-        if (err.code === 'ENOENT') {
-          // claude binary not found — fall back to mock
-          this.useMock = true
-          resolve(this.executeMock(task, options))
-        } else {
-          reject(new Error(`Failed to spawn claude: ${err.message}`))
-        }
+        resolve({
+          success: false,
+          output: `Failed to spawn Claude: ${err.message}`,
+          provider: 'claude',
+          model,
+          timing: { startMs, endMs, durationMs: endMs - startMs },
+          costEstimate: 0,
+        })
       })
     })
   }
@@ -219,6 +246,7 @@ export class OpenClawAdapter implements AgentAdapter {
     return {
       success: true,
       output,
+      provider: 'mock',
       timing: { startMs, endMs, durationMs: endMs - startMs },
       tokenUsage: { input: inputTokens, output: outputTokens },
       costEstimate: estimateCost(model, inputTokens, outputTokens),

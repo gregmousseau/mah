@@ -27,6 +27,7 @@ export function createSprintMetrics(
         round: iter.round,
         durationMs: iter.dev.durationMs,
         model: iter.dev.model,
+        provider: iter.dev.provider,
         costEstimate: devCost,
       })
     }
@@ -40,7 +41,24 @@ export function createSprintMetrics(
         round: iter.round,
         durationMs: iter.qa.durationMs,
         model: iter.qa.model,
+        provider: iter.qa.provider,
         costEstimate: qaCost,
+      })
+    }
+
+    // Additional graders are independent QA executions. UX is already
+    // represented by iter.qa for backward compatibility.
+    for (const grader of iter.graderResults?.filter(
+      result => result.graderType !== 'ux' || !iter.qa,
+    ) ?? []) {
+      totalCost += grader.costEstimate
+      phases.push({
+        phase: 'qa',
+        round: iter.round,
+        durationMs: grader.durationMs,
+        model: grader.model,
+        provider: grader.provider,
+        costEstimate: grader.costEstimate,
       })
     }
 

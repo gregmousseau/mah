@@ -6,7 +6,7 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import chalk from 'chalk'
-import { OpenClawAdapter } from './adapters/openclaw.js'
+import { createAgentAdapter, preflightAdapter } from './adapters/factory.js'
 import {
   generateContract,
   generateSprintId,
@@ -44,6 +44,7 @@ import type {
   SprintInput,
   AgentAssignment,
   DeliveryFailure,
+  AgentResult,
 } from './types.js'
 import type { ProposedSprint, SprintProposal } from './planner.js'
 import type { ResolvedSkill } from './skills.js'
@@ -226,7 +227,7 @@ async function runChainSprint(
   sprintDir: string,
   metricsDir: string,
 ): Promise<{ contract: SprintContract; metrics: SprintMetrics }> {
-  const adapter = new OpenClawAdapter()
+  const generatorAdapter = createAgentAdapter(config.agents.generator)
   let lastDevOutput = ''
   let lastQAOutput = ''
   const sprintStartTime = Date.now()
@@ -249,6 +250,7 @@ async function runChainSprint(
   let chainCrashError: Error | null = null
   let lastChainPhase = 'pre-dev'
   try {
+  await preflightAdapter(generatorAdapter, config.agents.generator)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     lastChainPhase = `dev R${round}`
     // Dev phase
@@ -264,7 +266,7 @@ async function runChainSprint(
       devPrompt = inputContext + devPrompt
     }
 
-    const devResult = await adapter.execute(devPrompt, {
+    const devResult = await generatorAdapter.execute(devPrompt, {
       model: config.agents.generator.model,
       cwd: config.agents.generator.cwd,
       timeoutMs: 10 * 60 * 1000,
@@ -275,7 +277,8 @@ async function runChainSprint(
       phase: 'dev',
       round,
       actor: 'dev',
-      model: config.agents.generator.model,
+      model: devResult.model ?? config.agents.generator.model,
+      provider: devResult.provider,
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
       promptSent: devPrompt.slice(0, 500) + '...',
@@ -314,29 +317,6 @@ async function runChainSprint(
     }
     lastChainPhase = `qa R${round}`
     contract.status = 'qa'
-    const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
-    const tierBudget = budgetForContract(contract)
-    const qaResult = await adapter.execute(qaPrompt, {
-      model: config.agents.evaluator.model,
-      cwd: config.agents.evaluator.workspace,
-      timeoutMs: tierBudget.timeoutMs,
-      label: `chain-qa-${contract.id}-r${round}`,
-    })
-
-    transcript.phases.push({
-      phase: 'qa',
-      round,
-      actor: 'quinn',
-      model: config.agents.evaluator.model,
-      startTime: new Date(qaResult.timing.startMs).toISOString(),
-      endTime: new Date(qaResult.timing.endMs).toISOString(),
-      promptSent: qaPrompt.slice(0, 500) + '...',
-      responseReceived: qaResult.output,
-      tokenUsage: qaResult.tokenUsage,
-      costEstimate: qaResult.costEstimate,
-    })
-
-    const qaReport = parseQAReport(qaResult.output)
     const graders = contract.graders?.filter((grader) => grader.enabled) ?? [{
       id: 'ux-quinn',
       type: 'ux' as const,
@@ -346,9 +326,35 @@ async function runChainSprint(
     }]
     const graderResults: GraderResult[] = []
     const uxGrader = graders.find((grader) => grader.type === 'ux')
+    let qaResult: AgentResult | undefined
     if (uxGrader) {
+      try {
+      const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
+      const tierBudget = budgetForContract(contract)
+      const uxAdapter = createAgentAdapter(uxGrader.agent)
+      await preflightAdapter(uxAdapter, uxGrader.agent)
+      qaResult = await uxAdapter.execute(qaPrompt, {
+        model: uxGrader.agent.model,
+        cwd: uxGrader.agent.workspace,
+        timeoutMs: tierBudget.timeoutMs,
+        label: `chain-qa-${contract.id}-r${round}`,
+      })
+      transcript.phases.push({
+        phase: 'qa',
+        round,
+        actor: 'quinn',
+        model: qaResult.model ?? uxGrader.agent.model,
+        provider: qaResult.provider,
+        startTime: new Date(qaResult.timing.startMs).toISOString(),
+        endTime: new Date(qaResult.timing.endMs).toISOString(),
+        promptSent: qaPrompt.slice(0, 500) + '...',
+        responseReceived: qaResult.output,
+        tokenUsage: qaResult.tokenUsage,
+        costEstimate: qaResult.costEstimate,
+      })
+      const qaReport = parseQAReport(qaResult.output)
       if (!qaResult.success) {
-        graderResults.push(failedGraderResult(uxGrader, qaResult.output || 'Chain QA agent failed.'))
+        graderResults.push(failedGraderResult(uxGrader, qaResult.output || 'Chain QA agent failed.', qaResult))
       } else {
         graderResults.push({
           graderId: uxGrader.id,
@@ -362,29 +368,37 @@ async function runChainSprint(
             description: defect.description,
           })),
           summary: qaReport.summary,
-          model: uxGrader.agent.model,
+          model: qaResult.model ?? uxGrader.agent.model,
+          provider: qaResult.provider,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
         })
       }
+      } catch (error) {
+        graderResults.push(failedGraderResult(uxGrader, error))
+      }
     }
 
     for (const grader of graders.filter((candidate) => candidate.type === 'code-review')) {
+      let graderExecution: AgentResult | undefined
       try {
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
-        const crResult = await adapter.execute(crPrompt, {
+        const graderAdapter = createAgentAdapter(grader.agent)
+        await preflightAdapter(graderAdapter, grader.agent)
+        const crResult = await graderAdapter.execute(crPrompt, {
           model: grader.agent.model,
           cwd: config.agents.generator.cwd,
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
-        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        graderExecution = crResult
         transcript.phases.push({
           phase: 'qa',
           round,
           actor: 'code-reviewer',
-          model: grader.agent.model,
+          model: crResult.model ?? grader.agent.model,
+          provider: crResult.provider,
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt.slice(0, 500) + '...',
@@ -392,17 +406,28 @@ async function runChainSprint(
           tokenUsage: crResult.tokenUsage,
           costEstimate: crResult.costEstimate,
         })
-        graderResults.push(parseCodeReviewResult(
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        const parsedReview = parseCodeReviewResult(
           crResult.output,
           grader.id,
           grader.name,
-          grader.agent.model,
+          crResult.model ?? grader.agent.model,
           crResult.timing.durationMs,
           crResult.costEstimate ?? 0,
-        ))
+        )
+        parsedReview.provider = crResult.provider
+        graderResults.push(parsedReview)
       } catch (error) {
-        graderResults.push(failedGraderResult(grader, error))
+        graderResults.push(failedGraderResult(grader, error, graderExecution))
       }
+    }
+    for (const grader of graders.filter(
+      candidate => candidate.type !== 'ux' && candidate.type !== 'code-review',
+    )) {
+      graderResults.push(failedGraderResult(
+        grader,
+        new Error(`Grader type "${grader.type}" has no execution adapter`),
+      ))
     }
 
     const delivery = evaluateDeliveryVerdict(graders, graderResults, config.qa.verdictMode)
@@ -417,7 +442,7 @@ async function runChainSprint(
       if (failure) deliveryFailures.push(failure)
     }
     const effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : delivery.verdict
-    const qaDuration = formatDuration(qaResult.timing.durationMs)
+    const qaDuration = qaResult ? formatDuration(qaResult.timing.durationMs) : 'no UX grader'
     events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)
 
     // Record iteration
@@ -428,19 +453,21 @@ async function runChainSprint(
         startTime: new Date(devResult.timing.startMs).toISOString(),
         endTime: new Date(devResult.timing.endMs).toISOString(),
         durationMs: devResult.timing.durationMs,
-        model: config.agents.generator.model,
+        model: devResult.model ?? config.agents.generator.model,
+        provider: devResult.provider,
         tokenUsage: devResult.tokenUsage,
         costEstimate: devResult.costEstimate,
       },
-      qa: {
+      qa: qaResult ? {
         output: qaResult.output,
         startTime: new Date(qaResult.timing.startMs).toISOString(),
         endTime: new Date(qaResult.timing.endMs).toISOString(),
         durationMs: qaResult.timing.durationMs,
-        model: config.agents.evaluator.model,
+        model: qaResult.model ?? uxGrader?.agent.model ?? config.agents.evaluator.model,
+        provider: qaResult.provider,
         tokenUsage: qaResult.tokenUsage,
         costEstimate: qaResult.costEstimate,
-      },
+      } : undefined,
       defects: materialGraderFindings(graderResults).map((finding) => ({
         id: finding.id,
         severity: chainDefectSeverity(finding.severity),

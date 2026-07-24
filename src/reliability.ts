@@ -10,6 +10,7 @@ import type {
   GraderFinding,
   GraderResult,
   VerdictMode,
+  AgentResult,
 } from './types.js'
 
 export interface DeliveryVerdict {
@@ -81,9 +82,15 @@ function aggregateLegacy(results: GraderResult[]): GraderResult['verdict'] {
 export function failedGraderResult(
   grader: Pick<Grader, 'id' | 'type' | 'name' | 'agent'>,
   error: unknown,
+  execution?: AgentResult,
 ): GraderResult {
   const message = error instanceof Error ? error.message : String(error)
   const timedOut = /timed?\s*out|timeout/i.test(message)
+  const attempted = execution ?? (
+    typeof error === 'object' && error !== null && 'result' in error
+      ? (error as { result?: AgentResult }).result
+      : undefined
+  )
   return {
     graderId: grader.id,
     graderType: grader.type,
@@ -91,9 +98,10 @@ export function failedGraderResult(
     verdict: 'fail',
     findings: [],
     summary: message,
-    model: grader.agent.model,
-    durationMs: 0,
-    costEstimate: 0,
+    model: attempted?.model ?? grader.agent.model,
+    provider: attempted?.provider,
+    durationMs: attempted?.timing.durationMs ?? 0,
+    costEstimate: attempted?.costEstimate ?? 0,
     executionStatus: timedOut ? 'timed_out' : 'failed',
   }
 }

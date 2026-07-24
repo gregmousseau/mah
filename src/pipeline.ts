@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import chalk from 'chalk'
-import { OpenClawAdapter } from './adapters/openclaw.js'
+import { createAgentAdapter, preflightAdapter } from './adapters/factory.js'
 import {
   generateContract,
   generateSprintId,
@@ -123,7 +123,7 @@ function saveTranscriptDirect(transcript: SprintTranscript, sprintFullPath: stri
 }
 
 function agentResultToPhaseResult(
-  result: Awaited<ReturnType<OpenClawAdapter['execute']>>,
+  result: AgentResult,
   model: string
 ): PhaseResult {
   return {
@@ -131,7 +131,8 @@ function agentResultToPhaseResult(
     startTime: new Date(result.timing.startMs).toISOString(),
     endTime: new Date(result.timing.endMs).toISOString(),
     durationMs: result.timing.durationMs,
-    model,
+    model: result.model ?? model,
+    provider: result.provider,
     tokenUsage: result.tokenUsage,
     costEstimate: result.costEstimate,
   }
@@ -229,7 +230,7 @@ export async function runSprint(
     return { contract, metrics }
   }
 
-  const adapter = new OpenClawAdapter()
+  const generatorAdapter = createAgentAdapter(config.agents.generator)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'contract'
@@ -251,6 +252,9 @@ export async function runSprint(
   // 3. Dev/QA loop — wrapped so terminal-state always reaches metrics + notification
   let crashError: Error | null = null
   try {
+  await preflightAdapter(generatorAdapter, config.agents.generator)
+  events.log('moe', 'milestone', 'preflight',
+    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     console.log()
     console.log(chalk.bold.white(`  ─── Round ${round} / ${config.qa.maxIterations} ─────────────────────`))
@@ -273,15 +277,16 @@ export async function runSprint(
       label: `dev-${contract.id}-r${round}`,
     }
     const devResult = contract.agentConfig?.generator.agentId
-      ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions)
-      : await adapter.execute(devPrompt, devExecOptions)
+      ? await generatorAdapter.executeWithAgent!(devPrompt, contract.agentConfig.generator.agentId, devExecOptions)
+      : await generatorAdapter.execute(devPrompt, devExecOptions)
 
     // Capture dev transcript phase
     const devTranscriptPhase: TranscriptPhase = {
       phase: 'dev',
       round,
       actor: contract.agentConfig?.generator.agentName ?? 'dev',
-      model: config.agents.generator.model,
+      model: devResult.model ?? config.agents.generator.model,
+      provider: devResult.provider,
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
       promptSent: devPrompt,
@@ -323,7 +328,7 @@ export async function runSprint(
     const graders = rawGraders.map(g => ({
       ...g,
       agent: g.agent ?? {
-        type: 'openclaw' as const,
+        type: config.agents.evaluator.type,
         model: (g as unknown as Record<string, unknown>).model as string ?? config.agents.evaluator.model,
         workspace: config.agents.evaluator.workspace,
         testUrl: config.agents.evaluator.testUrl,
@@ -341,10 +346,20 @@ export async function runSprint(
       saveContract(contract, sprintDir)
     }
 
-    let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
+    let qaResult: AgentResult | null = null
 
     for (const grader of graders) {
+      let graderExecution: AgentResult | undefined
+      if (grader.type !== 'ux' && grader.type !== 'code-review') {
+        graderResults.push(failedGraderResult(
+          grader,
+          new Error(`Grader type "${grader.type}" has no execution adapter`),
+        ))
+        continue
+      }
       try {
+        const graderAdapter = createAgentAdapter(grader.agent)
+        await preflightAdapter(graderAdapter, grader.agent)
         if (grader.type === 'ux') {
         // ── Quinn (UX) grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
@@ -360,15 +375,16 @@ export async function runSprint(
         }
         const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId
-          ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId, qaExecOptions)
-          : await adapter.execute(qaPrompt, qaExecOptions)
-        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
+          ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId, qaExecOptions)
+          : await graderAdapter.execute(qaPrompt, qaExecOptions)
+        graderExecution = qaResult
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
           round,
           actor: contract.agentConfig?.evaluator.agentName ?? 'quinn',
-          model: grader.agent.model,
+          model: qaResult.model ?? grader.agent.model,
+          provider: qaResult.provider,
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),
           promptSent: qaPrompt,
@@ -378,6 +394,7 @@ export async function runSprint(
         }
         transcript.phases.push(qaTranscriptPhase)
         saveTranscript(transcript, sprintDir, contract.id)
+        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaDuration = formatDuration(qaResult.timing.durationMs)
         const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''
@@ -404,7 +421,8 @@ export async function runSprint(
             description: d.description,
           })),
           summary: qaReport.summary,
-          model: grader.agent.model,
+          model: qaResult.model ?? grader.agent.model,
+          provider: qaResult.provider,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
@@ -423,19 +441,20 @@ export async function runSprint(
         // ── Code Review grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
-        const crResult = await adapter.execute(crPrompt, {
+        const crResult = await graderAdapter.execute(crPrompt, {
           model: grader.agent.model,
           cwd: config.agents.generator.cwd,  // run in repo context
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
-        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        graderExecution = crResult
 
         const crTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
           round,
           actor: 'code-reviewer',
-          model: grader.agent.model,
+          model: crResult.model ?? grader.agent.model,
+          provider: crResult.provider,
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt,
@@ -445,6 +464,7 @@ export async function runSprint(
         }
         transcript.phases.push(crTranscriptPhase)
         saveTranscript(transcript, sprintDir, contract.id)
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
 
         const crDuration = formatDuration(crResult.timing.durationMs)
         const crCost = crResult.costEstimate ? `$${crResult.costEstimate.toFixed(4)}` : ''
@@ -454,15 +474,16 @@ export async function runSprint(
           crResult.output,
           grader.id,
           grader.name,
-          grader.agent.model,
+          crResult.model ?? grader.agent.model,
           crResult.timing.durationMs,
           crResult.costEstimate ?? 0
         )
+        crGraderResult.provider = crResult.provider
         graderResults.push(crGraderResult)
         }
       } catch (error) {
         if (grader.type === 'ux') qaResult = null
-        graderResults.push(failedGraderResult(grader, error))
+        graderResults.push(failedGraderResult(grader, error, graderExecution))
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
@@ -616,7 +637,7 @@ export async function runExistingContract(
     events.log('moe', 'milestone', 'contract', `Evaluator skills: ${evalSkills2.map(s => s.name).join(', ')}`)
   }
 
-  const adapter = new OpenClawAdapter()
+  const generatorAdapter = createAgentAdapter(config.agents.generator)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'dev'
@@ -709,6 +730,9 @@ export async function runExistingContract(
   // Dev/QA loop — wrapped so terminal-state always reaches metrics + notification
   let crashError: Error | null = null
   try {
+  await preflightAdapter(generatorAdapter, config.agents.generator)
+  events.log('moe', 'milestone', 'preflight',
+    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     // Skip rounds that completed in previous run
     if (round < resumeFromRound) {
@@ -768,8 +792,8 @@ export async function runExistingContract(
         label: `dev-${contract.id}-r${round}`,
       }
       devResult = contract.agentConfig?.generator.agentId
-        ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
-        : await adapter.execute(devPrompt, devExecOptions2)
+        ? await generatorAdapter.executeWithAgent!(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
+        : await generatorAdapter.execute(devPrompt, devExecOptions2)
     }
 
     if (!skipDev) {
@@ -777,7 +801,8 @@ export async function runExistingContract(
         phase: 'dev',
         round,
         actor: contract.agentConfig?.generator.agentName ?? 'dev',
-        model: config.agents.generator.model,
+        model: devResult.model ?? config.agents.generator.model,
+        provider: devResult.provider,
         startTime: new Date(devResult.timing.startMs).toISOString(),
         endTime: new Date(devResult.timing.endMs).toISOString(),
         promptSent: '(see contract)',
@@ -821,7 +846,7 @@ export async function runExistingContract(
     const graders = rawGraders.map(g => ({
       ...g,
       agent: g.agent ?? {
-        type: 'openclaw' as const,
+        type: config.agents.evaluator.type,
         model: (g as unknown as Record<string, unknown>).model as string ?? config.agents.evaluator.model,
         workspace: config.agents.evaluator.workspace,
         testUrl: config.agents.evaluator.testUrl,
@@ -850,10 +875,20 @@ export async function runExistingContract(
       saveContractDirect(contract, sprintFullPath)
     }
 
-    let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
+    let qaResult: AgentResult | null = null
 
     for (const grader of graders) {
+      let graderExecution: AgentResult | undefined
+      if (grader.type !== 'ux' && grader.type !== 'code-review') {
+        graderResults.push(failedGraderResult(
+          grader,
+          new Error(`Grader type "${grader.type}" has no execution adapter`),
+        ))
+        continue
+      }
       try {
+        const graderAdapter = createAgentAdapter(grader.agent)
+        await preflightAdapter(graderAdapter, grader.agent)
         if (grader.type === 'ux') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evalSkills2)
@@ -868,15 +903,16 @@ export async function runExistingContract(
         }
         const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId2
-          ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId2, qaExecOptions2)
-          : await adapter.execute(qaPrompt, qaExecOptions2)
-        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
+          ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId2, qaExecOptions2)
+          : await graderAdapter.execute(qaPrompt, qaExecOptions2)
+        graderExecution = qaResult
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
           round,
           actor: contract.agentConfig?.evaluator.agentName ?? 'quinn',
-          model: grader.agent.model,
+          model: qaResult.model ?? grader.agent.model,
+          provider: qaResult.provider,
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),
           promptSent: qaPrompt,
@@ -886,6 +922,7 @@ export async function runExistingContract(
         }
         transcript.phases.push(qaTranscriptPhase)
         saveTranscriptDirect(transcript, sprintFullPath)
+        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaDuration = formatDuration(qaResult.timing.durationMs)
         const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''
@@ -910,7 +947,8 @@ export async function runExistingContract(
             description: d.description,
           })),
           summary: qaReport.summary,
-          model: grader.agent.model,
+          model: qaResult.model ?? grader.agent.model,
+          provider: qaResult.provider,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
@@ -927,19 +965,20 @@ export async function runExistingContract(
         } else if (grader.type === 'code-review') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
-        const crResult = await adapter.execute(crPrompt, {
+        const crResult = await graderAdapter.execute(crPrompt, {
           model: grader.agent.model,
           cwd: config.agents.generator.cwd,
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
-        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        graderExecution = crResult
 
         const crTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
           round,
           actor: 'code-reviewer',
-          model: grader.agent.model,
+          model: crResult.model ?? grader.agent.model,
+          provider: crResult.provider,
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt,
@@ -949,6 +988,7 @@ export async function runExistingContract(
         }
         transcript.phases.push(crTranscriptPhase)
         saveTranscriptDirect(transcript, sprintFullPath)
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
 
         const crDuration = formatDuration(crResult.timing.durationMs)
         const crCost = crResult.costEstimate ? `$${crResult.costEstimate.toFixed(4)}` : ''
@@ -958,15 +998,16 @@ export async function runExistingContract(
           crResult.output,
           grader.id,
           grader.name,
-          grader.agent.model,
+          crResult.model ?? grader.agent.model,
           crResult.timing.durationMs,
           crResult.costEstimate ?? 0
         )
+        crGraderResult.provider = crResult.provider
         graderResults.push(crGraderResult)
         }
       } catch (error) {
         if (grader.type === 'ux') qaResult = null
-        graderResults.push(failedGraderResult(grader, error))
+        graderResults.push(failedGraderResult(grader, error, graderExecution))
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }

@@ -26,7 +26,7 @@ export function generateContract(
       id: 'code-review',
       type: 'code-review',
       name: 'Code Reviewer',
-      agent: { type: 'openclaw', model: 'claude-sonnet-4-5' },
+      agent: { ...config.agents.evaluator },
       enabled: true,
     },
   ]
