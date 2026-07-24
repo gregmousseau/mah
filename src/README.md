@@ -13,6 +13,9 @@ Core execution loop. Handles:
 - Multiple grader aggregation (UX + code review)
 - Heartbeat writing for dashboard polling
 - Transcript persistence for crash recovery
+- Activity-reset Dev idle timeout plus an independent absolute ceiling
+- Dirty-worktree checkpoint preservation and exact-SHA QA-only resume
+- Bounded transcript responses with full raw provider activity stored separately
 - Notification on completion
 - Fail-closed delivery verdicts with consolidated cross-grader repair briefs
 - Exact candidate SHA and dependency-lock identity checks around grader execution

@@ -295,7 +295,8 @@ async function main() {
         currentContract,
         config,
         events,
-        sprintFullPath
+        sprintFullPath,
+        qaOnlyResumeOptions()
       );
 
       console.log(`[executor] Sprint ${finalContract.id} completed: ${finalContract.status}`);
@@ -308,7 +309,13 @@ async function main() {
       process.exit(0);
     } catch (err) {
       const errStr = String(err);
+      const hasRecoverableCheckpoint = errStr.includes("MAH_RECOVERABLE_CHECKPOINT");
       const isRetryable = ['EPIPE', 'SIGTERM', 'timed out', 'ECONNRESET'].some(s => errStr.includes(s));
+
+      if (hasRecoverableCheckpoint) {
+        console.error(`[executor] Recoverable checkpoint preserved; ordinary Dev retry is blocked: ${errStr}`);
+        process.exit(1);
+      }
 
       if (isRetryable && attempt <= MAX_RETRIES) {
         console.error(`[executor] Retryable error on attempt ${attempt}: ${errStr}`);
@@ -340,6 +347,20 @@ async function main() {
       process.exit(1);
     }
   }
+}
+
+function qaOnlyResumeOptions() {
+  const candidateSha = process.env.MAH_QA_ONLY_CANDIDATE_SHA?.trim();
+  const roundRaw = process.env.MAH_QA_ONLY_ROUND?.trim();
+  if (!candidateSha && !roundRaw) return {};
+  if (!candidateSha || !/^[a-f0-9]{40}$/i.test(candidateSha)) {
+    throw new Error("MAH_QA_ONLY_CANDIDATE_SHA must be an exact 40-character commit SHA.");
+  }
+  const round = Number(roundRaw);
+  if (!Number.isInteger(round) || round < 1) {
+    throw new Error("MAH_QA_ONLY_ROUND must be a positive integer.");
+  }
+  return { qaOnly: { candidateSha, round } };
 }
 
 main();

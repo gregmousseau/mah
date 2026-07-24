@@ -77,6 +77,11 @@ export interface ProjectConfig {
     maxIterations: number
     verdictMode?: VerdictMode
   }
+  execution?: {
+    devIdleTimeoutMinutes: number
+    devAbsoluteTimeoutMinutes: number
+    transcriptMaxChars: number
+  }
   findings?: {
     scopeGate: 'advisory' | 'enforced'
     findingsMode: 'off' | 'report' | 'ticket'
@@ -270,14 +275,31 @@ export interface ExecuteOptions {
   cwd?: string
   workspace?: string
   label?: string
+  /** @deprecated Prefer idleTimeoutMs + absoluteTimeoutMs. */
   timeoutMs?: number
+  idleTimeoutMs?: number
+  absoluteTimeoutMs?: number
+  transcriptMaxChars?: number
+  rawActivityPath?: string
 }
+
+export type AgentTerminationReason =
+  | 'completed'
+  | 'process-exit'
+  | 'idle-timeout'
+  | 'absolute-timeout'
+  | 'spawn-error'
 
 export interface AgentResult {
   success: boolean
   output: string
   provider?: string
   model?: string
+  rawActivityPath?: string
+  termination?: {
+    reason: AgentTerminationReason
+    lastActivityAt: string
+  }
   timing: {
     startMs: number
     endMs: number

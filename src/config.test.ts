@@ -37,8 +37,46 @@ qa:
     currentPrPaths: [],
     falsePositiveIds: [],
   })
+  assert.deepEqual(loadConfig(defaultPath).execution, {
+    devIdleTimeoutMinutes: 12,
+    devAbsoluteTimeoutMinutes: 45,
+    transcriptMaxChars: 32_000,
+  })
   assert.equal(loadConfig(legacyPath).qa.verdictMode, 'legacy')
   assert.throws(() => loadConfig(invalidPath), /verdictMode/)
+})
+
+test('execution policy is configurable and rejects unsafe timeout shapes', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-execution-config-'))
+  const path = join(root, 'mah.yaml')
+  const base = `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+`
+  writeFileSync(path, `${base}
+execution:
+  devIdleTimeoutMinutes: 10
+  devAbsoluteTimeoutMinutes: 40
+  transcriptMaxChars: 12000
+`)
+  assert.deepEqual(loadConfig(path).execution, {
+    devIdleTimeoutMinutes: 10,
+    devAbsoluteTimeoutMinutes: 40,
+    transcriptMaxChars: 12_000,
+  })
+
+  writeFileSync(path, `${base}
+execution:
+  devIdleTimeoutMinutes: 20
+  devAbsoluteTimeoutMinutes: 10
+`)
+  assert.throws(() => loadConfig(path), /greater than or equal/)
+
+  writeFileSync(path, `${base}
+execution:
+  transcriptMaxChars: 999
+`)
+  assert.throws(() => loadConfig(path), /at least 1000/)
 })
 
 test('findings rollout modes are independently configurable and validated', () => {

@@ -21,6 +21,17 @@ import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import {
+  boundTranscriptResponse,
+  devExecuteOptions,
+} from './execution-policy.js'
+import {
+  loadRecoverableCheckpoint,
+  persistRecoverableCheckpoint,
+  recoverableCheckpointError,
+  verifyQAOnlyResume,
+} from './checkpoint.js'
+import type { QAOnlyResumeRequest } from './checkpoint.js'
+import {
   repairScopedGraderResults,
 } from './registrar/routing.js'
 import { processScopeAwareFindingRound } from './registrar/round.js'
@@ -287,12 +298,13 @@ export async function runSprint(
       ? contractToDevPrompt(contract, generatorSkills)
       : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
 
-    const devExecOptions = {
+    const sprintFullDir = join(sprintDir, contract.id)
+    const devExecOptions = devExecuteOptions(config, {
       model: config.agents.generator.model,
       cwd: config.agents.generator.cwd,
-      timeoutMs: 10 * 60 * 1000,
       label: `dev-${contract.id}-r${round}`,
-    }
+      rawActivityPath: join(sprintFullDir, 'raw', `dev-r${round}.log`),
+    })
     const devResult = contract.agentConfig?.generator.agentId
       ? await generatorAdapter.executeWithAgent!(devPrompt, contract.agentConfig.generator.agentId, devExecOptions)
       : await generatorAdapter.execute(devPrompt, devExecOptions)
@@ -307,7 +319,10 @@ export async function runSprint(
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
       promptSent: devPrompt,
-      responseReceived: devResult.output,
+      responseReceived: boundTranscriptResponse(
+        devResult.output,
+        config.execution?.transcriptMaxChars,
+      ),
       tokenUsage: devResult.tokenUsage,
       costEstimate: devResult.costEstimate,
     }
@@ -317,6 +332,22 @@ export async function runSprint(
     const devDuration = formatDuration(devResult.timing.durationMs)
     const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
+    const recoverableCheckpoint = persistRecoverableCheckpoint({
+      sprintPath: sprintFullDir,
+      repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+      ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)],
+      round,
+      result: devResult,
+    })
+    if (recoverableCheckpoint) {
+      events.log(
+        'moe',
+        'milestone',
+        'checkpoint',
+        `Preserved dirty Dev R${round} checkpoint; ordinary Dev retry blocked`,
+      )
+      throw recoverableCheckpointError(recoverableCheckpoint)
+    }
     if (!devResult.success) throw new Error(`Dev agent failed before QA: ${devResult.output.slice(0, 500)}`)
 
     // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
@@ -389,6 +420,8 @@ export async function runSprint(
           cwd: grader.agent.workspace,
           timeoutMs: tierBudget.timeoutMs,
           label: `qa-${contract.id}-r${round}`,
+          rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${grader.id}.log`),
+          transcriptMaxChars: config.execution?.transcriptMaxChars,
         }
         const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId
@@ -405,7 +438,10 @@ export async function runSprint(
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),
           promptSent: qaPrompt,
-          responseReceived: qaResult.output,
+          responseReceived: boundTranscriptResponse(
+            qaResult.output,
+            config.execution?.transcriptMaxChars,
+          ),
           tokenUsage: qaResult.tokenUsage,
           costEstimate: qaResult.costEstimate,
         }
@@ -468,6 +504,8 @@ export async function runSprint(
           cwd: config.agents.generator.cwd,  // run in repo context
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
+          rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
+          transcriptMaxChars: config.execution?.transcriptMaxChars,
         })
         graderExecution = crResult
 
@@ -480,7 +518,10 @@ export async function runSprint(
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt,
-          responseReceived: crResult.output,
+          responseReceived: boundTranscriptResponse(
+            crResult.output,
+            config.execution?.transcriptMaxChars,
+          ),
           tokenUsage: crResult.tokenUsage,
           costEstimate: crResult.costEstimate,
         }
@@ -674,6 +715,7 @@ export async function runExistingContract(
   config: ProjectConfig,
   events: EventLogger,
   sprintFullPath: string,
+  options: { qaOnly?: QAOnlyResumeRequest } = {},
 ): Promise<RunSprintResult> {
   config.qa.verdictMode = resolveVerdictMode(config.qa.verdictMode)
   const metricsDir = resolve(process.cwd(), config.metrics.output)
@@ -715,6 +757,37 @@ export async function runExistingContract(
     if (existsSync(existingTranscriptPath)) {
       previousTranscript = JSON.parse(readFileSync(existingTranscriptPath, 'utf-8'))
       if (previousTranscript && previousTranscript.phases.length > 0) {
+        const checkpoint = loadRecoverableCheckpoint(sprintFullPath)
+        if (options.qaOnly) {
+          const devPhase = previousTranscript.phases.find(
+            (phase) => phase.phase === 'dev' && phase.round === options.qaOnly!.round,
+          )
+          if (!devPhase) {
+            throw new Error(
+              `MAH_RECOVERABLE_CHECKPOINT: no persisted Dev R${options.qaOnly.round} phase exists.`,
+            )
+          }
+          const candidateIdentity = verifyQAOnlyResume({
+            sprintPath: sprintFullPath,
+            repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+            request: options.qaOnly,
+            ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)],
+          })
+          contract.activeCandidateIdentity = candidateIdentity
+          contract.activeCandidateRound = options.qaOnly.round
+          saveContractDirect(contract, sprintFullPath)
+          resumeFromRound = options.qaOnly.round
+          resumeFromPhase = 'qa'
+          lastDevOutput = devPhase.responseReceived
+          events.log(
+            'moe',
+            'milestone',
+            'resume',
+            `QA-only resume pinned to ${candidateIdentity.candidateSha} for R${resumeFromRound}`,
+          )
+        } else if (checkpoint?.status === 'dirty') {
+          throw recoverableCheckpointError(checkpoint)
+        } else {
         // Find the last completed phase to determine resume point
         const lastPhase = previousTranscript.phases[previousTranscript.phases.length - 1]
         if (lastPhase.phase === 'dev') {
@@ -777,9 +850,20 @@ export async function runExistingContract(
             events.log('moe', 'milestone', 'resume', `Rerunning ${resumeFromPhase} R${resumeFromRound}: required grader aggregation was incomplete`)
           }
         }
+        }
       }
     }
-  } catch { /* no previous transcript, start fresh */ }
+  } catch (error) {
+    if (
+      error instanceof Error
+      && error.message.includes('MAH_RECOVERABLE_CHECKPOINT')
+    ) {
+      throw error
+    }
+    previousTranscript = null
+    resumeFromRound = 1
+    resumeFromPhase = 'dev'
+  }
 
   const transcript: SprintTranscript = {
     sprintId: contract.id,
@@ -870,12 +954,12 @@ export async function runExistingContract(
         : contractToDevFixPrompt(contract, lastDevOutput, lastQAOutput, round)
       const devPrompt = baseDevPrompt + devPromptContext
 
-      const devExecOptions2 = {
+      const devExecOptions2 = devExecuteOptions(config, {
         model: config.agents.generator.model,
         cwd: config.agents.generator.cwd,
-        timeoutMs: 10 * 60 * 1000,
         label: `dev-${contract.id}-r${round}`,
-      }
+        rawActivityPath: join(sprintFullPath, 'raw', `dev-r${round}.log`),
+      })
       devResult = contract.agentConfig?.generator.agentId
         ? await generatorAdapter.executeWithAgent!(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
         : await generatorAdapter.execute(devPrompt, devExecOptions2)
@@ -891,7 +975,10 @@ export async function runExistingContract(
         startTime: new Date(devResult.timing.startMs).toISOString(),
         endTime: new Date(devResult.timing.endMs).toISOString(),
         promptSent: '(see contract)',
-        responseReceived: devResult.output,
+        responseReceived: boundTranscriptResponse(
+          devResult.output,
+          config.execution?.transcriptMaxChars,
+        ),
         tokenUsage: devResult.tokenUsage,
         costEstimate: devResult.costEstimate,
       }
@@ -901,6 +988,22 @@ export async function runExistingContract(
       const devDuration = formatDuration(devResult.timing.durationMs)
       const devCost = devResult.costEstimate ? `$${devResult.costEstimate.toFixed(4)}` : ''
       events.log('dev', 'output', 'dev', `R${round} complete (${devDuration}${devCost ? ' / ' + devCost : ''})`)
+      const recoverableCheckpoint = persistRecoverableCheckpoint({
+        sprintPath: sprintFullPath,
+        repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+        ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)],
+        round,
+        result: devResult,
+      })
+      if (recoverableCheckpoint) {
+        events.log(
+          'moe',
+          'milestone',
+          'checkpoint',
+          `Preserved dirty Dev R${round} checkpoint; ordinary Dev retry blocked`,
+        )
+        throw recoverableCheckpointError(recoverableCheckpoint)
+      }
       if (!devResult.success) throw new Error(`Dev agent failed before QA: ${devResult.output.slice(0, 500)}`)
     }
 
@@ -985,6 +1088,8 @@ export async function runExistingContract(
           cwd: grader.agent.workspace,
           timeoutMs: tierBudget2.timeoutMs,
           label: `qa-${contract.id}-r${round}`,
+          rawActivityPath: join(sprintFullPath, 'raw', `qa-r${round}-${grader.id}.log`),
+          transcriptMaxChars: config.execution?.transcriptMaxChars,
         }
         const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId2
@@ -1001,7 +1106,10 @@ export async function runExistingContract(
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),
           promptSent: qaPrompt,
-          responseReceived: qaResult.output,
+          responseReceived: boundTranscriptResponse(
+            qaResult.output,
+            config.execution?.transcriptMaxChars,
+          ),
           tokenUsage: qaResult.tokenUsage,
           costEstimate: qaResult.costEstimate,
         }
@@ -1060,6 +1168,8 @@ export async function runExistingContract(
           cwd: config.agents.generator.cwd,
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
+          rawActivityPath: join(sprintFullPath, 'raw', `code-review-r${round}-${grader.id}.log`),
+          transcriptMaxChars: config.execution?.transcriptMaxChars,
         })
         graderExecution = crResult
 
@@ -1072,7 +1182,10 @@ export async function runExistingContract(
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt,
-          responseReceived: crResult.output,
+          responseReceived: boundTranscriptResponse(
+            crResult.output,
+            config.execution?.transcriptMaxChars,
+          ),
           tokenUsage: crResult.tokenUsage,
           costEstimate: crResult.costEstimate,
         }

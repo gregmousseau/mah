@@ -1,8 +1,25 @@
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+import { dirname, join } from 'node:path'
+import {
+  boundTranscriptResponse,
+  resolveAdapterExecutionPolicy,
+} from '../execution-policy.js'
+import type {
+  AgentAdapter,
+  AgentResult,
+  AgentTerminationReason,
+  ExecuteOptions,
+} from '../types.js'
 import { AdapterPreflightError } from './errors.js'
 
 const verifiedModels = new Set<string>()
@@ -36,10 +53,15 @@ export class CodexAdapter implements AgentAdapter {
     const startMs = Date.now()
     const model = options.model?.trim()
     if (!model) throw new Error('Codex provider requires an explicit model')
-    const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
+    const policy = resolveAdapterExecutionPolicy(options)
     const cwd = resolvedCwd(options)
     const outputDir = mkdtempSync(join(tmpdir(), 'mah-codex-'))
     const outputPath = join(outputDir, 'last-message.txt')
+    const rawActivityPath = options.rawActivityPath
+    if (rawActivityPath) {
+      mkdirSync(dirname(rawActivityPath), { recursive: true })
+      writeFileSync(rawActivityPath, '')
+    }
     const args = [
       'exec',
       '--model', model,
@@ -53,56 +75,131 @@ export class CodexAdapter implements AgentAdapter {
       '-',
     ]
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const child = spawn('codex', args, {
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env },
+        detached: process.platform !== 'win32',
       })
       let stdout = ''
       let stderr = ''
-      child.stdout.on('data', chunk => { stdout += chunk.toString() })
-      child.stderr.on('data', chunk => { stderr += chunk.toString() })
+      let lastActivityAtMs = startMs
+      let terminationReason: AgentTerminationReason | null = null
+      let settled = false
+      let idleTimer: NodeJS.Timeout | undefined
+      let absoluteTimer: NodeJS.Timeout | undefined
+      let killTimer: NodeJS.Timeout | undefined
+
+      const recordActivity = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
+        const value = chunk.toString()
+        lastActivityAtMs = Date.now()
+        if (stream === 'stdout') stdout += value
+        else stderr += value
+        if (rawActivityPath) appendFileSync(rawActivityPath, `[${stream}] ${value}`)
+        scheduleIdleTimer()
+      }
+
+      child.stdout.on('data', (chunk: Buffer) => recordActivity('stdout', chunk))
+      child.stderr.on('data', (chunk: Buffer) => recordActivity('stderr', chunk))
       child.stdin.write(task, 'utf-8')
       child.stdin.end()
 
-      const finish = (success: boolean, fallback: string): AgentResult => {
+      const clearTimers = (): void => {
+        if (idleTimer) clearTimeout(idleTimer)
+        if (absoluteTimer) clearTimeout(absoluteTimer)
+        if (killTimer) clearTimeout(killTimer)
+      }
+
+      const finish = (
+        success: boolean,
+        fallback: string,
+        reason: AgentTerminationReason,
+      ): AgentResult => {
         const endMs = Date.now()
         let output = fallback
         if (existsSync(outputPath)) output = readFileSync(outputPath, 'utf-8')
         rmSync(outputDir, { recursive: true, force: true })
         return {
           success,
-          output,
+          output: boundTranscriptResponse(output, policy.transcriptMaxChars),
           provider: 'codex',
           model,
+          rawActivityPath,
+          termination: {
+            reason,
+            lastActivityAt: new Date(lastActivityAtMs).toISOString(),
+          },
           timing: { startMs, endMs, durationMs: endMs - startMs },
           costEstimate: 0,
         }
       }
 
-      const timer = setTimeout(() => {
-        child.kill('SIGTERM')
-        setTimeout(() => child.kill('SIGKILL'), 5000)
-        resolve(finish(false, stdout || stderr || `[Timeout after ${timeoutMs / 1000}s]`))
-      }, timeoutMs)
+      const settle = (
+        success: boolean,
+        fallback: string,
+        reason: AgentTerminationReason,
+      ): void => {
+        if (settled) return
+        settled = true
+        clearTimers()
+        resolve(finish(success, fallback, reason))
+      }
+
+      const terminate = (
+        reason: Extract<AgentTerminationReason, 'idle-timeout' | 'absolute-timeout'>,
+      ): void => {
+        if (settled || terminationReason) return
+        terminationReason = reason
+        signalProcess('SIGTERM')
+        killTimer = setTimeout(() => signalProcess('SIGKILL'), 5000)
+      }
+
+      const signalProcess = (signal: NodeJS.Signals): void => {
+        try {
+          if (process.platform !== 'win32' && child.pid) {
+            process.kill(-child.pid, signal)
+          } else {
+            child.kill(signal)
+          }
+        } catch {
+          // The process may have exited between the timeout and signal.
+        }
+      }
+
+      function scheduleIdleTimer(): void {
+        if (settled || terminationReason) return
+        if (idleTimer) clearTimeout(idleTimer)
+        const nowMs = Date.now()
+        const delayMs = Math.max(1, lastActivityAtMs + policy.idleTimeoutMs - nowMs)
+        idleTimer = setTimeout(() => {
+          if (Date.now() - lastActivityAtMs >= policy.idleTimeoutMs) {
+            terminate('idle-timeout')
+          } else {
+            scheduleIdleTimer()
+          }
+        }, delayMs)
+      }
+
+      scheduleIdleTimer()
+      absoluteTimer = setTimeout(
+        () => terminate('absolute-timeout'),
+        policy.absoluteTimeoutMs,
+      )
 
       child.on('close', code => {
-        clearTimeout(timer)
-        resolve(finish(code === 0, stdout || stderr || `[Process exited with code ${code}]`))
+        const reason = terminationReason ?? (code === 0 ? 'completed' : 'process-exit')
+        const timeoutFallback = terminationReason
+          ? `[${terminationReason}; last activity ${new Date(lastActivityAtMs).toISOString()}]`
+          : `[Process exited with code ${code}]`
+        settle(
+          terminationReason === null && code === 0,
+          stdout || stderr || timeoutFallback,
+          reason,
+        )
       })
       child.on('error', err => {
-        clearTimeout(timer)
-        rmSync(outputDir, { recursive: true, force: true })
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: `Failed to spawn Codex: ${err.message}`,
-          provider: 'codex',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-          costEstimate: 0,
-        })
+        settle(false, `Failed to spawn Codex: ${err.message}`, 'spawn-error')
       })
     })
   }

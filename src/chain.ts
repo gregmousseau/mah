@@ -20,6 +20,14 @@ import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { loadSkills, resolveSkillsForPrompt } from './skills.js'
 import { loadNamedAgents, resolveVerdictMode } from './config.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
+import {
+  boundTranscriptResponse,
+  devExecuteOptions,
+} from './execution-policy.js'
+import {
+  persistRecoverableCheckpoint,
+  recoverableCheckpointError,
+} from './checkpoint.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { EventLogger } from './events.js'
 import {
@@ -277,12 +285,12 @@ async function runChainSprint(
       devPrompt = inputContext + devPrompt
     }
 
-    const devResult = await generatorAdapter.execute(devPrompt, {
+    const devResult = await generatorAdapter.execute(devPrompt, devExecuteOptions(config, {
       model: config.agents.generator.model,
       cwd: config.agents.generator.cwd,
-      timeoutMs: 10 * 60 * 1000,
       label: `chain-dev-${contract.id}-r${round}`,
-    })
+      rawActivityPath: join(sprintFullDir, 'raw', `dev-r${round}.log`),
+    }))
 
     transcript.phases.push({
       phase: 'dev',
@@ -293,13 +301,32 @@ async function runChainSprint(
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
       promptSent: devPrompt.slice(0, 500) + '...',
-      responseReceived: devResult.output,
+      responseReceived: boundTranscriptResponse(
+        devResult.output,
+        config.execution?.transcriptMaxChars,
+      ),
       tokenUsage: devResult.tokenUsage,
       costEstimate: devResult.costEstimate,
     })
 
     const devDuration = formatDuration(devResult.timing.durationMs)
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration})`)
+    const recoverableCheckpoint = persistRecoverableCheckpoint({
+      sprintPath: sprintFullDir,
+      repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+      ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)],
+      round,
+      result: devResult,
+    })
+    if (recoverableCheckpoint) {
+      events.log(
+        'moe',
+        'milestone',
+        'checkpoint',
+        `Preserved dirty Dev R${round} checkpoint; ordinary Dev retry blocked`,
+      )
+      throw recoverableCheckpointError(recoverableCheckpoint)
+    }
     if (!devResult.success) throw new Error(`Dev agent failed before QA: ${devResult.output.slice(0, 500)}`)
 
     // Dev-driven QA escalation: if dev flagged risk, bump the QA tier before Quinn runs.
@@ -349,6 +376,8 @@ async function runChainSprint(
         cwd: uxGrader.agent.workspace,
         timeoutMs: tierBudget.timeoutMs,
         label: `chain-qa-${contract.id}-r${round}`,
+        rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${uxGrader.id}.log`),
+        transcriptMaxChars: config.execution?.transcriptMaxChars,
       })
       transcript.phases.push({
         phase: 'qa',
@@ -359,7 +388,10 @@ async function runChainSprint(
         startTime: new Date(qaResult.timing.startMs).toISOString(),
         endTime: new Date(qaResult.timing.endMs).toISOString(),
         promptSent: qaPrompt.slice(0, 500) + '...',
-        responseReceived: qaResult.output,
+        responseReceived: boundTranscriptResponse(
+          qaResult.output,
+          config.execution?.transcriptMaxChars,
+        ),
         tokenUsage: qaResult.tokenUsage,
         costEstimate: qaResult.costEstimate,
       })
@@ -407,6 +439,8 @@ async function runChainSprint(
           cwd: config.agents.generator.cwd,
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
+          rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
+          transcriptMaxChars: config.execution?.transcriptMaxChars,
         })
         graderExecution = crResult
         transcript.phases.push({
@@ -418,7 +452,10 @@ async function runChainSprint(
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt.slice(0, 500) + '...',
-          responseReceived: crResult.output,
+          responseReceived: boundTranscriptResponse(
+            crResult.output,
+            config.execution?.transcriptMaxChars,
+          ),
           tokenUsage: crResult.tokenUsage,
           costEstimate: crResult.costEstimate,
         })
