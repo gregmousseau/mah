@@ -228,7 +228,6 @@ async function runChainSprint(
   metricsDir: string,
 ): Promise<{ contract: SprintContract; metrics: SprintMetrics }> {
   const generatorAdapter = createAgentAdapter(config.agents.generator)
-  await preflightAdapter(generatorAdapter, config.agents.generator)
   let lastDevOutput = ''
   let lastQAOutput = ''
   const sprintStartTime = Date.now()
@@ -251,6 +250,7 @@ async function runChainSprint(
   let chainCrashError: Error | null = null
   let lastChainPhase = 'pre-dev'
   try {
+  await preflightAdapter(generatorAdapter, config.agents.generator)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     lastChainPhase = `dev R${round}`
     // Dev phase

@@ -73,6 +73,7 @@ export class CodexAdapter implements AgentAdapter {
           provider: 'codex',
           model,
           timing: { startMs, endMs, durationMs: endMs - startMs },
+          costEstimate: 0,
         }
       }
 
@@ -89,7 +90,15 @@ export class CodexAdapter implements AgentAdapter {
       child.on('error', err => {
         clearTimeout(timer)
         rmSync(outputDir, { recursive: true, force: true })
-        reject(new Error(`Failed to spawn Codex: ${err.message}`))
+        const endMs = Date.now()
+        resolve({
+          success: false,
+          output: `Failed to spawn Codex: ${err.message}`,
+          provider: 'codex',
+          model,
+          timing: { startMs, endMs, durationMs: endMs - startMs },
+          costEstimate: 0,
+        })
       })
     })
   }

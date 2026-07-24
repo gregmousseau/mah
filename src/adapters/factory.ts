@@ -35,12 +35,36 @@ export function createAgentAdapter(config: AgentConfig): ContextualAdapter {
   throw new Error(`No execution adapter is configured for provider "${config.type}"`)
 }
 
+export class ProviderPreflightError extends Error {
+  constructor(
+    config: AgentConfig,
+    cause: unknown,
+    readonly result: AgentResult,
+  ) {
+    super(`Provider preflight failed for ${config.type}/${config.model}: ${cause instanceof Error ? cause.message : String(cause)}`)
+    this.name = 'ProviderPreflightError'
+  }
+}
+
 export async function preflightAdapter(adapter: AgentAdapter, config: AgentConfig): Promise<void> {
   if (!adapter.preflight) throw new Error(`Provider "${config.type}" has no fail-closed preflight`)
-  await adapter.preflight({
-    model: config.model,
-    cwd: config.cwd,
-    workspace: config.workspace,
-    timeoutMs: 60_000,
-  })
+  const startMs = Date.now()
+  try {
+    await adapter.preflight({
+      model: config.model,
+      cwd: config.cwd,
+      workspace: config.workspace,
+      timeoutMs: 60_000,
+    })
+  } catch (cause) {
+    const endMs = Date.now()
+    throw new ProviderPreflightError(config, cause, {
+      success: false,
+      output: cause instanceof Error ? cause.message : String(cause),
+      provider: config.type,
+      model: config.model,
+      timing: { startMs, endMs, durationMs: endMs - startMs },
+      costEstimate: 0,
+    })
+  }
 }

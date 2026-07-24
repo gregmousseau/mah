@@ -20,6 +20,7 @@ interface OpenClawAgentResponse {
       agentMeta?: {
         provider?: string
         model?: string
+        usage?: { input?: number; output?: number }
       }
     }
   }
@@ -99,6 +100,7 @@ export class KiloAdapter implements AgentAdapter {
         let output = stdout
         let provider = 'kilo'
         let confirmedModel = model
+        let tokenUsage: AgentResult['tokenUsage']
         let parsedSuccessfully = false
         if (code === 0) {
           try {
@@ -109,6 +111,8 @@ export class KiloAdapter implements AgentAdapter {
               .join('\n') ?? ''
             provider = parsed.result?.meta?.agentMeta?.provider ?? provider
             confirmedModel = parsed.result?.meta?.agentMeta?.model ?? confirmedModel
+            const usage = parsed.result?.meta?.agentMeta?.usage
+            if (usage) tokenUsage = { input: usage.input ?? 0, output: usage.output ?? 0 }
             parsedSuccessfully = Boolean(output)
           } catch {
             output = stderr || 'Kilo gateway returned invalid JSON'
@@ -120,11 +124,21 @@ export class KiloAdapter implements AgentAdapter {
           provider,
           model: confirmedModel,
           timing: { startMs, endMs, durationMs: endMs - startMs },
+          tokenUsage,
+          costEstimate: 0,
         })
       })
       child.on('error', err => {
         clearTimeout(timer)
-        reject(new Error(`Failed to invoke Kilo through OpenClaw: ${err.message}`))
+        const endMs = Date.now()
+        resolve({
+          success: false,
+          output: `Failed to invoke Kilo through OpenClaw: ${err.message}`,
+          provider: 'kilocode',
+          model,
+          timing: { startMs, endMs, durationMs: endMs - startMs },
+          costEstimate: 0,
+        })
       })
     })
   }

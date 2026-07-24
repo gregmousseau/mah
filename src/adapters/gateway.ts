@@ -5,7 +5,13 @@ import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
 interface GatewayResponse {
   result?: {
     payloads?: Array<{ text?: string }>
-    meta?: { agentMeta?: { provider?: string; model?: string } }
+    meta?: {
+      agentMeta?: {
+        provider?: string
+        model?: string
+        usage?: { input?: number; output?: number }
+      }
+    }
   }
 }
 
@@ -77,12 +83,15 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
           const parsed = JSON.parse(stdout) as GatewayResponse
           const output = parsed.result?.payloads?.map(item => item.text ?? '').filter(Boolean).join('\n') ?? ''
           const meta = parsed.result?.meta?.agentMeta
+          const usage = meta?.usage
           resolve({
             success: code === 0 && Boolean(output),
             output: output || stderr || 'OpenClaw gateway returned no response',
             provider: meta?.provider ?? 'openclaw',
             model: meta?.model ?? model,
             timing: { startMs, endMs, durationMs: endMs - startMs },
+            tokenUsage: usage ? { input: usage.input ?? 0, output: usage.output ?? 0 } : undefined,
+            costEstimate: 0,
           })
         } catch {
           resolve({
@@ -96,7 +105,15 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
       })
       child.on('error', error => {
         clearTimeout(timer)
-        reject(new Error(`Failed to invoke OpenClaw gateway: ${error.message}`))
+        const endMs = Date.now()
+        resolve({
+          success: false,
+          output: `Failed to invoke OpenClaw gateway: ${error.message}`,
+          provider: 'openclaw',
+          model,
+          timing: { startMs, endMs, durationMs: endMs - startMs },
+          costEstimate: 0,
+        })
       })
     })
   }

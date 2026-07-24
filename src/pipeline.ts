@@ -231,9 +231,6 @@ export async function runSprint(
   }
 
   const generatorAdapter = createAgentAdapter(config.agents.generator)
-  await preflightAdapter(generatorAdapter, config.agents.generator)
-  events.log('moe', 'milestone', 'preflight',
-    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'contract'
@@ -255,6 +252,9 @@ export async function runSprint(
   // 3. Dev/QA loop — wrapped so terminal-state always reaches metrics + notification
   let crashError: Error | null = null
   try {
+  await preflightAdapter(generatorAdapter, config.agents.generator)
+  events.log('moe', 'milestone', 'preflight',
+    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     console.log()
     console.log(chalk.bold.white(`  ─── Round ${round} / ${config.qa.maxIterations} ─────────────────────`))
@@ -631,9 +631,6 @@ export async function runExistingContract(
   }
 
   const generatorAdapter = createAgentAdapter(config.agents.generator)
-  await preflightAdapter(generatorAdapter, config.agents.generator)
-  events.log('moe', 'milestone', 'preflight',
-    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'dev'
@@ -726,6 +723,9 @@ export async function runExistingContract(
   // Dev/QA loop — wrapped so terminal-state always reaches metrics + notification
   let crashError: Error | null = null
   try {
+  await preflightAdapter(generatorAdapter, config.agents.generator)
+  events.log('moe', 'milestone', 'preflight',
+    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     // Skip rounds that completed in previous run
     if (round < resumeFromRound) {
