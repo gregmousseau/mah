@@ -154,9 +154,14 @@ function normalizeAgent(raw: unknown): ProjectConfig['agents']['generator'] {
   const agentId = agent.agentId as string | undefined
   const explicitModel = agent.model as string | undefined
   const type = (agent.type as string as ProjectConfig['agents']['generator']['type']) ?? 'codex'
+  const registryModel = (
+    type === 'openclaw' || type === 'claude-cli'
+  ) && agentId
+    ? getAgentModel(agentId)
+    : undefined
   // Resolution order: explicit yaml model → registry default for agentId → provider default.
   const model = explicitModel
-    ?? (agentId ? getAgentModel(agentId) : undefined)
+    ?? registryModel
     ?? (type === 'codex' ? 'gpt-5.6-sol' : 'sonnet')
   return {
     type,

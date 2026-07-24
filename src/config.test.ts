@@ -58,3 +58,21 @@ qa: { defaultTier: targeted, maxIterations: 2 }
     { type: 'codex', model: 'gpt-5.6-sol' },
   )
 })
+
+test('Codex defaults do not inherit Claude-only models from named-agent metadata', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-262-agent-config-'))
+  const path = join(root, 'mah.yaml')
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+agents:
+  generator: { agentId: awc }
+  evaluator: { agentId: qa }
+qa: { defaultTier: targeted, maxIterations: 2 }
+`)
+  const config = loadConfig(path)
+  assert.deepEqual(
+    { type: config.agents.generator.type, model: config.agents.generator.model },
+    { type: 'codex', model: 'gpt-5.6-sol' },
+  )
+})

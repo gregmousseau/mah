@@ -1,7 +1,15 @@
 import { spawn, spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
 
-const DEFAULT_ACPX = '/home/greg/.openclaw/npm/node_modules/.bin/acpx'
+function resolveAcpxCommand(): string {
+  if (process.env.ACPX_CMD) return process.env.ACPX_CMD
+  const openClawInstall = process.env.HOME
+    ? join(process.env.HOME, '.openclaw', 'npm', 'node_modules', '.bin', 'acpx')
+    : null
+  return openClawInstall && existsSync(openClawInstall) ? openClawInstall : 'acpx'
+}
 
 function resolvedCwd(options: ExecuteOptions): string {
   const raw = options.cwd ?? options.workspace ?? process.cwd()
@@ -9,7 +17,7 @@ function resolvedCwd(options: ExecuteOptions): string {
 }
 
 export class KiloAdapter implements AgentAdapter {
-  private readonly command = process.env.ACPX_CMD ?? DEFAULT_ACPX
+  private readonly command = resolveAcpxCommand()
 
   async preflight(): Promise<void> {
     const result = spawnSync(this.command, ['--version'], { encoding: 'utf-8' })
