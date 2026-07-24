@@ -11,10 +11,6 @@ import {
   registrarHarnessFailures,
   scopeAwareVerdict,
 } from './routing.js'
-import {
-  dispatchFindingTickets,
-  type FindingTicketClient,
-} from './dispatch.js'
 import { sanitizeEvidence } from './redact.js'
 import type { RegistrarConfig, RegistrarReport } from './types.js'
 
@@ -28,8 +24,6 @@ export interface FindingRoundInput {
   config: Partial<RegistrarConfig>
   scopeStage: string
   reportPath?: string
-  ticketClient?: FindingTicketClient
-  reservationDirectory?: string
 }
 
 export interface FindingRoundResult {
@@ -43,6 +37,10 @@ export async function processScopeAwareFindingRound(
 ): Promise<FindingRoundResult> {
   const config: Partial<RegistrarConfig> = {
     ...input.config,
+    // Sprint/chain finding rounds are report-only. Ticket promotion is a
+    // separate, human-reviewed action and must never be reachable from these
+    // execution paths, even when a project requests ticket mode + dispatch.
+    ticketDispatchEnabled: false,
     currentPrPaths: [...(input.config.currentPrPaths ?? [])],
   }
   let scopeReviewError: string | undefined
@@ -87,12 +85,6 @@ export async function processScopeAwareFindingRound(
   }
   appendUniqueFailures(input.failures, registrarHarnessFailures(report))
 
-  await dispatchFindingTickets(
-    report,
-    config.ticketTeamId,
-    input.ticketClient,
-    { reservationDirectory: input.reservationDirectory },
-  )
   if (input.reportPath) {
     try {
       writeRegistrarReport(report, input.reportPath)

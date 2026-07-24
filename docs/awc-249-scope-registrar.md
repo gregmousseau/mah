@@ -16,12 +16,14 @@ unaffected during the shadow rollout — the registrar is advisory only.
 
 `ticketDispatchEnabled` is an **independent** switch. Setting
 `findingsMode: 'ticket'` alone still marks every action as
-`shadow-only`. The registrar emits a `ready` action only when the
-independent dispatch gate is also enabled. Dispatch additionally requires
+`shadow-only`. Sprint and chain finding rounds forcibly disable dispatch even
+when project configuration requests ticket mode and enables the dispatch gate.
+They can emit sanitized, fingerprinted ticket actions for later review, but
+cannot query or mutate Linear. Promotion is a separate human-reviewed action
+outside sprint/chain execution. That action additionally requires
 `ticketTeamId`; it uses the AWC API-key file, queries Linear by registrar
 fingerprint **within that team** before mutation, creates in Todo, and persists
-the issue identity in a team-scoped receipt. The shipped configuration remains
-report-only: none of these settings is enabled automatically.
+the issue identity in a team-scoped receipt.
 
 ## Classifications
 
@@ -80,7 +82,7 @@ incomplete scope provenance safe to discard.
 | I1  | Registrar failure never hides a genuine current-PR blocker.              | Per-finding try/catch → fallback packet; `reviewComplete: false` preserves the unfiltered repair brief. Tests: *crash/recovery*, *enforced scope preserves non-pass*. |
 | I2  | `findingsMode: off` yields an empty report — no packets, no actions.     | Early-return branch. Test: *findingsMode="off"*. |
 | I3  | `scopeGate: advisory` never emits `registrarBlockers`.                   | `registrarBlockers()` short-circuits unless `enforced`. Test: *advisory scopeGate*. |
-| I4  | Ticket dispatch requires `findingsMode: 'ticket'` **and** `ticketDispatchEnabled: true`. | `pickReason()` in `ticket.ts`. Tests: *ticket mode with dispatch disabled*, *no external mutation*. |
+| I4  | Sprint and chain rounds always force `ticketDispatchEnabled: false`, including when project configuration requests ticket dispatch. | `processScopeAwareFindingRound()` report-only boundary. Test: *scope-aware sprint rounds force configured ticket dispatch into shadow output*. |
 | I5  | Ticket actions dedupe by normalized root-cause path and evidence, regardless of finding ID or later reclassification, but only within the configured Linear team. | Report-bound team identity, team-bound exported identities, search filters, in-memory keys, and durable receipt paths. Tests: *deduplication*, *team isolation*, *fingerprints merge equivalent root causes*. |
 | I6  | Shadow/report modes never call Linear; approved dispatch uses only search and issue-create APIs. | Dispatch gate plus runtime canary and mocked dispatcher tests. |
 | I7  | Sanitization strips bearer tokens, AWS keys, JWTs, cookies, auth headers, emails, phone numbers, DOB/MRN markers, and raw Gmail/Jane content even without synthetic tags. | Provider-context redaction plus provider-key redaction at the final persistence boundary. Tests: *privacy*. |

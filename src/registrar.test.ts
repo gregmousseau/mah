@@ -1279,7 +1279,6 @@ test('scope-aware round replays cumulative multi-commit output through routing a
   const candidateSha = gitSha(repo)
   const reportPath = join(repo, '.mah', 'replay', 'findings.json')
   const failures: import('./types.js').DeliveryFailure[] = []
-  let ticketCalls = 0
 
   const result = await processScopeAwareFindingRound({
     repoPath: repo,
@@ -1327,24 +1326,63 @@ test('scope-aware round replays cumulative multi-commit output through routing a
     },
     scopeStage: 'replay-scope',
     reportPath,
-    ticketClient: {
-      findByFingerprint: async () => {
-        ticketCalls += 1
-        throw new Error('report replay must not query Linear')
-      },
-      createTodo: async () => {
-        ticketCalls += 1
-        throw new Error('report replay must not mutate Linear')
-      },
-    },
   })
 
   assert.deepEqual(result.currentPrPaths, ['src/first.ts', 'src/second.ts'])
   assert.equal(result.report.currentBlockers[0].originFindingId, 'FIRST')
   assert.equal(result.report.adjacent[0].originFindingId, 'ADJACENT')
   assert.equal(result.verdict, 'fail')
-  assert.equal(ticketCalls, 0)
   assert.ok(existsSync(reportPath))
+})
+
+test('scope-aware sprint rounds force configured ticket dispatch into shadow output', async () => {
+  const repo = initGitFixture()
+  const baselineSha = gitSha(repo)
+  commitFile(repo, 'src/current.ts', 'candidate\n', 'candidate')
+  const candidateSha = gitSha(repo)
+  const failures: import('./types.js').DeliveryFailure[] = []
+
+  const result = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha,
+    candidateSha,
+    graderResults: [{
+      graderId: 'code',
+      graderType: 'code-review',
+      graderName: 'Code',
+      verdict: 'conditional',
+      summary: 'Adjacent finding.',
+      model: 'fixture',
+      durationMs: 0,
+      costEstimate: 0,
+      executionStatus: 'completed',
+      findings: [{
+        id: 'PROMOTE-LATER',
+        severity: 'major',
+        category: 'bug',
+        file: 'src/old.ts',
+        description: 'Pre-existing issue for later human-reviewed promotion.',
+        scopeRelationship: 'pre-existing',
+        releaseImpact: 'not-release-blocking',
+        evidenceConfidence: 'confirmed',
+      }],
+    }],
+    failures,
+    originalVerdict: 'conditional',
+    config: {
+      scopeGate: 'advisory',
+      findingsMode: 'ticket',
+      ticketDispatchEnabled: true,
+      ticketTeamId: 'team',
+    },
+    scopeStage: 'sprint-shadow-only',
+  })
+
+  assert.equal(result.report.findingsMode, 'ticket')
+  assert.equal(result.report.ticketDispatchEnabled, false)
+  assert.equal(result.report.ticketActions.length, 1)
+  assert.equal(result.report.ticketActions[0].reason, 'shadow-only')
+  assert.equal(result.report.ticketActions[0].dispatched, false)
 })
 
 test('scope-aware round fails closed for harness defects and skips scope when findings are off', async () => {
