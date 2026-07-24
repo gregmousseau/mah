@@ -8,7 +8,8 @@
 //   * be deduped against existingTicketFingerprints
 //   * land in "Todo" (never "In Progress" and never start a sprint)
 //
-// The dispatch wiring itself is intentionally omitted here.
+// Dispatch is performed separately so report/shadow registration remains
+// side-effect free.
 
 import { createHash } from 'node:crypto'
 import type { FindingPacket, TicketAction, RegistrarConfig } from './types.js'
@@ -70,11 +71,8 @@ function pickReason(
 
 export function ticketFingerprint(packet: FindingPacket): string {
   const key = [
-    packet.classification,
     normalize(packet.scopeProvenance.matchedPath ?? ''),
     normalize(packet.sanitizedEvidence),
-    normalize(packet.risk),
-    normalize(packet.reproduction),
   ].join('|')
   return `awc249-${createHash('sha256').update(key).digest('hex').slice(0, 16)}`
 }

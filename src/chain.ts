@@ -24,6 +24,7 @@ import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } fro
 import { EventLogger } from './events.js'
 import {
   buildConsolidatedRepairBrief,
+  changedPathsForCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   failedGraderResult,
@@ -31,6 +32,15 @@ import {
   materialGraderFindings,
   verifyDeliveryIdentity,
 } from './reliability.js'
+import {
+  safeRegisterFindings,
+  writeRegistrarReport,
+} from './registrar/registrar.js'
+import { dispatchFindingTickets } from './registrar/dispatch.js'
+import {
+  repairScopedGraderResults,
+  scopeAwareVerdict,
+} from './registrar/routing.js'
 import type {
   ProjectConfig,
   SprintContract,
@@ -441,7 +451,55 @@ async function runChainSprint(
       )
       if (failure) deliveryFailures.push(failure)
     }
-    const effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : delivery.verdict
+    let effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : delivery.verdict
+    const findingsConfig = config.findings ?? {
+      scopeGate: 'advisory' as const,
+      findingsMode: 'report' as const,
+      ticketDispatchEnabled: false,
+      currentPrPaths: [],
+    }
+    let scopeReviewError: string | undefined
+    if (candidateIdentity) {
+      try {
+        findingsConfig.currentPrPaths = changedPathsForCandidate(
+          config.agents.generator.cwd ?? contract.devBrief.repo,
+          candidateIdentity.candidateSha,
+        )
+      } catch (error) {
+        const failure = classifyDeliveryError(error, `chain-findings-scope-r${round}`)
+        deliveryFailures.push(failure)
+        scopeReviewError = failure.message
+        effectiveVerdict = 'fail'
+      }
+    }
+    const findingsReport = candidateIdentity
+      ? safeRegisterFindings(
+        {
+          candidateSha: candidateIdentity.candidateSha,
+          findingInputs: graderResults.flatMap((result) =>
+            result.findings.map((finding) => ({ finding, graderId: result.graderId }))),
+        },
+        findingsConfig,
+      )
+      : undefined
+    if (findingsReport) {
+      if (scopeReviewError) {
+        findingsReport.reviewComplete = false
+        findingsReport.errors.push(`Scope review incomplete: ${scopeReviewError}`)
+      }
+      effectiveVerdict = scopeAwareVerdict(
+        effectiveVerdict,
+        graderResults,
+        deliveryFailures,
+        findingsReport,
+      )
+      await dispatchFindingTickets(findingsReport, findingsConfig.ticketTeamId)
+      writeRegistrarReport(
+        findingsReport,
+        join(sprintFullDir, `findings-r${round}.json`),
+      )
+    }
+    const repairResults = repairScopedGraderResults(graderResults, findingsReport)
     const qaDuration = qaResult ? formatDuration(qaResult.timing.durationMs) : 'no UX grader'
     events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)
 
@@ -468,7 +526,7 @@ async function runChainSprint(
         tokenUsage: qaResult.tokenUsage,
         costEstimate: qaResult.costEstimate,
       } : undefined,
-      defects: materialGraderFindings(graderResults).map((finding) => ({
+      defects: materialGraderFindings(repairResults).map((finding) => ({
         id: finding.id,
         severity: chainDefectSeverity(finding.severity),
         description: finding.description,
@@ -477,6 +535,7 @@ async function runChainSprint(
       graderResults,
       deliveryFailures,
       candidateIdentity,
+      findingsReport,
     }
     contract.iterations.push(iteration)
 
@@ -493,7 +552,7 @@ async function runChainSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = buildConsolidatedRepairBrief(graderResults, deliveryFailures)
+    lastQAOutput = buildConsolidatedRepairBrief(repairResults, deliveryFailures)
   }
   } catch (err) {
     chainCrashError = err as Error

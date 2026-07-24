@@ -41,9 +41,12 @@ const EMPTY_REPORT_TEMPLATE: Omit<RegistrarReport, 'candidateSha' | 'generatedAt
   scopeGate: 'advisory',
   findingsMode: 'off',
   ticketDispatchEnabled: false,
+  reviewComplete: false,
   packets: [],
   currentBlockers: [],
   adjacent: [],
+  harnessDefects: [],
+  suppressed: [],
   ticketActions: [],
   errors: [],
 }
@@ -61,6 +64,7 @@ export function registerFindings(
       scopeGate: config.scopeGate,
       findingsMode: 'off',
       ticketDispatchEnabled: config.ticketDispatchEnabled,
+      reviewComplete: false,
       candidateSha: input.candidateSha,
       generatedAt: now,
     }
@@ -87,8 +91,10 @@ export function registerFindings(
 
   const currentBlockers = packets.filter((p) => p.classification === 'current-pr-blocker')
   const adjacent = packets.filter(
-    (p) => p.classification !== 'current-pr-blocker' && p.classification !== 'false-positive',
+    (p) => p.classification === 'follow-up' || p.classification === 'spike-candidate',
   )
+  const harnessDefects = packets.filter((p) => p.classification === 'harness-defect')
+  const suppressed = packets.filter((p) => p.classification === 'false-positive')
 
   let ticketActions: TicketAction[] = []
   try {
@@ -103,9 +109,12 @@ export function registerFindings(
     scopeGate: config.scopeGate,
     findingsMode: config.findingsMode,
     ticketDispatchEnabled: config.ticketDispatchEnabled,
+    reviewComplete: errors.length === 0,
     packets,
     currentBlockers,
     adjacent,
+    harnessDefects,
+    suppressed,
     ticketActions,
     errors,
   }
@@ -120,13 +129,14 @@ export function safeRegisterFindings(
   try {
     return registerFindings(input, configPartial)
   } catch (err) {
-    const config = mergeConfig(configPartial)
+    const config = fallbackConfig(configPartial)
     return {
       ...EMPTY_REPORT_TEMPLATE,
       scopeGate: config.scopeGate,
       findingsMode: config.findingsMode,
       ticketDispatchEnabled: config.ticketDispatchEnabled,
-      candidateSha: input.candidateSha,
+      reviewComplete: false,
+      candidateSha: safeCandidateSha(input),
       generatedAt: deterministicNow(input),
       errors: [`Registrar aborted: ${errorMessage(err)}`],
     }
@@ -169,6 +179,20 @@ function mergeConfig(partial?: Partial<RegistrarConfig>): RegistrarConfig {
     throw new Error('registrar.ticketDispatchEnabled must be boolean')
   }
   return merged
+}
+
+function fallbackConfig(partial?: Partial<RegistrarConfig>): RegistrarConfig {
+  const scopeGate = partial?.scopeGate === 'enforced' ? 'enforced' : 'advisory'
+  const findingsMode = partial?.findingsMode === 'off'
+    || partial?.findingsMode === 'ticket'
+    ? partial.findingsMode
+    : 'report'
+  return {
+    ...DEFAULT_REGISTRAR_CONFIG,
+    scopeGate,
+    findingsMode,
+    ticketDispatchEnabled: partial?.ticketDispatchEnabled === true,
+  }
 }
 
 function validateScopeGate(mode: ScopeGateMode): void {
@@ -299,7 +323,7 @@ function dispositionFor(
   const base = classification === 'current-pr-blocker'
     ? 'Return to dev repair loop.'
     : classification === 'harness-defect'
-      ? 'File to harness/infra owner; do not block PR unless enforced.'
+      ? 'Route to the harness/infra owner; do not create a product ticket.'
       : classification === 'spike-candidate'
         ? 'Queue as spike candidate; do not sprint automatically.'
         : classification === 'false-positive'
@@ -325,10 +349,18 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+function safeCandidateSha(input: RegistrarInput): string {
+  try {
+    return typeof input?.candidateSha === 'string' ? input.candidateSha : '(unknown)'
+  } catch {
+    return '(unreadable)'
+  }
+}
+
 // Timestamp is derived from the candidate SHA plus a coarse day bucket
 // so replays and canary probes are deterministic. Callers that need a
 // real wall-clock timestamp can override generatedAt after the fact.
 function deterministicNow(input: RegistrarInput): string {
-  const seed = createHash('sha256').update(input.candidateSha).digest('hex')
+  const seed = createHash('sha256').update(safeCandidateSha(input)).digest('hex')
   return `awc249-${seed.slice(0, 12)}`
 }

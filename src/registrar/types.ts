@@ -78,8 +78,7 @@ export interface TicketAction {
   // them but MUST NOT dispatch to Linear during shadow rollout.
   dispatched: boolean
   reason: 'ticket-mode-disabled' | 'duplicate' | 'shadow-only' | 'ready' | 'created' | 'dispatch-failed'
-  // When ticketDispatchEnabled: true and a real dispatch is later wired
-  // in, the created issue MUST be left in Todo.
+  // Approved dispatch always creates future work in Todo.
   targetState: 'Todo'
   issueId?: string
   issueIdentifier?: string
@@ -105,9 +104,15 @@ export interface RegistrarReport {
   scopeGate: ScopeGateMode
   findingsMode: FindingsMode
   ticketDispatchEnabled: boolean
+  // True only when every finding was reviewed successfully. Dispatch
+  // failures do not change this bit, so they cannot put adjacent product
+  // findings back into the active repair loop.
+  reviewComplete: boolean
   packets: FindingPacket[]
   currentBlockers: FindingPacket[]
   adjacent: FindingPacket[]
+  harnessDefects: FindingPacket[]
+  suppressed: FindingPacket[]
   ticketActions: TicketAction[]
   errors: string[]
 }

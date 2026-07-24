@@ -38,7 +38,7 @@ export function classifyFinding(
   config: Pick<RegistrarConfig, 'currentPrPaths' | 'falsePositiveIds'>,
   sourceGraderId?: string,
 ): ClassifiedFinding {
-  const category = (finding.category ?? '').toLowerCase()
+  const category = (finding.category ?? '').trim().toLowerCase()
 
   if (config.falsePositiveIds?.includes(finding.id)) {
     return {

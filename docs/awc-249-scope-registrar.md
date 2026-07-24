@@ -34,6 +34,11 @@ fingerprint before mutation, creates in Todo, and persists the issue identity.
 Classification is a **pure function** of `(finding, config)`; same input
 always yields the same packet id and ticket fingerprint.
 
+Reports expose `currentBlockers`, `adjacent`, `harnessDefects`, and
+`suppressed` as separate routes. `reviewComplete` is true only when every
+packet was classified successfully. If it is false, enforced mode keeps
+the original fail-closed verdict and repair evidence intact.
+
 ## Packet shape
 
 ```jsonc
@@ -65,11 +70,11 @@ always yields the same packet id and ticket fingerprint.
 
 | ID  | Invariant                                                                 | Enforced by                                    |
 | --- | ------------------------------------------------------------------------- | ---------------------------------------------- |
-| I1  | Registrar failure never hides a genuine current-PR blocker.              | Per-finding try/catch → fallback packet; `safeRegisterFindings` outer catch. Test: *crash/recovery*. |
+| I1  | Registrar failure never hides a genuine current-PR blocker.              | Per-finding try/catch → fallback packet; `reviewComplete: false` preserves the unfiltered repair brief. Tests: *crash/recovery*, *enforced scope preserves non-pass*. |
 | I2  | `findingsMode: off` yields an empty report — no packets, no actions.     | Early-return branch. Test: *findingsMode="off"*. |
 | I3  | `scopeGate: advisory` never emits `registrarBlockers`.                   | `registrarBlockers()` short-circuits unless `enforced`. Test: *advisory scopeGate*. |
 | I4  | Ticket dispatch requires `findingsMode: 'ticket'` **and** `ticketDispatchEnabled: true`. | `pickReason()` in `ticket.ts`. Tests: *ticket mode with dispatch disabled*, *no external mutation*. |
-| I5  | Ticket actions dedupe against `existingTicketFingerprints` and against actions built earlier in the same run. | `buildTicketActions` `seenThisRun` + `existing` sets. Test: *deduplication*. |
+| I5  | Ticket actions dedupe by normalized root-cause path and evidence, regardless of finding ID or later reclassification, and query Linear before creation. | `buildTicketActions` `seenThisRun` + `existing` sets and dispatcher fingerprint lookup. Tests: *deduplication*, *fingerprints merge equivalent root causes*. |
 | I6  | Shadow/report modes never call Linear; approved dispatch uses only search and issue-create APIs. | Dispatch gate plus runtime canary and mocked dispatcher tests. |
 | I7  | Sanitization strips bearer tokens, AWS keys, JWTs, cookies, auth headers, emails, phone numbers, DOB/MRN markers, `<jane-raw>`/`<gmail-body>` blobs. | `redact.ts` REDACTION_PATTERNS. Test: *privacy*. |
 | I8  | Packet ids and ticket fingerprints are stable across runs given identical inputs. | Deterministic SHA-256 over ordered fields. Test: *packet id … deterministic*. |
@@ -80,10 +85,11 @@ always yields the same packet id and ticket fingerprint.
 ## Rollout plan (shadow)
 
 1. **Ship advisory + report-only (this delivery).** No verdict change,
-   no Linear I/O, no tickets. Both pipeline entry points persist a
-   registrar report for each exact-SHA QA round.
-2. **Observe.** Run canary + unit suite in CI. Snapshot registrar
-   reports from a chosen subset of sprints (opt-in, off by default).
+   no Linear I/O, no tickets. New, resumed, and preplanned chain sprints
+   persist a registrar report for each exact-SHA QA round.
+2. **Observe.** Run the three historical shadow canaries plus the unit
+   suite in CI. Snapshot registrar reports from a chosen subset of live
+   sprints (opt-in, off by default).
 3. **Enable scope enforcement.** Set `scopeGate: enforced`; only
    current-PR blockers remain in the repair brief. Unexplained grader
    failures and registrar failures remain fail-closed.

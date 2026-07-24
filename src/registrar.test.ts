@@ -9,7 +9,11 @@ import { sanitizeEvidence } from './registrar/redact.js'
 import { buildTicketActions, ticketFingerprint } from './registrar/ticket.js'
 import { dispatchFindingTickets } from './registrar/dispatch.js'
 import type { LinearTicket } from './integrations/linear.js'
-import { scopeAwareVerdict } from './pipeline.js'
+import {
+  repairScopedGraderResults,
+  scopeAwareVerdict,
+} from './registrar/routing.js'
+import { buildConsolidatedRepairBrief } from './reliability.js'
 import {
   DEFAULT_REGISTRAR_CONFIG,
   registerFindings,
@@ -163,6 +167,8 @@ test('historical AWC-194 replay: harness + adjacent findings do not become curre
   assert.equal(report.currentBlockers.length, 0, 'no genuine current-PR blocker in this replay')
   const harness = report.packets.find((p) => p.originFindingId === 'HRN-01')!
   assert.equal(harness.classification, 'harness-defect')
+  assert.deepEqual(report.harnessDefects.map((p) => p.originFindingId), ['HRN-01'])
+  assert.ok(!report.adjacent.some((p) => p.originFindingId === 'HRN-01'))
   const adjacent = report.packets.find((p) => p.originFindingId === 'AJC-02')!
   assert.notEqual(adjacent.classification, 'current-pr-blocker')
   const fp = report.packets.find((p) => p.originFindingId === 'FP-03')!
@@ -390,14 +396,101 @@ test('enforced scope preserves non-pass when registration is off, errored, or in
   assert.equal(scopeAwareVerdict('fail', [result], [], off), 'fail')
   const errored = { ...off, findingsMode: 'report' as const, errors: ['aborted'] }
   assert.equal(scopeAwareVerdict('fail', [result], [], errored), 'fail')
+  assert.deepEqual(repairScopedGraderResults([result], errored), [result])
 })
 
 test('fingerprints merge equivalent root causes across IDs and separate unrelated evidence', () => {
   const a = fakePacket('ID-A', 'follow-up')
   const b = { ...fakePacket('ID-B', 'follow-up'), originFindingId: 'different-id' }
+  const reclassified = { ...fakePacket('ID-C', 'spike-candidate'), originFindingId: 'reclassified' }
   const c = { ...fakePacket('ID-A', 'follow-up'), sanitizedEvidence: 'unrelated root cause' }
   assert.equal(ticketFingerprint(a), ticketFingerprint(b))
+  assert.equal(ticketFingerprint(a), ticketFingerprint(reclassified))
   assert.notEqual(ticketFingerprint(a), ticketFingerprint(c))
+})
+
+test('enforced routing keeps only current-PR blockers in the repair brief', () => {
+  const results = [
+    {
+      graderId: 'code',
+      graderType: 'code-review',
+      graderName: 'Code',
+      verdict: 'fail' as const,
+      summary: 'mixed findings',
+      model: 'm',
+      durationMs: 0,
+      costEstimate: 0,
+      findings: [
+        {
+          id: 'SHARED',
+          severity: 'major' as const,
+          category: 'bug',
+          file: 'src/current.ts',
+          description: 'Current candidate regression.',
+        },
+      ],
+    },
+    {
+      graderId: 'ux',
+      graderType: 'ux',
+      graderName: 'UX',
+      verdict: 'fail' as const,
+      summary: 'adjacent finding',
+      model: 'm',
+      durationMs: 0,
+      costEstimate: 0,
+      findings: [
+        {
+          id: 'SHARED',
+          severity: 'major' as const,
+          category: 'bug',
+          file: 'src/adjacent.ts',
+          description: 'Pre-existing adjacent regression.',
+        },
+      ],
+    },
+  ]
+  const report = registerFromGraderResults('0'.repeat(40), results, {
+    currentPrPaths: ['src/current.ts'],
+    scopeGate: 'enforced',
+  })
+  const scoped = repairScopedGraderResults(results, report)
+  const brief = buildConsolidatedRepairBrief(scoped)
+
+  assert.equal(scopeAwareVerdict('fail', results, [], report), 'fail')
+  assert.match(brief, /Current candidate regression/)
+  assert.doesNotMatch(brief, /Pre-existing adjacent regression/)
+  assert.equal(scoped[1].verdict, 'pass')
+})
+
+test('an adjacent-only material finding leaves the enforced repair loop', () => {
+  const results = [{
+    graderId: 'code',
+    graderType: 'code-review',
+    graderName: 'Code',
+    verdict: 'conditional' as const,
+    summary: 'adjacent only',
+    model: 'm',
+    durationMs: 0,
+    costEstimate: 0,
+    findings: [{
+      id: 'ADJ',
+      severity: 'major' as const,
+      category: 'bug',
+      file: 'src/adjacent.ts',
+      description: 'Adjacent product defect.',
+    }],
+  }]
+  const report = registerFromGraderResults('0'.repeat(40), results, {
+    currentPrPaths: ['src/current.ts'],
+    scopeGate: 'enforced',
+  })
+  const scoped = repairScopedGraderResults(results, report)
+
+  assert.equal(report.adjacent[0].classification, 'follow-up')
+  assert.equal(scopeAwareVerdict('fail', results, [], report), 'pass')
+  assert.deepEqual(scoped[0].findings, [])
+  assert.equal(scoped[0].verdict, 'pass')
 })
 
 test('spike packets and ticket bodies contain bounded planning fields', () => {
@@ -445,6 +538,40 @@ test('approved ticket dispatch dedupes before create and persists created identi
   assert.equal(duplicate.ticketActions[0].reason, 'duplicate')
 })
 
+test('ticket dispatch failure stays outside scope-review completeness', async () => {
+  const results = [{
+    graderId: 'code',
+    graderType: 'code-review',
+    graderName: 'Code',
+    verdict: 'conditional' as const,
+    summary: 'adjacent',
+    model: 'm',
+    durationMs: 0,
+    costEstimate: 0,
+    findings: [{
+      id: 'F',
+      severity: 'major' as const,
+      category: 'bug',
+      file: 'adjacent.ts',
+      description: 'root cause',
+    }],
+  }]
+  const report = registerFromGraderResults('0'.repeat(40), results, {
+    currentPrPaths: ['current.ts'],
+    scopeGate: 'enforced',
+    findingsMode: 'ticket',
+    ticketDispatchEnabled: true,
+  })
+  await dispatchFindingTickets(report, 'team', {
+    findByFingerprint: async () => null,
+    createTodo: async () => { throw new Error('Linear unavailable') },
+  })
+
+  assert.equal(report.reviewComplete, true)
+  assert.match(report.errors[0], /Linear unavailable/)
+  assert.equal(scopeAwareVerdict('fail', results, [], report), 'pass')
+})
+
 test('ticket mode with dispatch disabled marks every action as shadow-only, never ready', () => {
   const fixture = readFixture('awc-241-scope')
   const report = registerFindings(
@@ -476,6 +603,10 @@ test('config validation rejects unsupported scopeGate/findingsMode values', () =
     ),
     /findingsMode/,
   )
+  assert.doesNotThrow(() => safeRegisterFindings(
+    { candidateSha: 'x', findings: [] },
+    { scopeGate: 'permissive' as unknown as RegistrarConfig['scopeGate'] },
+  ))
 })
 
 test('ticket builder skips current-pr-blockers and false-positives', () => {

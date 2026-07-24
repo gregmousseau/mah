@@ -21,7 +21,7 @@ export async function dispatchFindingTickets(
   client: FindingTicketClient = defaultClient,
 ): Promise<void> {
   if (report.findingsMode !== 'ticket' || !report.ticketDispatchEnabled) return
-  if (report.errors.length > 0) return
+  if (!report.reviewComplete) return
   if (!teamId) {
     report.errors.push('Ticket dispatch approved but findings.ticketTeamId is not configured.')
     for (const action of report.ticketActions.filter((item) => item.reason === 'ready')) {
