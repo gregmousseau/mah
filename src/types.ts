@@ -252,6 +252,7 @@ export interface AgentResult {
   success: boolean
   output: string
   provider?: string
+  model?: string
   timing: {
     startMs: number
     endMs: number

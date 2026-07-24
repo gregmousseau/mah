@@ -83,6 +83,7 @@ export class KiloAdapter implements AgentAdapter {
           success: false,
           output: stdout || stderr || `[Timeout after ${timeoutMs / 1000}s]`,
           provider: 'kilo',
+          model,
           timing: { startMs, endMs, durationMs: endMs - startMs },
         })
       }, timeoutMs)
@@ -91,6 +92,7 @@ export class KiloAdapter implements AgentAdapter {
         const endMs = Date.now()
         let output = stdout
         let provider = 'kilo'
+        let confirmedModel = model
         let parsedSuccessfully = false
         if (code === 0) {
           try {
@@ -100,6 +102,7 @@ export class KiloAdapter implements AgentAdapter {
               .filter(Boolean)
               .join('\n') ?? ''
             provider = parsed.result?.meta?.agentMeta?.provider ?? provider
+            confirmedModel = parsed.result?.meta?.agentMeta?.model ?? confirmedModel
             parsedSuccessfully = Boolean(output)
           } catch {
             output = stderr || 'Kilo gateway returned invalid JSON'
@@ -109,6 +112,7 @@ export class KiloAdapter implements AgentAdapter {
           success: code === 0 && parsedSuccessfully,
           output: output || stderr || `[Process exited with code ${code}]`,
           provider,
+          model: confirmedModel,
           timing: { startMs, endMs, durationMs: endMs - startMs },
         })
       })

@@ -1,6 +1,7 @@
 import type { AgentAdapter, AgentConfig, AgentResult, ExecuteOptions } from '../types.js'
 import { buildAgentContext, OpenClawAdapter } from './openclaw.js'
 import { CodexAdapter } from './codex.js'
+import { OpenClawGatewayAdapter } from './gateway.js'
 import { KiloAdapter } from './kilo.js'
 
 class ContextualAdapter implements AgentAdapter {
@@ -29,9 +30,8 @@ class ContextualAdapter implements AgentAdapter {
 export function createAgentAdapter(config: AgentConfig): ContextualAdapter {
   if (config.type === 'codex') return new ContextualAdapter(new CodexAdapter(), 'codex')
   if (config.type === 'kilo') return new ContextualAdapter(new KiloAdapter(), 'kilo')
-  if (config.type === 'openclaw' || config.type === 'claude-cli') {
-    return new ContextualAdapter(new OpenClawAdapter(), config.type)
-  }
+  if (config.type === 'openclaw') return new ContextualAdapter(new OpenClawGatewayAdapter(), 'openclaw')
+  if (config.type === 'claude-cli') return new ContextualAdapter(new OpenClawAdapter(), 'claude-cli')
   throw new Error(`No execution adapter is configured for provider "${config.type}"`)
 }
 

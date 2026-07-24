@@ -71,6 +71,7 @@ export class CodexAdapter implements AgentAdapter {
           success,
           output,
           provider: 'codex',
+          model,
           timing: { startMs, endMs, durationMs: endMs - startMs },
         }
       }

@@ -179,6 +179,8 @@ export class OpenClawAdapter implements AgentAdapter {
         resolve({
           success: false,
           output: stdout || `[Timeout after ${timeoutMs / 1000}s]`,
+          provider: 'claude',
+          model,
           timing: { startMs, endMs, durationMs: endMs - startMs },
         })
       }, timeoutMs)
@@ -197,6 +199,7 @@ export class OpenClawAdapter implements AgentAdapter {
           success,
           output: stdout || (success ? '' : `[Process exited with code ${code}]\n${stderr}`),
           provider: 'claude',
+          model,
           timing: { startMs, endMs, durationMs },
           tokenUsage: { input: inputTokens, output: outputTokens },
           costEstimate: estimateCost(model, inputTokens, outputTokens),
