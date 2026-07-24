@@ -47,6 +47,13 @@ export interface GraderFinding {
   line?: number
   description: string
   suggestion?: string
+  // Scope and release impact, rather than severity, decide whether a
+  // product finding belongs in the active repair loop.
+  scopeRelationship?: 'introduced' | 'worsened' | 'activated' | 'pre-existing' | 'unknown'
+  releaseImpact?: 'required-for-release-safety' | 'not-release-blocking' | 'unknown'
+  evidenceConfidence?: 'confirmed' | 'plausible' | 'insufficient'
+  investigationQuestion?: string
+  exitCriterion?: string
 }
 
 // ─── Project Configuration (from mah.yaml) ───
@@ -153,6 +160,9 @@ export interface SprintContract {
   deliveryFailures?: DeliveryFailure[]
   activeCandidateIdentity?: DeliveryIdentity
   activeCandidateRound?: number
+  // Exact HEAD captured before the first dev action. Finding scope is
+  // the cumulative diff from this baseline to each pinned candidate.
+  scopeBaselineSha?: string
   iterations: SprintIteration[]
   createdAt: string
   completedAt?: string
@@ -185,6 +195,11 @@ export interface Defect {
   severity: 'p0' | 'p1' | 'p2' | 'p3'
   description: string
   fixed: boolean
+  scopeRelationship?: GraderFinding['scopeRelationship']
+  releaseImpact?: GraderFinding['releaseImpact']
+  evidenceConfidence?: GraderFinding['evidenceConfidence']
+  investigationQuestion?: string
+  exitCriterion?: string
 }
 
 // ─── QA Report (parsed from evaluator output) ───

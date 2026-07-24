@@ -19,6 +19,12 @@ const HARNESS_CATEGORIES = new Set([
   'infra',
   'ci',
   'tooling',
+  'environment',
+  'credentials',
+  'credential',
+  'preflight',
+  'evaluation',
+  'grader',
 ])
 
 const SPIKE_CATEGORIES = new Set([
@@ -39,6 +45,15 @@ export function classifyFinding(
   sourceGraderId?: string,
 ): ClassifiedFinding {
   const category = (finding.category ?? '').trim().toLowerCase()
+  const relationship = normalizeRelationship(finding.scopeRelationship)
+  const releaseImpact = normalizeReleaseImpact(finding.releaseImpact)
+  const evidenceConfidence = normalizeConfidence(finding.evidenceConfidence)
+  const baseProvenance = {
+    relationship,
+    releaseImpact,
+    evidenceConfidence,
+    sourceGraderId,
+  }
 
   if (config.falsePositiveIds?.includes(finding.id)) {
     return {
@@ -46,7 +61,7 @@ export function classifyFinding(
       provenance: {
         reason: 'Finding id is on the deterministic false-positive allowlist.',
         inRepairScope: false,
-        sourceGraderId,
+        ...baseProvenance,
       },
     }
   }
@@ -57,34 +72,70 @@ export function classifyFinding(
       provenance: {
         reason: `Category "${finding.category}" identifies harness/infra work.`,
         inRepairScope: false,
-        sourceGraderId,
+        ...baseProvenance,
       },
     }
   }
 
   const inScope = isInCurrentPrScope(finding, config.currentPrPaths)
-  if (inScope.matched) {
-    const material = finding.severity === 'critical' || finding.severity === 'major'
+  const candidateCaused = relationship === 'introduced'
+    || relationship === 'worsened'
+    || relationship === 'activated'
+  const releaseSafety = releaseImpact === 'required-for-release-safety'
+
+  if (candidateCaused || releaseSafety) {
     return {
-      classification: material ? 'current-pr-blocker' : 'follow-up',
+      classification: 'current-pr-blocker',
       provenance: {
-        reason: material
-          ? `Material finding on PR-touched path "${inScope.matchedPath}".`
-          : `Non-material finding on PR-touched path "${inScope.matchedPath}".`,
-        inRepairScope: material,
+        reason: candidateCaused
+          ? `Finding was ${relationship} by the candidate change.`
+          : 'Finding is required for release safety.',
+        inRepairScope: true,
         matchedPath: inScope.matchedPath,
-        sourceGraderId,
+        ...baseProvenance,
       },
     }
   }
 
-  if (SPIKE_CATEGORIES.has(category) || finding.severity === 'info') {
+  if (
+    evidenceConfidence === 'insufficient'
+    || evidenceConfidence === 'plausible'
+    || SPIKE_CATEGORIES.has(category)
+  ) {
     return {
       classification: 'spike-candidate',
       provenance: {
-        reason: 'Finding is outside PR scope and is exploratory/informational.',
+        reason: 'Material risk is plausible but evidence is insufficient for implementation.',
         inRepairScope: false,
-        sourceGraderId,
+        matchedPath: inScope.matchedPath ?? finding.file,
+        ...baseProvenance,
+      },
+    }
+  }
+
+  if (relationship === 'pre-existing') {
+    return {
+      classification: 'follow-up',
+      provenance: {
+        reason: 'Finding is explicitly pre-existing and was not worsened or activated by the candidate.',
+        inRepairScope: false,
+        matchedPath: inScope.matchedPath ?? finding.file,
+        ...baseProvenance,
+      },
+    }
+  }
+
+  // Backward-compatible fail-closed behavior for older grader output:
+  // an unproven relationship on a cumulatively touched path stays in the
+  // repair loop regardless of severity. Severity controls urgency only.
+  if (inScope.matched) {
+    return {
+      classification: 'current-pr-blocker',
+      provenance: {
+        reason: `Candidate relationship is unknown on PR-touched path "${inScope.matchedPath}".`,
+        inRepairScope: true,
+        matchedPath: inScope.matchedPath,
+        ...baseProvenance,
       },
     }
   }
@@ -95,9 +146,36 @@ export function classifyFinding(
       reason: 'Finding is on a path not touched by the current PR.',
       inRepairScope: false,
       matchedPath: finding.file,
-      sourceGraderId,
+      ...baseProvenance,
     },
   }
+}
+
+function normalizeRelationship(
+  value: GraderFinding['scopeRelationship'],
+): NonNullable<GraderFinding['scopeRelationship']> {
+  return value === 'introduced'
+    || value === 'worsened'
+    || value === 'activated'
+    || value === 'pre-existing'
+    ? value
+    : 'unknown'
+}
+
+function normalizeReleaseImpact(
+  value: GraderFinding['releaseImpact'],
+): NonNullable<GraderFinding['releaseImpact']> {
+  return value === 'required-for-release-safety' || value === 'not-release-blocking'
+    ? value
+    : 'unknown'
+}
+
+function normalizeConfidence(
+  value: GraderFinding['evidenceConfidence'],
+): NonNullable<GraderFinding['evidenceConfidence']> {
+  return value === 'confirmed' || value === 'plausible' || value === 'insufficient'
+    ? value
+    : 'confirmed'
 }
 
 function isInCurrentPrScope(

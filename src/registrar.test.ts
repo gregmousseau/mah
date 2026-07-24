@@ -1,13 +1,21 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import type { GraderFinding } from './types.js'
 import { classifyFinding } from './registrar/classify.js'
 import { sanitizeEvidence } from './registrar/redact.js'
 import { buildTicketActions, ticketFingerprint } from './registrar/ticket.js'
 import { dispatchFindingTickets } from './registrar/dispatch.js'
+import { processScopeAwareFindingRound } from './registrar/round.js'
 import type { LinearTicket } from './integrations/linear.js'
 import {
   repairScopedGraderResults,
@@ -66,12 +74,92 @@ test('golden classification: PR-scoped major → current-pr-blocker; adjacent mi
   assert.equal(adjacent.provenance.inRepairScope, false)
 })
 
+test('scope provenance, not severity, determines blocker vs follow-up vs spike', () => {
+  const config = { currentPrPaths: ['src/touched.ts'] }
+  const introducedMinor = classifyFinding({
+    id: 'INTRODUCED',
+    severity: 'minor',
+    category: 'bug',
+    file: 'src/adjacent.ts',
+    description: 'Candidate regression.',
+    scopeRelationship: 'introduced',
+    releaseImpact: 'not-release-blocking',
+    evidenceConfidence: 'confirmed',
+  }, config)
+  const preExistingCritical = classifyFinding({
+    id: 'OLD',
+    severity: 'critical',
+    category: 'bug',
+    file: 'src/touched.ts',
+    description: 'Old defect.',
+    scopeRelationship: 'pre-existing',
+    releaseImpact: 'not-release-blocking',
+    evidenceConfidence: 'confirmed',
+  }, config)
+  const releaseSafetyMinor = classifyFinding({
+    id: 'SAFETY',
+    severity: 'minor',
+    category: 'bug',
+    file: 'src/adjacent.ts',
+    description: 'Release safety requirement.',
+    scopeRelationship: 'pre-existing',
+    releaseImpact: 'required-for-release-safety',
+    evidenceConfidence: 'confirmed',
+  }, config)
+  const uncertain = classifyFinding({
+    id: 'UNCERTAIN',
+    severity: 'major',
+    category: 'bug',
+    file: 'src/adjacent.ts',
+    description: 'Plausible risk.',
+    scopeRelationship: 'unknown',
+    releaseImpact: 'unknown',
+    evidenceConfidence: 'insufficient',
+  }, config)
+  const confirmedImprovement = classifyFinding({
+    id: 'IMPROVEMENT',
+    severity: 'info',
+    category: 'improvement',
+    file: 'src/adjacent.ts',
+    description: 'Confirmed adjacent improvement.',
+    scopeRelationship: 'unknown',
+    releaseImpact: 'not-release-blocking',
+    evidenceConfidence: 'confirmed',
+  }, config)
+  const plausiblePreExistingRisk = classifyFinding({
+    id: 'PLAUSIBLE-OLD',
+    severity: 'major',
+    category: 'bug',
+    file: 'src/adjacent.ts',
+    description: 'Plausible pre-existing risk.',
+    scopeRelationship: 'pre-existing',
+    releaseImpact: 'not-release-blocking',
+    evidenceConfidence: 'plausible',
+  }, config)
+
+  assert.equal(introducedMinor.classification, 'current-pr-blocker')
+  assert.equal(preExistingCritical.classification, 'follow-up')
+  assert.equal(releaseSafetyMinor.classification, 'current-pr-blocker')
+  assert.equal(uncertain.classification, 'spike-candidate')
+  assert.equal(confirmedImprovement.classification, 'follow-up')
+  assert.equal(plausiblePreExistingRisk.classification, 'spike-candidate')
+})
+
 test('harness/infra categories always classify as harness-defect', () => {
-  const packet = classifyFinding(
-    { id: 'H1', severity: 'critical', category: 'harness', description: 'infra broke' },
-    { currentPrPaths: ['src/a.ts'] },
-  )
-  assert.equal(packet.classification, 'harness-defect')
+  for (const category of [
+    'harness',
+    'environment',
+    'credentials',
+    'preflight',
+    'evaluation',
+    'tooling',
+  ]) {
+    const packet = classifyFinding(
+      { id: category, severity: 'critical', category, description: 'infra broke' },
+      { currentPrPaths: ['src/a.ts'] },
+    )
+    assert.equal(packet.classification, 'harness-defect')
+  }
 })
 
 test('deterministic false-positive allowlist wins over severity', () => {
@@ -128,7 +216,7 @@ test('enforced scopeGate surfaces current-PR blockers to the caller', () => {
   assert.ok(blockers.some((p) => p.originFindingId === 'CR-01'))
 })
 
-test('enforced scopeGate keeps repair-scoped registrar fallback visible', () => {
+test('enforced scopeGate routes registrar fallback as a fail-closed harness defect', () => {
   const poison = {
     id: 'poison',
     severity: 'major' as const,
@@ -143,8 +231,9 @@ test('enforced scopeGate keeps repair-scoped registrar fallback visible', () => 
     { scopeGate: 'enforced' },
   )
   assert.equal(report.errors.length, 1)
-  assert.equal(registrarBlockers(report).length, 1)
-  assert.equal(registrarBlockers(report)[0].classification, 'harness-defect')
+  assert.equal(registrarBlockers(report).length, 0)
+  assert.equal(report.harnessDefects[0].classification, 'harness-defect')
+  assert.equal(scopeAwareVerdict('pass', [], [], report), 'fail')
 })
 
 test('findingsMode="off" short-circuits with an empty report — even with input', () => {
@@ -156,6 +245,19 @@ test('findingsMode="off" short-circuits with an empty report — even with input
   assert.deepEqual(report.packets, [])
   assert.deepEqual(report.ticketActions, [])
   assert.deepEqual(report.errors, [])
+
+  const mutable = registerFindings(
+    { candidateSha: 'a'.repeat(40), findings: [] },
+    { findingsMode: 'off' },
+  )
+  mutable.errors.push('mutated')
+  mutable.packets.push(fakePacket('MUTATED', 'follow-up'))
+  const next = registerFindings(
+    { candidateSha: 'b'.repeat(40), findings: [] },
+    { findingsMode: 'off' },
+  )
+  assert.deepEqual(next.errors, [])
+  assert.deepEqual(next.packets, [])
 })
 
 test('historical AWC-194 replay: harness + adjacent findings do not become current-PR blockers', () => {
@@ -216,6 +318,68 @@ test('privacy: sanitization strips bearer tokens, AWS keys, cookies, emails, PHI
   assert.doesNotMatch(packet.sanitizedEvidence, /555-123-4567/)
   assert.doesNotMatch(packet.sanitizedEvidence, /<jane-raw>/)
   assert.doesNotMatch(packet.proposedDisposition, /AKIA[0-9A-Z]{16}/)
+})
+
+test('privacy: sanitization strips credentials and PHI behind quoted JSON keys', () => {
+  const sanitized = sanitizeEvidence(JSON.stringify({
+    password: 'hunter2',
+    api_key: 'super-secret-value',
+    dob: '1980-01-01',
+    mrn: 'MRN-12345',
+  }))
+
+  assert.doesNotMatch(sanitized, /hunter2/)
+  assert.doesNotMatch(sanitized, /super-secret-value/)
+  assert.doesNotMatch(sanitized, /1980-01-01/)
+  assert.doesNotMatch(sanitized, /MRN-12345/)
+})
+
+test('privacy: every persisted and ticket-dispatched field is sanitized', () => {
+  const report = registerFindings({
+    candidateSha: '0'.repeat(40),
+    graderId: 'member_name: John Smith',
+    findings: [{
+      id: 'patient_name=Jane Doe',
+      severity: 'info',
+      category: 'password=hunter2',
+      file: 'api_key=super-secret-value',
+      description:
+        'Patient Alice Jones lives at 123 Main Street on 1980-01-01; api_key=raw-secret.',
+      suggestion: 'password=another-secret',
+      scopeRelationship: 'unknown',
+      releaseImpact: 'unknown',
+      evidenceConfidence: 'insufficient',
+      investigationQuestion: 'Did Alice Jones use token=plain-secret?',
+      exitCriterion: 'Confirm member_name: Alice Jones is removed.',
+    }],
+  }, {
+    currentPrPaths: ['src/current.ts'],
+    findingsMode: 'ticket',
+  })
+  const dir = mkdtempSync(join(tmpdir(), 'mah-249-private-'))
+  const out = join(dir, 'report.json')
+  writeRegistrarReport(report, out)
+  const persisted = readFileSync(out, 'utf8')
+  const externallyVisible = `${persisted}\n${report.ticketActions.map((action) =>
+    `${action.title}\n${action.body}`).join('\n')}`
+
+  for (const secret of [
+    'John Smith',
+    'Jane Doe',
+    'Alice Jones',
+    'hunter2',
+    'super-secret-value',
+    'raw-secret',
+    'another-secret',
+    'plain-secret',
+    '123 Main Street',
+    '1980-01-01',
+  ]) {
+    assert.doesNotMatch(
+      externallyVisible,
+      new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    )
+  }
 })
 
 test('sanitizeEvidence is idempotent (retry/idempotency contract)', () => {
@@ -538,6 +702,55 @@ test('approved ticket dispatch dedupes before create and persists created identi
   assert.equal(duplicate.ticketActions[0].reason, 'duplicate')
 })
 
+test('durable ticket reservation serializes concurrent sprints by fingerprint', async () => {
+  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-reservations-'))
+  const first = ticketReadyReport()
+  const second = ticketReadyReport('OTHER-ID')
+  let creates = 0
+  const issue = fakeLinearTicket()
+  const client = {
+    findByFingerprint: async () => null,
+    createTodo: async () => {
+      creates += 1
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 20))
+      return issue
+    },
+  }
+
+  await Promise.all([
+    dispatchFindingTickets(first, 'team', client, { reservationDirectory }),
+    dispatchFindingTickets(second, 'team', client, { reservationDirectory }),
+  ])
+
+  assert.equal(creates, 1)
+  assert.deepEqual(
+    [first.ticketActions[0].reason, second.ticketActions[0].reason].sort(),
+    ['created', 'duplicate'],
+  )
+})
+
+test('ambiguous Linear failure leaves a pending reservation and never retries creation', async () => {
+  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-pending-'))
+  const first = ticketReadyReport()
+  const second = ticketReadyReport('RETRY-ID')
+  let creates = 0
+  const client = {
+    findByFingerprint: async () => null,
+    createTodo: async () => {
+      creates += 1
+      throw new Error('connection lost after request')
+    },
+  }
+
+  await dispatchFindingTickets(first, 'team', client, { reservationDirectory })
+  await dispatchFindingTickets(second, 'team', client, { reservationDirectory })
+
+  assert.equal(creates, 1)
+  assert.equal(first.ticketActions[0].reason, 'dispatch-failed')
+  assert.equal(second.ticketActions[0].reason, 'dispatch-failed')
+  assert.match(second.ticketActions[0].error ?? '', /reconcile it with Linear/)
+})
+
 test('ticket dispatch failure stays outside scope-review completeness', async () => {
   const results = [{
     graderId: 'code',
@@ -622,13 +835,185 @@ test('ticket builder skips current-pr-blockers and false-positives', () => {
   assert.deepEqual(originIds, ['pkt-P2', 'pkt-P4'])
 })
 
+test('scope-aware round replays cumulative multi-commit output through routing and persistence', async () => {
+  const repo = initGitFixture()
+  const baselineSha = gitSha(repo)
+  commitFile(repo, 'src/first.ts', 'first\n', 'candidate first')
+  commitFile(repo, 'src/second.ts', 'second\n', 'candidate second')
+  const candidateSha = gitSha(repo)
+  const reportPath = join(repo, '.mah', 'replay', 'findings.json')
+  const failures: import('./types.js').DeliveryFailure[] = []
+  let ticketCalls = 0
+
+  const result = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha,
+    candidateSha,
+    graderResults: [{
+      graderId: 'code',
+      graderType: 'code-review',
+      graderName: 'Code',
+      verdict: 'fail',
+      summary: 'Mixed findings.',
+      model: 'fixture',
+      durationMs: 0,
+      costEstimate: 0,
+      executionStatus: 'completed',
+      findings: [
+        {
+          id: 'FIRST',
+          severity: 'minor',
+          category: 'bug',
+          file: 'src/first.ts',
+          description: 'Regression in the first candidate commit.',
+          scopeRelationship: 'introduced',
+          releaseImpact: 'not-release-blocking',
+          evidenceConfidence: 'confirmed',
+        },
+        {
+          id: 'ADJACENT',
+          severity: 'critical',
+          category: 'bug',
+          file: 'src/old.ts',
+          description: 'Pre-existing adjacent issue.',
+          scopeRelationship: 'pre-existing',
+          releaseImpact: 'not-release-blocking',
+          evidenceConfidence: 'confirmed',
+        },
+      ],
+    }],
+    failures,
+    originalVerdict: 'fail',
+    config: {
+      scopeGate: 'enforced',
+      findingsMode: 'report',
+      ticketDispatchEnabled: false,
+    },
+    scopeStage: 'replay-scope',
+    reportPath,
+    ticketClient: {
+      findByFingerprint: async () => {
+        ticketCalls += 1
+        throw new Error('report replay must not query Linear')
+      },
+      createTodo: async () => {
+        ticketCalls += 1
+        throw new Error('report replay must not mutate Linear')
+      },
+    },
+  })
+
+  assert.deepEqual(result.currentPrPaths, ['src/first.ts', 'src/second.ts'])
+  assert.equal(result.report.currentBlockers[0].originFindingId, 'FIRST')
+  assert.equal(result.report.adjacent[0].originFindingId, 'ADJACENT')
+  assert.equal(result.verdict, 'fail')
+  assert.equal(ticketCalls, 0)
+  assert.ok(existsSync(reportPath))
+})
+
+test('scope-aware round fails closed for harness defects and skips scope when findings are off', async () => {
+  const repo = initGitFixture()
+  const baselineSha = gitSha(repo)
+  commitFile(repo, 'src/current.ts', 'candidate\n', 'candidate')
+  const candidateSha = gitSha(repo)
+  const harnessFailures: import('./types.js').DeliveryFailure[] = []
+  const graderResults = [{
+    graderId: 'ux',
+    graderType: 'ux',
+    graderName: 'UX',
+    verdict: 'fail' as const,
+    summary: 'Harness issue.',
+    model: 'fixture',
+    durationMs: 0,
+    costEstimate: 0,
+    executionStatus: 'completed' as const,
+    findings: [{
+      id: 'ENV',
+      severity: 'critical' as const,
+      category: 'environment',
+      description: 'Browser credentials were unavailable.',
+      scopeRelationship: 'unknown' as const,
+      releaseImpact: 'unknown' as const,
+      evidenceConfidence: 'confirmed' as const,
+    }],
+  }]
+
+  const enforced = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha,
+    candidateSha,
+    graderResults,
+    failures: harnessFailures,
+    originalVerdict: 'fail',
+    config: {
+      scopeGate: 'enforced',
+      findingsMode: 'report',
+      ticketDispatchEnabled: false,
+    },
+    scopeStage: 'enforced-harness',
+  })
+  assert.equal(enforced.verdict, 'fail')
+  assert.equal(enforced.report.harnessDefects.length, 1)
+  assert.equal(harnessFailures[0].stage, 'findings-registrar')
+
+  const offFailures: import('./types.js').DeliveryFailure[] = []
+  const off = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha: undefined,
+    candidateSha,
+    graderResults,
+    failures: offFailures,
+    originalVerdict: 'pass',
+    config: {
+      scopeGate: 'enforced',
+      findingsMode: 'off',
+      ticketDispatchEnabled: false,
+    },
+    scopeStage: 'off-scope',
+  })
+  assert.equal(off.verdict, 'pass')
+  assert.deepEqual(offFailures, [])
+})
+
+test('advisory scope discovery errors are reported without changing delivery', async () => {
+  const repo = initGitFixture()
+  const candidateSha = gitSha(repo)
+  const failures: import('./types.js').DeliveryFailure[] = []
+
+  const result = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha: undefined,
+    candidateSha,
+    graderResults: [],
+    failures,
+    originalVerdict: 'pass',
+    config: {
+      scopeGate: 'advisory',
+      findingsMode: 'report',
+      ticketDispatchEnabled: false,
+    },
+    scopeStage: 'advisory-scope',
+  })
+
+  assert.equal(result.verdict, 'pass')
+  assert.equal(result.report.reviewComplete, false)
+  assert.match(result.report.errors.join('\n'), /Scope review incomplete/)
+  assert.deepEqual(failures, [])
+})
+
 function fakePacket(id: string, classification: FindingPacket['classification']): FindingPacket {
   return {
     packetId: `pkt-${id}`,
     candidateSha: '0'.repeat(40),
     classification,
     severity: 'major',
-    scopeProvenance: { reason: 'test', inRepairScope: classification === 'current-pr-blocker' },
+    scopeProvenance: {
+      reason: 'test',
+      inRepairScope: classification === 'current-pr-blocker',
+      relationship: 'unknown',
+      releaseImpact: 'unknown',
+      evidenceConfidence: 'confirmed',
+    },
     sanitizedEvidence: 'evidence',
     risk: 'risk',
     reproduction: 'repro',
@@ -640,4 +1025,61 @@ function fakePacket(id: string, classification: FindingPacket['classification'])
     originFindingId: id,
     createdAt: 'awc249-fake',
   }
+}
+
+function ticketReadyReport(id = 'F'): ReturnType<typeof registerFindings> {
+  return registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [{
+      id,
+      severity: 'minor',
+      category: 'bug',
+      file: 'adjacent.ts',
+      description: 'same durable root cause',
+      scopeRelationship: 'pre-existing',
+      releaseImpact: 'not-release-blocking',
+      evidenceConfidence: 'confirmed',
+    }],
+  }, {
+    currentPrPaths: ['current.ts'],
+    findingsMode: 'ticket',
+    ticketDispatchEnabled: true,
+  })
+}
+
+function fakeLinearTicket(): LinearTicket {
+  return {
+    id: 'uuid',
+    identifier: 'AWC-999',
+    title: 't',
+    description: 'd',
+    state: { name: 'Todo', type: 'unstarted' },
+    team: { key: 'AWC', id: 'team' },
+    branchName: '',
+    url: 'https://linear.app/issue/AWC-999',
+  }
+}
+
+function initGitFixture(): string {
+  const repo = mkdtempSync(join(tmpdir(), 'mah-249-round-'))
+  execFileSync('git', ['init', '-q'], { cwd: repo })
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo })
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo })
+  commitFile(repo, 'baseline.txt', 'baseline\n', 'baseline')
+  return repo
+}
+
+function commitFile(repo: string, path: string, contents: string, message: string): void {
+  const absolute = join(repo, path)
+  mkdirSync(dirname(absolute), { recursive: true })
+  writeFileSync(absolute, contents)
+  execFileSync('git', ['add', path], { cwd: repo })
+  execFileSync('git', ['commit', '-q', '-m', message], { cwd: repo })
+}
+
+function gitSha(repo: string): string {
+  return execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repo,
+    encoding: 'utf8',
+  }).trim()
 }

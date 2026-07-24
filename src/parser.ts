@@ -17,6 +17,11 @@ const VERDICT_PATTERNS = [
 //   **P1:** description
 //   - P2: description
 const DEFECT_LINE_RE = /(?:\*\*)?(?:[-\s]*)?(P[0-3])(?:-(\d+))?(?:\*\*)?\s*[:–—]\s*(.+)/i
+const SCOPE_RE = /^\s+Scope(?:\s+relationship)?\s*:\s*(introduced|worsened|activated|pre-existing|unknown)\s*$/i
+const RELEASE_RE = /^\s+Release\s+impact\s*:\s*(required-for-release-safety|not-release-blocking|unknown)\s*$/i
+const CONFIDENCE_RE = /^\s+Evidence\s+confidence\s*:\s*(confirmed|plausible|insufficient)\s*$/i
+const INVESTIGATION_RE = /^\s+Investigation\s+question\s*:\s*(.+)\s*$/i
+const EXIT_RE = /^\s+Exit\s+criterion\s*:\s*(.+)\s*$/i
 
 export function parseQAReport(output: string): QAReport {
   const verdict = detectVerdict(output)
@@ -43,8 +48,35 @@ export function parseDefects(output: string): Defect[] {
   const defects: Defect[] = []
   const lines = output.split('\n')
   const counters: Record<string, number> = {}
+  let lastDefect: Defect | undefined
 
   for (const line of lines) {
+    const scopeMatch = line.match(SCOPE_RE)
+    if (scopeMatch && lastDefect) {
+      lastDefect.scopeRelationship = scopeMatch[1].toLowerCase() as NonNullable<Defect['scopeRelationship']>
+      continue
+    }
+    const releaseMatch = line.match(RELEASE_RE)
+    if (releaseMatch && lastDefect) {
+      lastDefect.releaseImpact = releaseMatch[1].toLowerCase() as NonNullable<Defect['releaseImpact']>
+      continue
+    }
+    const confidenceMatch = line.match(CONFIDENCE_RE)
+    if (confidenceMatch && lastDefect) {
+      lastDefect.evidenceConfidence = confidenceMatch[1].toLowerCase() as NonNullable<Defect['evidenceConfidence']>
+      continue
+    }
+    const investigationMatch = line.match(INVESTIGATION_RE)
+    if (investigationMatch && lastDefect) {
+      lastDefect.investigationQuestion = investigationMatch[1].trim()
+      continue
+    }
+    const exitMatch = line.match(EXIT_RE)
+    if (exitMatch && lastDefect) {
+      lastDefect.exitCriterion = exitMatch[1].trim()
+      continue
+    }
+
     const m = line.match(DEFECT_LINE_RE)
     if (!m) continue
 
@@ -58,7 +90,8 @@ export function parseDefects(output: string): Defect[] {
     const seq = counters[severityRaw].toString().padStart(2, '0')
     const id = m[2] ? `${m[1].toUpperCase()}-${m[2]}` : `${m[1].toUpperCase()}-${seq}`
 
-    defects.push({ id, severity: severityRaw, description, fixed: false })
+    lastDefect = { id, severity: severityRaw, description, fixed: false }
+    defects.push(lastDefect)
   }
 
   return defects

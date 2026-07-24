@@ -10,7 +10,10 @@
       "file": "src/probe.ts",
       "line": 1,
       "description": "Config leaks Authorization: Bearer sk-testtesttesttesttesttest AND cookie: session=abc123 AND email fake@example.com AND phone 555-123-4567. <jane-raw>PHI DOB: 1980-01-01</jane-raw>",
-      "suggestion": "Rotate token AKIAABCDEFGHIJKLMNOP immediately."
+      "suggestion": "Rotate token AKIAABCDEFGHIJKLMNOP immediately.",
+      "scopeRelationship": "introduced",
+      "releaseImpact": "required-for-release-safety",
+      "evidenceConfidence": "confirmed"
     }
   ]
 }

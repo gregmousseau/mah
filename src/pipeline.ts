@@ -21,17 +21,12 @@ import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import {
-  safeRegisterFindings,
-  writeRegistrarReport,
-} from './registrar/registrar.js'
-import {
   repairScopedGraderResults,
-  scopeAwareVerdict,
 } from './registrar/routing.js'
+import { processScopeAwareFindingRound } from './registrar/round.js'
 import {
   buildConsolidatedRepairBrief,
   canResumeQAWithPinnedCandidate,
-  changedPathsForCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   failedGraderResult,
@@ -53,10 +48,10 @@ import type {
   GraderResult,
   AgentResult,
 } from './types.js'
-import { dispatchFindingTickets } from './registrar/dispatch.js'
 
 export {
   repairScopedGraderResults,
+  registrarHarnessFailures,
   scopeAwareVerdict,
 } from './registrar/routing.js'
 
@@ -268,6 +263,13 @@ export async function runSprint(
   let crashError: Error | null = null
   try {
   await preflightAdapter(generatorAdapter, config.agents.generator)
+  if (config.findings?.findingsMode !== 'off' && !contract.scopeBaselineSha) {
+    contract.scopeBaselineSha = inspectDeliveryPreflight(
+      config.agents.generator.cwd ?? contract.devBrief.repo,
+      { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+    ).identity.candidateSha
+    saveContract(contract, sprintDir)
+  }
   events.log('moe', 'milestone', 'preflight',
     `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
@@ -434,6 +436,11 @@ export async function runSprint(
             severity: severityMap(d.severity),
             category: 'ux',
             description: d.description,
+            scopeRelationship: d.scopeRelationship,
+            releaseImpact: d.releaseImpact,
+            evidenceConfidence: d.evidenceConfidence,
+            investigationQuestion: d.investigationQuestion,
+            exitCriterion: d.exitCriterion,
           })),
           summary: qaReport.summary,
           model: qaResult.model ?? grader.agent.model,
@@ -523,48 +530,30 @@ export async function runSprint(
 
     // Extract QA defects from UX grader result (for backward compat)
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const findingsConfig = config.findings ?? {
+    const findingsConfig = {
+      ...(config.findings ?? {
       scopeGate: 'advisory' as const,
       findingsMode: 'report' as const,
       ticketDispatchEnabled: false,
       currentPrPaths: [],
+      }),
+      currentPrPaths: [...(config.findings?.currentPrPaths ?? [])],
     }
-    let scopeReviewError: string | undefined
-    if (candidateIdentity) {
-      try {
-        findingsConfig.currentPrPaths = changedPathsForCandidate(
-          config.agents.generator.cwd ?? contract.devBrief.repo,
-          candidateIdentity.candidateSha,
-        )
-      } catch (error) {
-        const failure = classifyDeliveryError(error, `findings-scope-r${round}`)
-        delivery.failures.push(failure)
-        scopeReviewError = failure.message
-        aggregateVerdict = 'fail'
-      }
-    }
-    const findingsReport = candidateIdentity
-      ? safeRegisterFindings(
-        {
-          candidateSha: candidateIdentity.candidateSha,
-          findingInputs: graderResults.flatMap((result) =>
-            result.findings.map((finding) => ({ finding, graderId: result.graderId }))),
-        },
-        findingsConfig,
-      )
+    const findingsRound = candidateIdentity
+      ? await processScopeAwareFindingRound({
+        repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+        baselineSha: contract.scopeBaselineSha,
+        candidateSha: candidateIdentity.candidateSha,
+        graderResults,
+        failures: delivery.failures,
+        originalVerdict: aggregateVerdict,
+        config: findingsConfig,
+        scopeStage: `findings-scope-r${round}`,
+        reportPath: join(sprintDir, contract.id, `findings-r${round}.json`),
+      })
       : undefined
-    if (findingsReport) {
-      if (scopeReviewError) {
-        findingsReport.reviewComplete = false
-        findingsReport.errors.push(`Scope review incomplete: ${scopeReviewError}`)
-      }
-      aggregateVerdict = scopeAwareVerdict(aggregateVerdict, graderResults, delivery.failures, findingsReport)
-      await dispatchFindingTickets(findingsReport, findingsConfig.ticketTeamId)
-      writeRegistrarReport(
-        findingsReport,
-        join(sprintDir, contract.id, `findings-r${round}.json`),
-      )
-    }
+    const findingsReport = findingsRound?.report
+    if (findingsRound) aggregateVerdict = findingsRound.verdict
     const qaDefects = materialGraderFindings(
       repairScopedGraderResults(graderResults, findingsReport),
     ).map(f => ({
@@ -794,6 +783,18 @@ export async function runExistingContract(
   let crashError: Error | null = null
   try {
   await preflightAdapter(generatorAdapter, config.agents.generator)
+  if (
+    config.findings?.findingsMode !== 'off'
+    && !contract.scopeBaselineSha
+    && !previousTranscript?.phases.some((phase) => phase.phase === 'dev')
+    && contract.iterations.length === 0
+  ) {
+    contract.scopeBaselineSha = inspectDeliveryPreflight(
+      config.agents.generator.cwd ?? contract.devBrief.repo,
+      { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+    ).identity.candidateSha
+    saveContractDirect(contract, sprintFullPath)
+  }
   events.log('moe', 'milestone', 'preflight',
     `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
@@ -1008,6 +1009,11 @@ export async function runExistingContract(
             severity: severityMap(d.severity),
             category: 'ux',
             description: d.description,
+            scopeRelationship: d.scopeRelationship,
+            releaseImpact: d.releaseImpact,
+            evidenceConfidence: d.evidenceConfidence,
+            investigationQuestion: d.investigationQuestion,
+            exitCriterion: d.exitCriterion,
           })),
           summary: qaReport.summary,
           model: qaResult.model ?? grader.agent.model,
@@ -1093,48 +1099,30 @@ export async function runExistingContract(
     let aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const findingsConfig = config.findings ?? {
+    const findingsConfig = {
+      ...(config.findings ?? {
       scopeGate: 'advisory' as const,
       findingsMode: 'report' as const,
       ticketDispatchEnabled: false,
       currentPrPaths: [],
+      }),
+      currentPrPaths: [...(config.findings?.currentPrPaths ?? [])],
     }
-    let scopeReviewError: string | undefined
-    if (candidateIdentity) {
-      try {
-        findingsConfig.currentPrPaths = changedPathsForCandidate(
-          config.agents.generator.cwd ?? contract.devBrief.repo,
-          candidateIdentity.candidateSha,
-        )
-      } catch (error) {
-        const failure = classifyDeliveryError(error, `findings-scope-r${round}`)
-        delivery.failures.push(failure)
-        scopeReviewError = failure.message
-        aggregateVerdict = 'fail'
-      }
-    }
-    const findingsReport = candidateIdentity
-      ? safeRegisterFindings(
-        {
-          candidateSha: candidateIdentity.candidateSha,
-          findingInputs: graderResults.flatMap((result) =>
-            result.findings.map((finding) => ({ finding, graderId: result.graderId }))),
-        },
-        findingsConfig,
-      )
+    const findingsRound = candidateIdentity
+      ? await processScopeAwareFindingRound({
+        repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+        baselineSha: contract.scopeBaselineSha,
+        candidateSha: candidateIdentity.candidateSha,
+        graderResults,
+        failures: delivery.failures,
+        originalVerdict: aggregateVerdict,
+        config: findingsConfig,
+        scopeStage: `findings-scope-r${round}`,
+        reportPath: join(sprintFullPath, `findings-r${round}.json`),
+      })
       : undefined
-    if (findingsReport) {
-      if (scopeReviewError) {
-        findingsReport.reviewComplete = false
-        findingsReport.errors.push(`Scope review incomplete: ${scopeReviewError}`)
-      }
-      aggregateVerdict = scopeAwareVerdict(aggregateVerdict, graderResults, delivery.failures, findingsReport)
-      await dispatchFindingTickets(findingsReport, findingsConfig.ticketTeamId)
-      writeRegistrarReport(
-        findingsReport,
-        join(sprintFullPath, `findings-r${round}.json`),
-      )
-    }
+    const findingsReport = findingsRound?.report
+    if (findingsRound) aggregateVerdict = findingsRound.verdict
     const qaDefects = materialGraderFindings(
       repairScopedGraderResults(graderResults, findingsReport),
     ).map(f => ({

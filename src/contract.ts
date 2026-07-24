@@ -3,6 +3,8 @@ import type { SprintContract, ProjectConfig, Grader, Skill } from './types.js'
 import type { ResolvedSkill } from './skills.js'
 import { budgetForContract } from './lib/qaTier.js'
 
+const REPAIR_CONTEXT_MAX_CHARS = 64_000
+
 export function generateContract(
   task: string,
   config: ProjectConfig,
@@ -177,7 +179,17 @@ Provide your QA report in this format:
 
 ## Defects Found
 [List each defect with severity: P0 (critical), P1 (blocker), P2 (major), P3 (minor)]
-Format: **P1-01:** [description]
+Format each defect with all scope fields:
+**P1-01:** [description]
+  Scope relationship: [introduced | worsened | activated | pre-existing | unknown]
+  Release impact: [required-for-release-safety | not-release-blocking | unknown]
+  Evidence confidence: [confirmed | plausible | insufficient]
+  Investigation question: [required when evidence is plausible/insufficient; otherwise omit]
+  Exit criterion: [required when evidence is plausible/insufficient; otherwise omit]
+
+Severity determines urgency. Scope relationship and release impact determine
+whether the defect belongs in this sprint. Do not call a pre-existing issue
+introduced merely because it is severe or appears in a touched file.
 
 ## Recommendation
 [PASS/FAIL with brief reasoning]
@@ -190,6 +202,17 @@ export function contractToDevFixPrompt(
   qaReport: string,
   round: number
 ): string {
+  const boundedDevOutput = boundRepairContext(
+    devOutput,
+    REPAIR_CONTEXT_MAX_CHARS,
+    'previous implementation',
+  )
+  const boundedQAReport = boundRepairContext(
+    qaReport,
+    REPAIR_CONTEXT_MAX_CHARS,
+    'QA report',
+  )
+
   return `You are a software developer. Your previous implementation had QA issues.
 This is fix round ${round}.
 
@@ -197,10 +220,10 @@ This is fix round ${round}.
 ${contract.task}
 
 ## Your Previous Implementation (Round ${round - 1})
-${devOutput}
+${boundedDevOutput}
 
 ## QA Report — Issues Found
-${qaReport}
+${boundedQAReport}
 
 ---
 
@@ -231,6 +254,20 @@ When done, provide an updated completion report:
 [tier: smoke | targeted | full]
 [reason: short justification]
 `
+}
+
+function boundRepairContext(
+  value: string,
+  maxChars: number,
+  label: string,
+): string {
+  if (value.length <= maxChars) return value
+
+  const marker = `\n\n[MAH truncated ${label}: ${value.length - maxChars} characters omitted]\n\n`
+  const available = maxChars - marker.length
+  const headLength = Math.floor(available / 3)
+  const tailLength = available - headLength
+  return value.slice(0, headLength) + marker + value.slice(-tailLength)
 }
 
 export function generateSprintId(): string {

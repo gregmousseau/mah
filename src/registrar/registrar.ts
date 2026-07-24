@@ -19,7 +19,12 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { GraderFinding, GraderResult } from '../types.js'
 import { classifyFinding } from './classify.js'
-import { sanitizeEvidence, sanitizeShortField } from './redact.js'
+import {
+  sanitizeEvidence,
+  sanitizeForPersistence,
+  sanitizeIdentifier,
+  sanitizeShortField,
+} from './redact.js'
 import { buildTicketActions } from './ticket.js'
 import type {
   FindingPacket,
@@ -37,18 +42,26 @@ export const DEFAULT_REGISTRAR_CONFIG: RegistrarConfig = {
   ticketDispatchEnabled: false,
 }
 
-const EMPTY_REPORT_TEMPLATE: Omit<RegistrarReport, 'candidateSha' | 'generatedAt'> = {
-  scopeGate: 'advisory',
-  findingsMode: 'off',
-  ticketDispatchEnabled: false,
-  reviewComplete: false,
-  packets: [],
-  currentBlockers: [],
-  adjacent: [],
-  harnessDefects: [],
-  suppressed: [],
-  ticketActions: [],
-  errors: [],
+function emptyReport(
+  candidateSha: string,
+  generatedAt: string,
+  config: Pick<RegistrarConfig, 'scopeGate' | 'findingsMode' | 'ticketDispatchEnabled'>,
+): RegistrarReport {
+  return {
+    scopeGate: config.scopeGate,
+    findingsMode: config.findingsMode,
+    ticketDispatchEnabled: config.ticketDispatchEnabled,
+    reviewComplete: false,
+    packets: [],
+    currentBlockers: [],
+    adjacent: [],
+    harnessDefects: [],
+    suppressed: [],
+    ticketActions: [],
+    errors: [],
+    candidateSha: sanitizeIdentifier(candidateSha),
+    generatedAt,
+  }
 }
 
 export function registerFindings(
@@ -59,15 +72,7 @@ export function registerFindings(
   const now = deterministicNow(input)
 
   if (config.findingsMode === 'off') {
-    return {
-      ...EMPTY_REPORT_TEMPLATE,
-      scopeGate: config.scopeGate,
-      findingsMode: 'off',
-      ticketDispatchEnabled: config.ticketDispatchEnabled,
-      reviewComplete: false,
-      candidateSha: input.candidateSha,
-      generatedAt: now,
-    }
+    return emptyReport(input.candidateSha, now, { ...config, findingsMode: 'off' })
   }
 
   const packets: FindingPacket[] = []
@@ -83,7 +88,9 @@ export function registerFindings(
       // The finding still surfaces as a synthetic packet flagged as a
       // harness defect so a caller in enforced mode still sees it.
       errors.push(
-        `Registrar failed to classify finding ${finding.id}: ${errorMessage(err)}`,
+        sanitizeEvidence(
+          `Registrar failed to classify finding ${safeFindingId(finding)}: ${errorMessage(err)}`,
+        ),
       )
       packets.push(buildFallbackPacket(finding, input, now, graderId))
     }
@@ -100,11 +107,11 @@ export function registerFindings(
   try {
     ticketActions = buildTicketActions(packets, config)
   } catch (err) {
-    errors.push(`Registrar failed to build ticket actions: ${errorMessage(err)}`)
+    errors.push(sanitizeEvidence(`Registrar failed to build ticket actions: ${errorMessage(err)}`))
   }
 
   return {
-    candidateSha: input.candidateSha,
+    candidateSha: sanitizeIdentifier(input.candidateSha),
     generatedAt: now,
     scopeGate: config.scopeGate,
     findingsMode: config.findingsMode,
@@ -130,16 +137,13 @@ export function safeRegisterFindings(
     return registerFindings(input, configPartial)
   } catch (err) {
     const config = fallbackConfig(configPartial)
-    return {
-      ...EMPTY_REPORT_TEMPLATE,
-      scopeGate: config.scopeGate,
-      findingsMode: config.findingsMode,
-      ticketDispatchEnabled: config.ticketDispatchEnabled,
-      reviewComplete: false,
-      candidateSha: safeCandidateSha(input),
-      generatedAt: deterministicNow(input),
-      errors: [`Registrar aborted: ${errorMessage(err)}`],
-    }
+    const report = emptyReport(
+      safeCandidateSha(input),
+      deterministicNow(input),
+      config,
+    )
+    report.errors.push(sanitizeEvidence(`Registrar aborted: ${errorMessage(err)}`))
+    return report
   }
 }
 
@@ -155,7 +159,7 @@ export function registerFromGraderResults(
 
 export function writeRegistrarReport(report: RegistrarReport, outPath: string): void {
   mkdirSync(dirname(outPath), { recursive: true })
-  writeFileSync(outPath, JSON.stringify(report, null, 2))
+  writeFileSync(outPath, JSON.stringify(sanitizeForPersistence(report), null, 2))
 }
 
 // A caller in enforced mode uses this to decide whether the registrar
@@ -163,10 +167,7 @@ export function writeRegistrarReport(report: RegistrarReport, outPath: string): 
 // that grader aggregation did not already surface.
 export function registrarBlockers(report: RegistrarReport): FindingPacket[] {
   if (report.scopeGate !== 'enforced') return []
-  // A fallback packet is a harness defect but deliberately remains in
-  // repair scope. Include it here so registrar failure cannot hide a
-  // potentially genuine blocker.
-  return report.packets.filter((packet) => packet.scopeProvenance.inRepairScope)
+  return report.currentBlockers
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────
@@ -220,25 +221,51 @@ function buildPacket(
     ? sanitizeShortField(finding.suggestion)
     : ''
 
+  const candidateSha = sanitizeIdentifier(input.candidateSha)
+  const findingId = sanitizeIdentifier(finding.id)
+  const category = sanitizeShortField(finding.category || 'risk')
+  const reproduction = sanitizeEvidence(reproductionFor(finding))
+  const investigationQuestion = finding.investigationQuestion
+    ? sanitizeEvidence(finding.investigationQuestion)
+    : `Can the reported ${category} be reproduced on candidate ${candidateSha}?`
+  const exitCriterion = finding.exitCriterion
+    ? sanitizeEvidence(finding.exitCriterion)
+    : 'Exit when reproduction is confirmed with implementation-ready scope, or disproved with recorded evidence.'
+  const provenance = {
+    ...classified.provenance,
+    reason: sanitizeEvidence(classified.provenance.reason),
+    ...(classified.provenance.matchedPath
+      ? { matchedPath: sanitizeIdentifier(classified.provenance.matchedPath) }
+      : {}),
+    ...(classified.provenance.sourceGraderId
+      ? { sourceGraderId: sanitizeIdentifier(classified.provenance.sourceGraderId) }
+      : {}),
+  }
+
   const packet: FindingPacket = {
     packetId: packetId(input.candidateSha, finding),
-    candidateSha: input.candidateSha,
+    candidateSha,
     classification: classified.classification,
     severity: finding.severity,
-    scopeProvenance: classified.provenance,
+    scopeProvenance: provenance,
     sanitizedEvidence: evidence,
-    risk: riskFor(finding, classified.classification),
-    reproduction: reproductionFor(finding),
-    proposedDisposition: dispositionFor(classified.classification, suggestion),
-    acceptanceCriteria: acceptanceCriteriaFor(finding, classified.classification),
+    risk: sanitizeEvidence(riskFor(finding, classified.classification)),
+    reproduction,
+    proposedDisposition: sanitizeEvidence(
+      dispositionFor(classified.classification, suggestion),
+    ),
+    acceptanceCriteria: acceptanceCriteriaFor(findingId, classified.classification)
+      .map(sanitizeEvidence),
     dependencies: ['Confirm ownership and dependencies before moving the future-work issue out of Todo.'],
-    testExpectations: [`Add a regression test that fails under the reproduction: ${reproductionFor(finding)}`],
+    testExpectations: [
+      sanitizeEvidence(`Add a regression test that fails under the reproduction: ${reproduction}`),
+    ],
     rolloutOrCleanup: 'Roll out independently of the current PR; remove temporary guards or diagnostics after verification.',
     ...(classified.classification === 'spike-candidate' ? {
-      investigationQuestion: `Can the reported ${finding.category || 'risk'} be reproduced on candidate ${input.candidateSha}?`,
-      exitCriterion: 'Exit when reproduction is confirmed with implementation-ready scope, or disproved with recorded evidence.',
+      investigationQuestion,
+      exitCriterion,
     } : {}),
-    originFindingId: finding.id,
+    originFindingId: findingId,
     createdAt: now,
   }
   return packet
@@ -255,23 +282,26 @@ function buildFallbackPacket(
   // enforced mode without silently dropping a possibly-real blocker.
   return {
     packetId: packetId(input.candidateSha, finding),
-    candidateSha: input.candidateSha,
+    candidateSha: sanitizeIdentifier(input.candidateSha),
     classification: 'harness-defect',
     severity: finding.severity ?? 'major',
     scopeProvenance: {
       reason: 'Registrar classification errored — recording as harness defect.',
-      inRepairScope: true,
-      sourceGraderId: graderId,
+      inRepairScope: false,
+      relationship: 'unknown',
+      releaseImpact: 'unknown',
+      evidenceConfidence: 'insufficient',
+      ...(graderId ? { sourceGraderId: sanitizeIdentifier(graderId) } : {}),
     },
     sanitizedEvidence: sanitizeEvidence(finding.description ?? ''),
     risk: 'Registrar could not classify — treat as material until reviewed.',
-    reproduction: reproductionFor(finding),
+    reproduction: sanitizeEvidence(reproductionFor(finding)),
     proposedDisposition: 'Investigate registrar error and re-run.',
     acceptanceCriteria: ['Registrar completes classification without error and the original finding is dispositioned.'],
     dependencies: ['Registrar or grader infrastructure owner review.'],
     testExpectations: ['Add a regression test for the classification failure.'],
     rolloutOrCleanup: 'Keep delivery fail-closed until classification succeeds.',
-    originFindingId: finding.id ?? 'unknown',
+    originFindingId: sanitizeIdentifier(safeFindingId(finding)),
     createdAt: now,
   }
 }
@@ -293,7 +323,7 @@ function riskFor(
   classification: FindingPacket['classification'],
 ): string {
   if (classification === 'current-pr-blocker') {
-    return `Blocks current PR: ${finding.severity} finding on PR-scoped path.`
+    return `Blocks current PR under scope/release policy (${finding.severity} urgency).`
   }
   if (classification === 'harness-defect') {
     return 'Harness/infra defect — may hide product signal if left unaddressed.'
@@ -333,14 +363,14 @@ function dispositionFor(
 }
 
 function acceptanceCriteriaFor(
-  finding: GraderFinding,
+  findingId: string,
   classification: FindingPacket['classification'],
 ): string[] {
   if (classification === 'spike-candidate') {
     return ['Record evidence answering the bounded investigation question.', 'Choose implementation follow-up or close as disproved.']
   }
   return [
-    `The risk described by finding ${finding.id} is no longer reproducible.`,
+    `The risk described by finding ${findingId} is no longer reproducible.`,
     'Regression coverage passes on the affected component.',
   ]
 }
@@ -354,6 +384,14 @@ function safeCandidateSha(input: RegistrarInput): string {
     return typeof input?.candidateSha === 'string' ? input.candidateSha : '(unknown)'
   } catch {
     return '(unreadable)'
+  }
+}
+
+function safeFindingId(finding: GraderFinding): string {
+  try {
+    return typeof finding?.id === 'string' ? finding.id : 'unknown'
+  } catch {
+    return 'unreadable'
   }
 }
 

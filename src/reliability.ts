@@ -253,20 +253,36 @@ export function inspectDeliveryPreflight(
   return { identity: { candidateSha, dependencyFingerprint }, envFile }
 }
 
-export function changedPathsForCandidate(repoPath: string, candidateSha: string): string[] {
+export function changedPathsForCandidate(
+  repoPath: string,
+  baselineSha: string,
+  candidateSha: string,
+): string[] {
   const requestedRepo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
   try {
+    execFileSync('git', ['rev-parse', '--verify', `${baselineSha}^{commit}`], {
+      cwd: requestedRepo,
+      stdio: 'ignore',
+    })
+    execFileSync('git', ['rev-parse', '--verify', `${candidateSha}^{commit}`], {
+      cwd: requestedRepo,
+      stdio: 'ignore',
+    })
+    execFileSync('git', ['merge-base', '--is-ancestor', baselineSha, candidateSha], {
+      cwd: requestedRepo,
+      stdio: 'ignore',
+    })
     const output = execFileSync(
       'git',
-      ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', candidateSha],
+      ['diff', '--name-only', '--find-renames', baselineSha, candidateSha, '--'],
       { cwd: requestedRepo, encoding: 'utf8' },
     )
     const paths = [...new Set(output.split('\n').map((path) => path.trim()).filter(Boolean))]
-    if (paths.length === 0) throw new Error('candidate diff contains no changed paths')
+    if (paths.length === 0) throw new Error('cumulative candidate diff contains no changed paths')
     return paths
   } catch (error) {
     throw new Error(
-      `Scope evidence unavailable for candidate ${candidateSha}: ${
+      `Scope evidence unavailable for baseline ${baselineSha} and candidate ${candidateSha}: ${
         error instanceof Error ? error.message : String(error)
       }`,
     )
@@ -285,9 +301,11 @@ function isIgnoredHarnessPath(
     '.mah/events',
     '.mah/metrics',
     '.mah/queue',
+    '.mah/registrar',
     '.mah/sprints',
     '.mah/heartbeat.json',
     '.mah/notifications/latest.json',
+    '.tmp/node-compile-cache',
   ]
   const ignored = [repo, requestedRepo, invocationPath]
     .flatMap((base) => ['.env.mah.local', ...runtimePaths].map((candidate) => resolve(base, candidate)))

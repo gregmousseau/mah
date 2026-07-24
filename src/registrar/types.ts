@@ -47,6 +47,9 @@ export interface ScopeProvenance {
   inRepairScope: boolean
   matchedPath?: string
   sourceGraderId?: string
+  relationship: NonNullable<GraderFinding['scopeRelationship']>
+  releaseImpact: NonNullable<GraderFinding['releaseImpact']>
+  evidenceConfidence: NonNullable<GraderFinding['evidenceConfidence']>
 }
 
 export interface FindingPacket {

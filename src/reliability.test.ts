@@ -20,20 +20,27 @@ import {
   verifyDeliveryIdentity,
 } from './reliability.js'
 
-test('candidate scope paths come from the exact pinned commit and fail closed when unavailable', () => {
+test('candidate scope paths are cumulative from the persisted baseline across commits', () => {
   const repo = mkdtempSync(join(tmpdir(), 'mah-scope-'))
   execFileSync('git', ['init'], { cwd: repo })
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo })
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo })
+  writeFileSync(join(repo, 'baseline.txt'), 'baseline\n')
+  execFileSync('git', ['add', 'baseline.txt'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'baseline'], { cwd: repo })
+  const baseline = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
   writeFileSync(join(repo, 'first.ts'), 'one\n')
   execFileSync('git', ['add', 'first.ts'], { cwd: repo })
-  execFileSync('git', ['commit', '-m', 'first'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'candidate one'], { cwd: repo })
   writeFileSync(join(repo, 'second.ts'), 'two\n')
   execFileSync('git', ['add', 'second.ts'], { cwd: repo })
-  execFileSync('git', ['commit', '-m', 'second'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'candidate two'], { cwd: repo })
   const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
-  assert.deepEqual(changedPathsForCandidate(repo, sha), ['second.ts'])
-  assert.throws(() => changedPathsForCandidate(repo, 'not-a-sha'), /Scope evidence unavailable/)
+  assert.deepEqual(changedPathsForCandidate(repo, baseline, sha), ['first.ts', 'second.ts'])
+  assert.throws(
+    () => changedPathsForCandidate(repo, baseline, 'not-a-sha'),
+    /Scope evidence unavailable/,
+  )
 })
 
 const graders: Grader[] = [

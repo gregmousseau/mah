@@ -9,8 +9,13 @@ export function scopeAwareVerdict(
   report: RegistrarReport,
 ): GraderResult['verdict'] {
   if (report.scopeGate !== 'enforced') return original
-  if (!isCompleteScopeReview(results, report)) return original
-  if (failures.length > 0 || registrarBlockers(report).length > 0) return 'fail'
+  if (report.findingsMode === 'off') return original
+  if (!isCompleteScopeReview(results, report)) return 'fail'
+  if (
+    failures.length > 0
+    || registrarBlockers(report).length > 0
+    || report.harnessDefects.length > 0
+  ) return 'fail'
 
   // A non-pass with no finding cannot be proven adjacent, so keep it
   // fail-closed rather than allowing scope classification to erase it.
@@ -18,6 +23,17 @@ export function scopeAwareVerdict(
     return 'fail'
   }
   return 'pass'
+}
+
+export function registrarHarnessFailures(report: RegistrarReport): DeliveryFailure[] {
+  if (report.scopeGate !== 'enforced') return []
+  return report.harnessDefects.map((packet) => ({
+    kind: 'harness',
+    stage: 'findings-registrar',
+    graderId: packet.scopeProvenance.sourceGraderId,
+    message:
+      `${packet.originFindingId}: ${packet.sanitizedEvidence || packet.scopeProvenance.reason}`,
+  }))
 }
 
 export function repairScopedGraderResults(

@@ -8,7 +8,10 @@
       "severity": "critical",
       "category": "harness",
       "file": ".mah/queue/state.json",
-      "description": "Reviewer harness could not spawn — timeout waiting for escalation."
+      "description": "Reviewer harness could not spawn — timeout waiting for escalation.",
+      "scopeRelationship": "unknown",
+      "releaseImpact": "unknown",
+      "evidenceConfidence": "confirmed"
     },
     {
       "id": "AJC-02",
@@ -16,7 +19,10 @@
       "category": "bug-risk",
       "file": "src/adapters/openclaw.ts",
       "line": 120,
-      "description": "Adapter swallows non-zero exit codes silently."
+      "description": "Adapter swallows non-zero exit codes silently.",
+      "scopeRelationship": "pre-existing",
+      "releaseImpact": "not-release-blocking",
+      "evidenceConfidence": "confirmed"
     },
     {
       "id": "FP-03",
@@ -24,7 +30,10 @@
       "category": "style",
       "file": "src/pipeline.ts",
       "line": 55,
-      "description": "Prefer const over let. cookie=<jane-raw>ignore-me</jane-raw>"
+      "description": "Prefer const over let. cookie=<jane-raw>ignore-me</jane-raw>",
+      "scopeRelationship": "pre-existing",
+      "releaseImpact": "not-release-blocking",
+      "evidenceConfidence": "confirmed"
     }
   ]
 }

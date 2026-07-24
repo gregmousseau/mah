@@ -24,7 +24,6 @@ import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } fro
 import { EventLogger } from './events.js'
 import {
   buildConsolidatedRepairBrief,
-  changedPathsForCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   failedGraderResult,
@@ -33,14 +32,9 @@ import {
   verifyDeliveryIdentity,
 } from './reliability.js'
 import {
-  safeRegisterFindings,
-  writeRegistrarReport,
-} from './registrar/registrar.js'
-import { dispatchFindingTickets } from './registrar/dispatch.js'
-import {
   repairScopedGraderResults,
-  scopeAwareVerdict,
 } from './registrar/routing.js'
+import { processScopeAwareFindingRound } from './registrar/round.js'
 import type {
   ProjectConfig,
   SprintContract,
@@ -261,6 +255,13 @@ async function runChainSprint(
   let lastChainPhase = 'pre-dev'
   try {
   await preflightAdapter(generatorAdapter, config.agents.generator)
+  if (config.findings?.findingsMode !== 'off' && !contract.scopeBaselineSha) {
+    contract.scopeBaselineSha = inspectDeliveryPreflight(
+      config.agents.generator.cwd ?? contract.devBrief.repo,
+      { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+    ).identity.candidateSha
+    writeFileSync(join(sprintFullDir, 'contract.json'), JSON.stringify(contract, null, 2))
+  }
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     lastChainPhase = `dev R${round}`
     // Dev phase
@@ -376,6 +377,11 @@ async function runChainSprint(
             severity: chainFindingSeverity(defect.severity),
             category: 'ux',
             description: defect.description,
+            scopeRelationship: defect.scopeRelationship,
+            releaseImpact: defect.releaseImpact,
+            evidenceConfidence: defect.evidenceConfidence,
+            investigationQuestion: defect.investigationQuestion,
+            exitCriterion: defect.exitCriterion,
           })),
           summary: qaReport.summary,
           model: qaResult.model ?? uxGrader.agent.model,
@@ -452,53 +458,30 @@ async function runChainSprint(
       if (failure) deliveryFailures.push(failure)
     }
     let effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : delivery.verdict
-    const findingsConfig = config.findings ?? {
+    const findingsConfig = {
+      ...(config.findings ?? {
       scopeGate: 'advisory' as const,
       findingsMode: 'report' as const,
       ticketDispatchEnabled: false,
       currentPrPaths: [],
+      }),
+      currentPrPaths: [...(config.findings?.currentPrPaths ?? [])],
     }
-    let scopeReviewError: string | undefined
-    if (candidateIdentity) {
-      try {
-        findingsConfig.currentPrPaths = changedPathsForCandidate(
-          config.agents.generator.cwd ?? contract.devBrief.repo,
-          candidateIdentity.candidateSha,
-        )
-      } catch (error) {
-        const failure = classifyDeliveryError(error, `chain-findings-scope-r${round}`)
-        deliveryFailures.push(failure)
-        scopeReviewError = failure.message
-        effectiveVerdict = 'fail'
-      }
-    }
-    const findingsReport = candidateIdentity
-      ? safeRegisterFindings(
-        {
-          candidateSha: candidateIdentity.candidateSha,
-          findingInputs: graderResults.flatMap((result) =>
-            result.findings.map((finding) => ({ finding, graderId: result.graderId }))),
-        },
-        findingsConfig,
-      )
-      : undefined
-    if (findingsReport) {
-      if (scopeReviewError) {
-        findingsReport.reviewComplete = false
-        findingsReport.errors.push(`Scope review incomplete: ${scopeReviewError}`)
-      }
-      effectiveVerdict = scopeAwareVerdict(
-        effectiveVerdict,
+    const findingsRound = candidateIdentity
+      ? await processScopeAwareFindingRound({
+        repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+        baselineSha: contract.scopeBaselineSha,
+        candidateSha: candidateIdentity.candidateSha,
         graderResults,
-        deliveryFailures,
-        findingsReport,
-      )
-      await dispatchFindingTickets(findingsReport, findingsConfig.ticketTeamId)
-      writeRegistrarReport(
-        findingsReport,
-        join(sprintFullDir, `findings-r${round}.json`),
-      )
-    }
+        failures: deliveryFailures,
+        originalVerdict: effectiveVerdict,
+        config: findingsConfig,
+        scopeStage: `chain-findings-scope-r${round}`,
+        reportPath: join(sprintFullDir, `findings-r${round}.json`),
+      })
+      : undefined
+    const findingsReport = findingsRound?.report
+    if (findingsRound) effectiveVerdict = findingsRound.verdict
     const repairResults = repairScopedGraderResults(graderResults, findingsReport)
     const qaDuration = qaResult ? formatDuration(qaResult.timing.durationMs) : 'no UX grader'
     events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)

@@ -55,6 +55,11 @@ Respond ONLY with a code review report in this exact format:
 [List each critical finding as:]
 - [CR-XX] file.ext:line — description (Category)
   Suggestion: how to fix it
+  Scope relationship: introduced | worsened | activated | pre-existing | unknown
+  Release impact: required-for-release-safety | not-release-blocking | unknown
+  Evidence confidence: confirmed | plausible | insufficient
+  Investigation question: required when evidence is plausible/insufficient
+  Exit criterion: required when evidence is plausible/insufficient
 
 [If none, write: - None]
 
@@ -62,6 +67,11 @@ Respond ONLY with a code review report in this exact format:
 [List each major finding as:]
 - [CR-XX] file.ext:line — description (Category)
   Suggestion: how to fix it
+  Scope relationship: introduced | worsened | activated | pre-existing | unknown
+  Release impact: required-for-release-safety | not-release-blocking | unknown
+  Evidence confidence: confirmed | plausible | insufficient
+  Investigation question: required when evidence is plausible/insufficient
+  Exit criterion: required when evidence is plausible/insufficient
 
 [If none, write: - None]
 
@@ -69,12 +79,22 @@ Respond ONLY with a code review report in this exact format:
 [List each minor finding as:]
 - [CR-XX] file.ext:line — description (Category)
   Suggestion: how to fix it
+  Scope relationship: introduced | worsened | activated | pre-existing | unknown
+  Release impact: required-for-release-safety | not-release-blocking | unknown
+  Evidence confidence: confirmed | plausible | insufficient
+  Investigation question: required when evidence is plausible/insufficient
+  Exit criterion: required when evidence is plausible/insufficient
 
 [If none, write: - None]
 
 ### Info
 [List observations or positive notes as:]
 - [CR-XX] description
+  Scope relationship: introduced | worsened | activated | pre-existing | unknown
+  Release impact: required-for-release-safety | not-release-blocking | unknown
+  Evidence confidence: confirmed | plausible | insufficient
+  Investigation question: required when evidence is plausible/insufficient
+  Exit criterion: required when evidence is plausible/insufficient
 
 [If none, write: - None]
 
@@ -82,6 +102,10 @@ Respond ONLY with a code review report in this exact format:
 - Any Critical finding → **FAIL**
 - Any Major finding (no Critical) → **CONDITIONAL**
 - Only Minor/Info findings → **PASS**
+
+Severity determines urgency. Scope relationship and release impact determine
+whether a finding belongs in the current delivery. Do not infer candidate
+causation from severity or from the file merely being touched.
 `
 }
 
@@ -91,6 +115,11 @@ Respond ONLY with a code review report in this exact format:
 const FINDING_LINE_RE = /^[-\s]*\[CR-(\d+)\]\s*([^—–\n]+?)(?:\s*[—–]\s*(.+?))?(?:\s*\(([^)]+)\))?\s*$/
 // Matches: Suggestion: ...
 const SUGGESTION_RE = /^\s+Suggestion:\s*(.+)$/
+const SCOPE_RE = /^\s+Scope(?:\s+relationship)?\s*:\s*(introduced|worsened|activated|pre-existing|unknown)\s*$/i
+const RELEASE_RE = /^\s+Release\s+impact\s*:\s*(required-for-release-safety|not-release-blocking|unknown)\s*$/i
+const CONFIDENCE_RE = /^\s+Evidence\s+confidence\s*:\s*(confirmed|plausible|insufficient)\s*$/i
+const INVESTIGATION_RE = /^\s+Investigation\s+question\s*:\s*(.+)\s*$/i
+const EXIT_RE = /^\s+Exit\s+criterion\s*:\s*(.+)\s*$/i
 
 export function parseCodeReviewResult(
   output: string,
@@ -170,6 +199,31 @@ function parseFindings(output: string): GraderFinding[] {
     const suggestionMatch = line.match(SUGGESTION_RE)
     if (suggestionMatch && lastFinding) {
       lastFinding.suggestion = suggestionMatch[1].trim()
+      continue
+    }
+    const scopeMatch = line.match(SCOPE_RE)
+    if (scopeMatch && lastFinding) {
+      lastFinding.scopeRelationship = scopeMatch[1].toLowerCase() as NonNullable<GraderFinding['scopeRelationship']>
+      continue
+    }
+    const releaseMatch = line.match(RELEASE_RE)
+    if (releaseMatch && lastFinding) {
+      lastFinding.releaseImpact = releaseMatch[1].toLowerCase() as NonNullable<GraderFinding['releaseImpact']>
+      continue
+    }
+    const confidenceMatch = line.match(CONFIDENCE_RE)
+    if (confidenceMatch && lastFinding) {
+      lastFinding.evidenceConfidence = confidenceMatch[1].toLowerCase() as NonNullable<GraderFinding['evidenceConfidence']>
+      continue
+    }
+    const investigationMatch = line.match(INVESTIGATION_RE)
+    if (investigationMatch && lastFinding) {
+      lastFinding.investigationQuestion = investigationMatch[1].trim()
+      continue
+    }
+    const exitMatch = line.match(EXIT_RE)
+    if (exitMatch && lastFinding) {
+      lastFinding.exitCriterion = exitMatch[1].trim()
       continue
     }
 
