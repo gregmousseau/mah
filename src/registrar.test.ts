@@ -7,6 +7,9 @@ import type { GraderFinding } from './types.js'
 import { classifyFinding } from './registrar/classify.js'
 import { sanitizeEvidence } from './registrar/redact.js'
 import { buildTicketActions, ticketFingerprint } from './registrar/ticket.js'
+import { dispatchFindingTickets } from './registrar/dispatch.js'
+import type { LinearTicket } from './integrations/linear.js'
+import { scopeAwareVerdict } from './pipeline.js'
 import {
   DEFAULT_REGISTRAR_CONFIG,
   registerFindings,
@@ -362,6 +365,86 @@ test('registerFromGraderResults wraps a grader-shaped result set into the regist
   assert.equal(report.packets[0].classification, 'current-pr-blocker')
 })
 
+test('multi-grader registration preserves each finding source', () => {
+  const base = {
+    graderType: 'custom', graderName: 'g', verdict: 'fail' as const,
+    summary: 's', model: 'm', durationMs: 0, costEstimate: 0,
+  }
+  const report = registerFromGraderResults('0'.repeat(40), [
+    { ...base, graderId: 'one', findings: [{ id: 'A', severity: 'minor', category: 'bug', file: 'a', description: 'a' }] },
+    { ...base, graderId: 'two', findings: [{ id: 'B', severity: 'minor', category: 'bug', file: 'b', description: 'b' }] },
+  ], { currentPrPaths: ['z'] })
+  assert.deepEqual(report.packets.map((packet) => packet.scopeProvenance.sourceGraderId), ['one', 'two'])
+})
+
+test('enforced scope preserves non-pass when registration is off, errored, or incomplete', () => {
+  const result = {
+    graderId: 'code', graderType: 'code-review', graderName: 'Code', verdict: 'fail' as const,
+    summary: 'blocked', model: 'm', durationMs: 0, costEstimate: 0,
+    findings: [{ id: 'B', severity: 'major' as const, category: 'bug', file: 'src/a.ts', description: 'blocker' }],
+  }
+  const off = registerFindings(
+    { candidateSha: '0'.repeat(40), findings: result.findings },
+    { scopeGate: 'enforced', findingsMode: 'off' },
+  )
+  assert.equal(scopeAwareVerdict('fail', [result], [], off), 'fail')
+  const errored = { ...off, findingsMode: 'report' as const, errors: ['aborted'] }
+  assert.equal(scopeAwareVerdict('fail', [result], [], errored), 'fail')
+})
+
+test('fingerprints merge equivalent root causes across IDs and separate unrelated evidence', () => {
+  const a = fakePacket('ID-A', 'follow-up')
+  const b = { ...fakePacket('ID-B', 'follow-up'), originFindingId: 'different-id' }
+  const c = { ...fakePacket('ID-A', 'follow-up'), sanitizedEvidence: 'unrelated root cause' }
+  assert.equal(ticketFingerprint(a), ticketFingerprint(b))
+  assert.notEqual(ticketFingerprint(a), ticketFingerprint(c))
+})
+
+test('spike packets and ticket bodies contain bounded planning fields', () => {
+  const report = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [{ id: 'S', severity: 'info', category: 'spike', file: 'adjacent.ts', description: 'uncertain risk' }],
+  }, { currentPrPaths: ['current.ts'], findingsMode: 'ticket' })
+  const packet = report.packets[0]
+  assert.ok(packet.investigationQuestion)
+  assert.ok(packet.exitCriterion)
+  assert.match(report.ticketActions[0].body, /Acceptance criteria:/)
+  assert.match(report.ticketActions[0].body, /Dependencies:/)
+  assert.match(report.ticketActions[0].body, /Test expectations:/)
+  assert.match(report.ticketActions[0].body, /Rollout \/ cleanup:/)
+})
+
+test('approved ticket dispatch dedupes before create and persists created identity', async () => {
+  const report = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [{ id: 'F', severity: 'minor', category: 'bug', file: 'adjacent.ts', description: 'root cause' }],
+  }, { currentPrPaths: ['current.ts'], findingsMode: 'ticket', ticketDispatchEnabled: true })
+  let creates = 0
+  const issue = {
+    id: 'uuid', identifier: 'AWC-999', title: 't', description: 'd',
+    state: { name: 'Todo', type: 'unstarted' }, team: { key: 'AWC', id: 'team' },
+    branchName: '', url: 'https://linear.app/issue/AWC-999',
+  } satisfies LinearTicket
+  await dispatchFindingTickets(report, 'team', {
+    findByFingerprint: async () => null,
+    createTodo: async () => { creates += 1; return issue },
+  })
+  assert.equal(creates, 1)
+  assert.equal(report.ticketActions[0].dispatched, true)
+  assert.equal(report.ticketActions[0].reason, 'created')
+  assert.equal(report.ticketActions[0].issueIdentifier, 'AWC-999')
+
+  const duplicate = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [{ id: 'OTHER', severity: 'minor', category: 'bug', file: 'adjacent.ts', description: 'root cause' }],
+  }, { currentPrPaths: ['current.ts'], findingsMode: 'ticket', ticketDispatchEnabled: true })
+  await dispatchFindingTickets(duplicate, 'team', {
+    findByFingerprint: async () => issue,
+    createTodo: async () => { throw new Error('must not create') },
+  })
+  assert.equal(duplicate.ticketActions[0].reason, 'duplicate')
+})
+
 test('ticket mode with dispatch disabled marks every action as shadow-only, never ready', () => {
   const fixture = readFixture('awc-241-scope')
   const report = registerFindings(
@@ -401,6 +484,7 @@ test('ticket builder skips current-pr-blockers and false-positives', () => {
     fakePacket('P2', 'follow-up'),
     fakePacket('P3', 'false-positive'),
     fakePacket('P4', 'spike-candidate'),
+    fakePacket('P5', 'harness-defect'),
   ]
   const actions = buildTicketActions(packets, { findingsMode: 'ticket', ticketDispatchEnabled: false })
   const originIds = actions.map((a) => a.packetId).sort()
@@ -418,6 +502,10 @@ function fakePacket(id: string, classification: FindingPacket['classification'])
     risk: 'risk',
     reproduction: 'repro',
     proposedDisposition: 'disposition',
+    acceptanceCriteria: ['fixed'],
+    dependencies: ['none'],
+    testExpectations: ['regression'],
+    rolloutOrCleanup: 'verify then clean up',
     originFindingId: id,
     createdAt: 'awc249-fake',
   }

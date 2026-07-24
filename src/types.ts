@@ -75,6 +75,7 @@ export interface ProjectConfig {
     findingsMode: 'off' | 'report' | 'ticket'
     ticketDispatchEnabled: boolean
     currentPrPaths: string[]
+    ticketTeamId?: string
   }
   human: {
     notificationChannel: string

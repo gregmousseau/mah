@@ -38,6 +38,8 @@ export interface RegistrarConfig {
   // The registrar never calls listExistingIssues during sprint/tests/
   // canary — the caller must resolve issues out-of-band.
   existingTicketFingerprints?: string[]
+  // Linear team UUID used only after explicit ticket dispatch approval.
+  ticketTeamId?: string
 }
 
 export interface ScopeProvenance {
@@ -57,6 +59,12 @@ export interface FindingPacket {
   risk: string
   reproduction: string
   proposedDisposition: string
+  acceptanceCriteria: string[]
+  dependencies: string[]
+  testExpectations: string[]
+  rolloutOrCleanup: string
+  investigationQuestion?: string
+  exitCriterion?: string
   originFindingId: string
   createdAt: string
 }
@@ -68,17 +76,27 @@ export interface TicketAction {
   body: string
   // Deduped ticket actions are structural only — the registrar builds
   // them but MUST NOT dispatch to Linear during shadow rollout.
-  dispatched: false
-  reason: 'ticket-mode-disabled' | 'duplicate' | 'shadow-only' | 'ready'
+  dispatched: boolean
+  reason: 'ticket-mode-disabled' | 'duplicate' | 'shadow-only' | 'ready' | 'created' | 'dispatch-failed'
   // When ticketDispatchEnabled: true and a real dispatch is later wired
   // in, the created issue MUST be left in Todo.
   targetState: 'Todo'
+  issueId?: string
+  issueIdentifier?: string
+  issueUrl?: string
+  error?: string
+}
+
+export interface RegistrarFindingInput {
+  finding: GraderFinding
+  graderId: string
 }
 
 export interface RegistrarInput {
   candidateSha: string
-  findings: GraderFinding[]
+  findings?: GraderFinding[]
   graderId?: string
+  findingInputs?: RegistrarFindingInput[]
 }
 
 export interface RegistrarReport {

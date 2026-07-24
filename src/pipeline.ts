@@ -28,6 +28,7 @@ import {
 import {
   buildConsolidatedRepairBrief,
   canResumeQAWithPinnedCandidate,
+  changedPathsForCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   failedGraderResult,
@@ -51,6 +52,7 @@ import type {
   AgentResult,
 } from './types.js'
 import type { RegistrarReport } from './registrar/types.js'
+import { dispatchFindingTickets } from './registrar/dispatch.js'
 
 function writeNotification(
   contract: SprintContract,
@@ -527,16 +529,29 @@ export async function runSprint(
       ticketDispatchEnabled: false,
       currentPrPaths: [],
     }
+    if (candidateIdentity) {
+      try {
+        findingsConfig.currentPrPaths = changedPathsForCandidate(
+          config.agents.generator.cwd ?? contract.devBrief.repo,
+          candidateIdentity.candidateSha,
+        )
+      } catch (error) {
+        delivery.failures.push(classifyDeliveryError(error, `findings-scope-r${round}`))
+        aggregateVerdict = 'fail'
+      }
+    }
     const findingsReport = candidateIdentity
       ? safeRegisterFindings(
         {
           candidateSha: candidateIdentity.candidateSha,
-          findings: graderResults.flatMap((result) => result.findings),
+          findingInputs: graderResults.flatMap((result) =>
+            result.findings.map((finding) => ({ finding, graderId: result.graderId }))),
         },
         findingsConfig,
       )
       : undefined
     if (findingsReport) {
+      await dispatchFindingTickets(findingsReport, findingsConfig.ticketTeamId)
       writeRegistrarReport(
         findingsReport,
         join(sprintDir, contract.id, `findings-r${round}.json`),
@@ -1075,16 +1090,29 @@ export async function runExistingContract(
       ticketDispatchEnabled: false,
       currentPrPaths: [],
     }
+    if (candidateIdentity) {
+      try {
+        findingsConfig.currentPrPaths = changedPathsForCandidate(
+          config.agents.generator.cwd ?? contract.devBrief.repo,
+          candidateIdentity.candidateSha,
+        )
+      } catch (error) {
+        delivery.failures.push(classifyDeliveryError(error, `findings-scope-r${round}`))
+        aggregateVerdict = 'fail'
+      }
+    }
     const findingsReport = candidateIdentity
       ? safeRegisterFindings(
         {
           candidateSha: candidateIdentity.candidateSha,
-          findings: graderResults.flatMap((result) => result.findings),
+          findingInputs: graderResults.flatMap((result) =>
+            result.findings.map((finding) => ({ finding, graderId: result.graderId }))),
         },
         findingsConfig,
       )
       : undefined
     if (findingsReport) {
+      await dispatchFindingTickets(findingsReport, findingsConfig.ticketTeamId)
       writeRegistrarReport(
         findingsReport,
         join(sprintFullPath, `findings-r${round}.json`),
@@ -1161,13 +1189,16 @@ export async function runExistingContract(
   return crashError ? { contract, metrics, crashError } : { contract, metrics }
 }
 
-function scopeAwareVerdict(
+export function scopeAwareVerdict(
   original: GraderResult['verdict'],
   results: GraderResult[],
   failures: DeliveryFailure[],
   report: RegistrarReport,
 ): GraderResult['verdict'] {
   if (report.scopeGate !== 'enforced') return original
+  if (report.findingsMode === 'off' || report.errors.length > 0) return original
+  const findingCount = results.reduce((count, result) => count + result.findings.length, 0)
+  if (report.packets.length !== findingCount) return original
   if (failures.length > 0 || registrarBlockers(report).length > 0) return 'fail'
 
   // A non-pass with no finding cannot be proven adjacent, so keep it

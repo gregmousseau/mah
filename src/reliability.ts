@@ -253,6 +253,26 @@ export function inspectDeliveryPreflight(
   return { identity: { candidateSha, dependencyFingerprint }, envFile }
 }
 
+export function changedPathsForCandidate(repoPath: string, candidateSha: string): string[] {
+  const requestedRepo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
+  try {
+    const output = execFileSync(
+      'git',
+      ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', candidateSha],
+      { cwd: requestedRepo, encoding: 'utf8' },
+    )
+    const paths = [...new Set(output.split('\n').map((path) => path.trim()).filter(Boolean))]
+    if (paths.length === 0) throw new Error('candidate diff contains no changed paths')
+    return paths
+  } catch (error) {
+    throw new Error(
+      `Scope evidence unavailable for candidate ${candidateSha}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    )
+  }
+}
+
 function isIgnoredHarnessPath(
   path: string,
   repo: string,

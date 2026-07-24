@@ -9,6 +9,7 @@ import {
   buildConsolidatedRepairBrief,
   buildRepairFeedback,
   canResumeQAWithPinnedCandidate,
+  changedPathsForCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   identityMismatch,
@@ -18,6 +19,22 @@ import {
   restoreRepairFeedback,
   verifyDeliveryIdentity,
 } from './reliability.js'
+
+test('candidate scope paths come from the exact pinned commit and fail closed when unavailable', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'mah-scope-'))
+  execFileSync('git', ['init'], { cwd: repo })
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo })
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo })
+  writeFileSync(join(repo, 'first.ts'), 'one\n')
+  execFileSync('git', ['add', 'first.ts'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'first'], { cwd: repo })
+  writeFileSync(join(repo, 'second.ts'), 'two\n')
+  execFileSync('git', ['add', 'second.ts'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'second'], { cwd: repo })
+  const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
+  assert.deepEqual(changedPathsForCandidate(repo, sha), ['second.ts'])
+  assert.throws(() => changedPathsForCandidate(repo, 'not-a-sha'), /Scope evidence unavailable/)
+})
 
 const graders: Grader[] = [
   { id: 'ux', type: 'ux', name: 'UX', enabled: true, agent: { type: 'openclaw', model: 'x' } },

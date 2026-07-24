@@ -1,9 +1,8 @@
 // AWC-249: Deduped ticket action builder.
 //
 // The registrar can produce ticket actions in "ticket" findings mode.
-// Those actions are structural records only — the registrar MUST NOT
-// dispatch them to Linear during this sprint, its tests, replay
-// fixtures, or the reliability canary.
+// Actions remain structural in shadow mode. An explicitly gated dispatcher
+// performs the mutation after querying Linear for the same fingerprint.
 //
 // A dispatched ticket must:
 //   * be deduped against existingTicketFingerprints
@@ -28,6 +27,7 @@ export function buildTicketActions(
   for (const packet of packets) {
     if (packet.classification === 'current-pr-blocker') continue
     if (packet.classification === 'false-positive') continue
+    if (packet.classification === 'harness-defect') continue
 
     const fingerprint = ticketFingerprint(packet)
     const title = titleFor(packet)
@@ -71,9 +71,10 @@ function pickReason(
 export function ticketFingerprint(packet: FindingPacket): string {
   const key = [
     packet.classification,
-    packet.severity,
-    packet.originFindingId,
-    packet.scopeProvenance.matchedPath ?? '',
+    normalize(packet.scopeProvenance.matchedPath ?? ''),
+    normalize(packet.sanitizedEvidence),
+    normalize(packet.risk),
+    normalize(packet.reproduction),
   ].join('|')
   return `awc249-${createHash('sha256').update(key).digest('hex').slice(0, 16)}`
 }
@@ -82,7 +83,8 @@ function titleFor(packet: FindingPacket): string {
   const scope = packet.scopeProvenance.matchedPath
     ? ` (${packet.scopeProvenance.matchedPath})`
     : ''
-  return `[${packet.classification}] ${packet.originFindingId}${scope}`
+  const summary = packet.sanitizedEvidence.split(/[.\n]/, 1)[0].slice(0, 80)
+  return `[${packet.classification}] ${summary || packet.originFindingId}${scope}`
 }
 
 function bodyFor(packet: FindingPacket): string {
@@ -99,6 +101,26 @@ function bodyFor(packet: FindingPacket): string {
     `Reproduction: ${packet.reproduction}`,
     `Proposed disposition: ${packet.proposedDisposition}`,
     '',
+    'Acceptance criteria:',
+    ...packet.acceptanceCriteria.map((item) => `- ${item}`),
+    '',
+    'Dependencies:',
+    ...packet.dependencies.map((item) => `- ${item}`),
+    '',
+    'Test expectations:',
+    ...packet.testExpectations.map((item) => `- ${item}`),
+    '',
+    `Rollout / cleanup: ${packet.rolloutOrCleanup}`,
+    ...(packet.investigationQuestion
+      ? ['', `Investigation question: ${packet.investigationQuestion}`, `Exit criterion: ${packet.exitCriterion}`]
+      : []),
+    '',
+    `Registrar fingerprint: ${ticketFingerprint(packet)}`,
+    '',
     'Auto-registered by AWC-249 registrar. Leave in Todo — do not auto-sprint.',
   ].join('\n')
+}
+
+function normalize(value: string): string {
+  return value.toLowerCase().replaceAll('\\', '/').replace(/\s+/g, ' ').trim()
 }

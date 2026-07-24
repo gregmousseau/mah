@@ -69,9 +69,11 @@ export function registerFindings(
   const packets: FindingPacket[] = []
   const errors: string[] = []
 
-  for (const finding of input.findings) {
+  const findingInputs = input.findingInputs
+    ?? (input.findings ?? []).map((finding) => ({ finding, graderId: input.graderId }))
+  for (const { finding, graderId } of findingInputs) {
     try {
-      packets.push(buildPacket(finding, input, config, now))
+      packets.push(buildPacket(finding, input, config, now, graderId))
     } catch (err) {
       // I1: never let a per-finding failure hide the rest of the batch.
       // The finding still surfaces as a synthetic packet flagged as a
@@ -79,7 +81,7 @@ export function registerFindings(
       errors.push(
         `Registrar failed to classify finding ${finding.id}: ${errorMessage(err)}`,
       )
-      packets.push(buildFallbackPacket(finding, input, now))
+      packets.push(buildFallbackPacket(finding, input, now, graderId))
     }
   }
 
@@ -136,9 +138,9 @@ export function registerFromGraderResults(
   results: GraderResult[],
   configPartial?: Partial<RegistrarConfig>,
 ): RegistrarReport {
-  const findings = results.flatMap((r) => r.findings)
-  const graderId = results.length === 1 ? results[0].graderId : undefined
-  return safeRegisterFindings({ candidateSha, findings, graderId }, configPartial)
+  const findingInputs = results.flatMap((result) =>
+    result.findings.map((finding) => ({ finding, graderId: result.graderId })))
+  return safeRegisterFindings({ candidateSha, findingInputs }, configPartial)
 }
 
 export function writeRegistrarReport(report: RegistrarReport, outPath: string): void {
@@ -186,8 +188,9 @@ function buildPacket(
   input: RegistrarInput,
   config: RegistrarConfig,
   now: string,
+  graderId?: string,
 ): FindingPacket {
-  const classified = classifyFinding(finding, config, input.graderId)
+  const classified = classifyFinding(finding, config, graderId)
   const evidence = sanitizeEvidence(finding.description ?? '')
   const suggestion = finding.suggestion
     ? sanitizeShortField(finding.suggestion)
@@ -203,6 +206,14 @@ function buildPacket(
     risk: riskFor(finding, classified.classification),
     reproduction: reproductionFor(finding),
     proposedDisposition: dispositionFor(classified.classification, suggestion),
+    acceptanceCriteria: acceptanceCriteriaFor(finding, classified.classification),
+    dependencies: ['Confirm ownership and dependencies before moving the future-work issue out of Todo.'],
+    testExpectations: [`Add a regression test that fails under the reproduction: ${reproductionFor(finding)}`],
+    rolloutOrCleanup: 'Roll out independently of the current PR; remove temporary guards or diagnostics after verification.',
+    ...(classified.classification === 'spike-candidate' ? {
+      investigationQuestion: `Can the reported ${finding.category || 'risk'} be reproduced on candidate ${input.candidateSha}?`,
+      exitCriterion: 'Exit when reproduction is confirmed with implementation-ready scope, or disproved with recorded evidence.',
+    } : {}),
     originFindingId: finding.id,
     createdAt: now,
   }
@@ -213,6 +224,7 @@ function buildFallbackPacket(
   finding: GraderFinding,
   input: RegistrarInput,
   now: string,
+  graderId?: string,
 ): FindingPacket {
   // I1: even when classification fails, keep the finding in the
   // repair loop by pinning it to harness-defect. That surfaces it in
@@ -225,12 +237,16 @@ function buildFallbackPacket(
     scopeProvenance: {
       reason: 'Registrar classification errored — recording as harness defect.',
       inRepairScope: true,
-      sourceGraderId: input.graderId,
+      sourceGraderId: graderId,
     },
     sanitizedEvidence: sanitizeEvidence(finding.description ?? ''),
     risk: 'Registrar could not classify — treat as material until reviewed.',
     reproduction: reproductionFor(finding),
     proposedDisposition: 'Investigate registrar error and re-run.',
+    acceptanceCriteria: ['Registrar completes classification without error and the original finding is dispositioned.'],
+    dependencies: ['Registrar or grader infrastructure owner review.'],
+    testExpectations: ['Add a regression test for the classification failure.'],
+    rolloutOrCleanup: 'Keep delivery fail-closed until classification succeeds.',
     originFindingId: finding.id ?? 'unknown',
     createdAt: now,
   }
@@ -290,6 +306,19 @@ function dispositionFor(
           ? 'Suppress from repair loop.'
           : 'Track as follow-up ticket in Todo; leave current PR loop.'
   return suggestion ? `${base} Suggestion: ${suggestion}` : base
+}
+
+function acceptanceCriteriaFor(
+  finding: GraderFinding,
+  classification: FindingPacket['classification'],
+): string[] {
+  if (classification === 'spike-candidate') {
+    return ['Record evidence answering the bounded investigation question.', 'Choose implementation follow-up or close as disproved.']
+  }
+  return [
+    `The risk described by finding ${finding.id} is no longer reproducible.`,
+    'Regression coverage passes on the affected component.',
+  ]
 }
 
 function errorMessage(err: unknown): string {

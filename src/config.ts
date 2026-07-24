@@ -147,6 +147,9 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
         ?? DEFAULTS.findings!.ticketDispatchEnabled,
       currentPrPaths: (findings.currentPrPaths as string[])
         ?? DEFAULTS.findings!.currentPrPaths,
+      ...(findings.ticketTeamId !== undefined
+        ? { ticketTeamId: findings.ticketTeamId as string }
+        : {}),
     },
     human: {
       notificationChannel: (human.notificationChannel as string) ?? DEFAULTS.human!.notificationChannel,
@@ -229,5 +232,19 @@ function validate(config: ProjectConfig): void {
   }
   if (!Array.isArray(config.findings.currentPrPaths)) {
     throw new Error('findings.currentPrPaths must be an array')
+  }
+  for (const path of config.findings.currentPrPaths) {
+    if (
+      typeof path !== 'string'
+      || path.trim() === ''
+      || path.startsWith('/')
+      || /^[A-Za-z]:[\\/]/.test(path)
+      || path.replaceAll('\\', '/').split('/').includes('..')
+    ) {
+      throw new Error('findings.currentPrPaths entries must be non-empty repository-relative paths without traversal')
+    }
+  }
+  if (config.findings.ticketDispatchEnabled && !config.findings.ticketTeamId?.trim()) {
+    throw new Error('findings.ticketTeamId is required when ticket dispatch is enabled')
   }
 }

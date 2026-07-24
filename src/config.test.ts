@@ -64,6 +64,23 @@ priorities: { speed: 1, quality: 2, cost: 3 }
 findings: { scopeGate: permissive }
 `)
   assert.throws(() => loadConfig(path), /findings.scopeGate/)
+
+  for (const invalidEntry of ['../secret', '/absolute/path', '']) {
+    writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings:
+  currentPrPaths: [${JSON.stringify(invalidEntry)}]
+`)
+    assert.throws(() => loadConfig(path), /repository-relative/)
+  }
+
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings: { findingsMode: ticket, ticketDispatchEnabled: true }
+`)
+  assert.throws(() => loadConfig(path), /ticketTeamId/)
 })
 
 test('direct config entry points honor the verdict mode environment override', () => {

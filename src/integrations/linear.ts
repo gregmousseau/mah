@@ -148,3 +148,49 @@ export async function setStatus(id: string, stateName: string, teamId: string): 
     throw new Error(`Linear issueUpdate returned success=false for ${id}`)
   }
 }
+
+const FINDING_SEARCH_QUERY = `
+  query FindingSearch($query: String!) {
+    issueSearch(query: $query, first: 10) {
+      nodes { id identifier title description url state { name type } team { key id } branchName }
+    }
+  }
+`
+
+const ISSUE_CREATE_MUTATION = `
+  mutation FindingCreate($input: IssueCreateInput!) {
+    issueCreate(input: $input) {
+      success
+      issue { id identifier title description url state { name type } team { key id } branchName }
+    }
+  }
+`
+
+export async function findIssueByRegistrarFingerprint(
+  fingerprint: string,
+): Promise<LinearTicket | null> {
+  const data = await gql<{ issueSearch: { nodes: LinearTicket[] } }>(
+    FINDING_SEARCH_QUERY,
+    { query: `"Registrar fingerprint: ${fingerprint}"` },
+  )
+  return data.issueSearch.nodes.find((issue) =>
+    issue.description?.includes(`Registrar fingerprint: ${fingerprint}`)) ?? null
+}
+
+export async function createTodoIssue(
+  teamId: string,
+  title: string,
+  description: string,
+): Promise<LinearTicket> {
+  const stateId = await resolveStateId(teamId, 'Todo')
+  const data = await gql<{
+    issueCreate: { success: boolean; issue: LinearTicket | null }
+  }>(ISSUE_CREATE_MUTATION, { input: { teamId, stateId, title, description } })
+  if (!data.issueCreate.success || !data.issueCreate.issue) {
+    throw new Error('Linear issueCreate returned success=false or no issue')
+  }
+  if (data.issueCreate.issue.state.name.toLowerCase() !== 'todo') {
+    throw new Error(`Created issue did not land in Todo: ${data.issueCreate.issue.identifier}`)
+  }
+  return data.issueCreate.issue
+}
