@@ -7,6 +7,12 @@ import type { ProjectConfig, VerdictMode } from './types.js'
 const DEFAULTS: Partial<ProjectConfig> = {
   priorities: { speed: 1, quality: 2, cost: 3 },
   qa: { defaultTier: 'targeted', maxIterations: 3, verdictMode: 'fail-closed' },
+  findings: {
+    scopeGate: 'advisory',
+    findingsMode: 'report',
+    ticketDispatchEnabled: false,
+    currentPrPaths: [],
+  },
   human: {
     notificationChannel: '',
     responseTimeoutMinutes: 30,
@@ -108,6 +114,7 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
   const priorities = (raw.priorities as Record<string, number>) ?? {}
   const agents = (raw.agents as Record<string, unknown>) ?? {}
   const qa = (raw.qa as Record<string, unknown>) ?? {}
+  const findings = (raw.findings as Record<string, unknown>) ?? {}
   const human = (raw.human as Record<string, unknown>) ?? {}
   const metrics = (raw.metrics as Record<string, unknown>) ?? {}
   const sprints = (raw.sprints as Record<string, unknown>) ?? {}
@@ -130,6 +137,16 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
       defaultTier: (qa.defaultTier as 'smoke' | 'targeted' | 'full') ?? DEFAULTS.qa!.defaultTier,
       maxIterations: (qa.maxIterations as number) ?? DEFAULTS.qa!.maxIterations,
       verdictMode: resolveVerdictMode(qa.verdictMode as ProjectConfig['qa']['verdictMode']),
+    },
+    findings: {
+      scopeGate: (findings.scopeGate as NonNullable<ProjectConfig['findings']>['scopeGate'])
+        ?? DEFAULTS.findings!.scopeGate,
+      findingsMode: (findings.findingsMode as NonNullable<ProjectConfig['findings']>['findingsMode'])
+        ?? DEFAULTS.findings!.findingsMode,
+      ticketDispatchEnabled: (findings.ticketDispatchEnabled as boolean)
+        ?? DEFAULTS.findings!.ticketDispatchEnabled,
+      currentPrPaths: (findings.currentPrPaths as string[])
+        ?? DEFAULTS.findings!.currentPrPaths,
     },
     human: {
       notificationChannel: (human.notificationChannel as string) ?? DEFAULTS.human!.notificationChannel,
@@ -199,5 +216,18 @@ function validate(config: ProjectConfig): void {
   }
   if (!['fail-closed', 'legacy'].includes(config.qa.verdictMode ?? '')) {
     throw new Error('qa.verdictMode must be "fail-closed" or "legacy"')
+  }
+  if (!config.findings) throw new Error('findings configuration was not resolved')
+  if (!['advisory', 'enforced'].includes(config.findings.scopeGate)) {
+    throw new Error('findings.scopeGate must be "advisory" or "enforced"')
+  }
+  if (!['off', 'report', 'ticket'].includes(config.findings.findingsMode)) {
+    throw new Error('findings.findingsMode must be "off", "report", or "ticket"')
+  }
+  if (typeof config.findings.ticketDispatchEnabled !== 'boolean') {
+    throw new Error('findings.ticketDispatchEnabled must be boolean')
+  }
+  if (!Array.isArray(config.findings.currentPrPaths)) {
+    throw new Error('findings.currentPrPaths must be an array')
   }
 }

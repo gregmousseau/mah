@@ -151,7 +151,10 @@ export function writeRegistrarReport(report: RegistrarReport, outPath: string): 
 // that grader aggregation did not already surface.
 export function registrarBlockers(report: RegistrarReport): FindingPacket[] {
   if (report.scopeGate !== 'enforced') return []
-  return report.currentBlockers
+  // A fallback packet is a harness defect but deliberately remains in
+  // repair scope. Include it here so registrar failure cannot hide a
+  // potentially genuine blocker.
+  return report.packets.filter((packet) => packet.scopeProvenance.inRepairScope)
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────

@@ -15,9 +15,9 @@ unaffected during the shadow rollout — the registrar is advisory only.
 
 `ticketDispatchEnabled` is an **independent** switch. Setting
 `findingsMode: 'ticket'` alone still marks every action as
-`shadow-only` — a real Linear write only happens when a caller wires
-dispatch AND flips the second gate. That dispatch is intentionally not
-wired in this delivery.
+`shadow-only`. The registrar emits a `ready` action only when the
+independent dispatch gate is also enabled; the eventual AWC API-key
+dispatcher consumes those actions and must leave issues in Todo.
 
 ## Classifications
 
@@ -74,13 +74,13 @@ always yields the same packet id and ticket fingerprint.
 ## Rollout plan (shadow)
 
 1. **Ship advisory + report-only (this delivery).** No verdict change,
-   no Linear I/O, no tickets. Registrar output is emitted only when a
-   caller opts in and writes it via `writeRegistrarReport`. Nothing in
-   the pipeline is auto-invoking the registrar yet.
+   no Linear I/O, no tickets. Both pipeline entry points persist a
+   registrar report for each exact-SHA QA round.
 2. **Observe.** Run canary + unit suite in CI. Snapshot registrar
    reports from a chosen subset of sprints (opt-in, off by default).
-3. **Enable in reviewer only.** Add `scopeGate: enforced` behind a
-   caller-scoped flag; downstream still ignores `registrarBlockers`.
+3. **Enable scope enforcement.** Set `scopeGate: enforced`; only
+   current-PR blockers remain in the repair brief. Unexplained grader
+   failures and registrar failures remain fail-closed.
 4. **Enable ticket mode (still no dispatch).** Turn on
    `findingsMode: 'ticket'` for a canary project; verify dedupe and
    fingerprint stability against a Linear export.
@@ -106,7 +106,8 @@ stage is a switch, rollback never requires touching graders,
 
 ## What this delivery does NOT do
 
-- No pipeline/chain wiring change (delivery verdicts unchanged).
+- Advisory mode does not change delivery verdicts; enforced mode applies
+  the classified repair boundary.
 - No Linear network call anywhere (`fetch` not imported).
 - No sprint dispatch, no automation switch flipped.
 - No changes to `fail-closed` verdict semantics from AWC-248.

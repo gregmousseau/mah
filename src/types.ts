@@ -70,6 +70,12 @@ export interface ProjectConfig {
     maxIterations: number
     verdictMode?: VerdictMode
   }
+  findings?: {
+    scopeGate: 'advisory' | 'enforced'
+    findingsMode: 'off' | 'report' | 'ticket'
+    ticketDispatchEnabled: boolean
+    currentPrPaths: string[]
+  }
   human: {
     notificationChannel: string
     responseTimeoutMinutes: number
@@ -159,6 +165,7 @@ export interface SprintIteration {
   graderResults?: GraderResult[]  // results from all graders this round
   deliveryFailures?: DeliveryFailure[]
   candidateIdentity?: DeliveryIdentity
+  findingsReport?: import('./registrar/types.js').RegistrarReport
 }
 
 export interface PhaseResult {

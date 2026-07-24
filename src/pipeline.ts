@@ -21,6 +21,11 @@ import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import {
+  registrarBlockers,
+  safeRegisterFindings,
+  writeRegistrarReport,
+} from './registrar/registrar.js'
+import {
   buildConsolidatedRepairBrief,
   canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
@@ -34,6 +39,7 @@ import {
   verifyDeliveryIdentity,
 } from './reliability.js'
 import type {
+  DeliveryFailure,
   ProjectConfig,
   SprintContract,
   SprintMetrics,
@@ -44,6 +50,7 @@ import type {
   GraderResult,
   AgentResult,
 } from './types.js'
+import type { RegistrarReport } from './registrar/types.js'
 
 function writeNotification(
   contract: SprintContract,
@@ -504,7 +511,7 @@ export async function runSprint(
       )
       if (failure) delivery.failures.push(failure)
     }
-    const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
+    let aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     // Extract QA defects from UX grader result (for backward compat)
     const uxResult = graderResults.find(r => r.graderType === 'ux')
@@ -514,6 +521,28 @@ export async function runSprint(
       description: f.description,
       fixed: false,
     })) ?? []
+    const findingsConfig = config.findings ?? {
+      scopeGate: 'advisory' as const,
+      findingsMode: 'report' as const,
+      ticketDispatchEnabled: false,
+      currentPrPaths: [],
+    }
+    const findingsReport = candidateIdentity
+      ? safeRegisterFindings(
+        {
+          candidateSha: candidateIdentity.candidateSha,
+          findings: graderResults.flatMap((result) => result.findings),
+        },
+        findingsConfig,
+      )
+      : undefined
+    if (findingsReport) {
+      writeRegistrarReport(
+        findingsReport,
+        join(sprintDir, contract.id, `findings-r${round}.json`),
+      )
+      aggregateVerdict = scopeAwareVerdict(aggregateVerdict, graderResults, delivery.failures, findingsReport)
+    }
 
     // 3d. Record iteration (backward compatible)
     const iteration: SprintIteration = {
@@ -524,6 +553,7 @@ export async function runSprint(
       graderResults,
       deliveryFailures: delivery.failures,
       candidateIdentity,
+      findingsReport,
     }
     contract.iterations.push(iteration)
 
@@ -557,7 +587,10 @@ export async function runSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = buildConsolidatedRepairBrief(graderResults, delivery.failures)
+    lastQAOutput = buildConsolidatedRepairBrief(
+      repairScopedGraderResults(graderResults, findingsReport),
+      delivery.failures,
+    )
   }
   } catch (err) {
     crashError = err as Error
@@ -1027,7 +1060,7 @@ export async function runExistingContract(
       )
       if (failure) delivery.failures.push(failure)
     }
-    const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
+    let aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     const uxResult = graderResults.find(r => r.graderType === 'ux')
     const qaDefects = materialGraderFindings(graderResults).map(f => ({
@@ -1036,6 +1069,28 @@ export async function runExistingContract(
       description: f.description,
       fixed: false,
     })) ?? []
+    const findingsConfig = config.findings ?? {
+      scopeGate: 'advisory' as const,
+      findingsMode: 'report' as const,
+      ticketDispatchEnabled: false,
+      currentPrPaths: [],
+    }
+    const findingsReport = candidateIdentity
+      ? safeRegisterFindings(
+        {
+          candidateSha: candidateIdentity.candidateSha,
+          findings: graderResults.flatMap((result) => result.findings),
+        },
+        findingsConfig,
+      )
+      : undefined
+    if (findingsReport) {
+      writeRegistrarReport(
+        findingsReport,
+        join(sprintFullPath, `findings-r${round}.json`),
+      )
+      aggregateVerdict = scopeAwareVerdict(aggregateVerdict, graderResults, delivery.failures, findingsReport)
+    }
 
     const iteration: SprintIteration = {
       round,
@@ -1045,6 +1100,7 @@ export async function runExistingContract(
       graderResults,
       deliveryFailures: delivery.failures,
       candidateIdentity,
+      findingsReport,
     }
     contract.iterations.push(iteration)
 
@@ -1076,7 +1132,10 @@ export async function runExistingContract(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = buildConsolidatedRepairBrief(graderResults, delivery.failures)
+    lastQAOutput = buildConsolidatedRepairBrief(
+      repairScopedGraderResults(graderResults, findingsReport),
+      delivery.failures,
+    )
   }
   } catch (err) {
     crashError = err as Error
@@ -1100,6 +1159,43 @@ export async function runExistingContract(
   writeNotification(contract, metrics, crashError)
 
   return crashError ? { contract, metrics, crashError } : { contract, metrics }
+}
+
+function scopeAwareVerdict(
+  original: GraderResult['verdict'],
+  results: GraderResult[],
+  failures: DeliveryFailure[],
+  report: RegistrarReport,
+): GraderResult['verdict'] {
+  if (report.scopeGate !== 'enforced') return original
+  if (failures.length > 0 || registrarBlockers(report).length > 0) return 'fail'
+
+  // A non-pass with no finding cannot be proven adjacent, so keep it
+  // fail-closed rather than allowing scope classification to erase it.
+  if (results.some((result) => result.verdict !== 'pass' && result.findings.length === 0)) {
+    return 'fail'
+  }
+  return 'pass'
+}
+
+function repairScopedGraderResults(
+  results: GraderResult[],
+  report: RegistrarReport | undefined,
+): GraderResult[] {
+  if (!report || report.scopeGate !== 'enforced') return results
+
+  const repairIds = new Set(registrarBlockers(report).map((packet) => packet.originFindingId))
+  return results.map((result) => {
+    if (result.findings.length === 0) return result
+    const findings = result.findings.filter((finding) => repairIds.has(finding.id))
+    return {
+      ...result,
+      findings,
+      // Prevent an adjacent-only grader verdict/summary from extending
+      // the active repair loop. Unexplained non-pass results are retained.
+      verdict: findings.length > 0 ? result.verdict : 'pass',
+    }
+  })
 }
 
 function printContractSummary(contract: SprintContract, generatorSkills?: ResolvedSkill[], evaluatorSkills?: ResolvedSkill[]): void {

@@ -121,6 +121,25 @@ test('enforced scopeGate surfaces current-PR blockers to the caller', () => {
   assert.ok(blockers.some((p) => p.originFindingId === 'CR-01'))
 })
 
+test('enforced scopeGate keeps repair-scoped registrar fallback visible', () => {
+  const poison = {
+    id: 'poison',
+    severity: 'major' as const,
+    get category(): string {
+      throw new Error('unreadable category')
+    },
+    file: 'src/pipeline.ts',
+    description: 'Potential release blocker.',
+  }
+  const report = registerFindings(
+    { candidateSha: 'a'.repeat(40), findings: [poison] },
+    { scopeGate: 'enforced' },
+  )
+  assert.equal(report.errors.length, 1)
+  assert.equal(registrarBlockers(report).length, 1)
+  assert.equal(registrarBlockers(report)[0].classification, 'harness-defect')
+})
+
 test('findingsMode="off" short-circuits with an empty report — even with input', () => {
   const fixture = readFixture('awc-241-scope')
   const report = registerFindings(
