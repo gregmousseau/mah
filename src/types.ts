@@ -19,6 +19,7 @@ export interface GraderResult {
   findings: GraderFinding[]
   summary: string
   model: string
+  provider?: string
   durationMs: number
   costEstimate: number
   executionStatus?: 'completed' | 'missing' | 'failed' | 'timed_out'
@@ -84,7 +85,7 @@ export interface ProjectConfig {
 }
 
 export interface AgentConfig {
-  type: 'openclaw' | 'claude-cli' | 'codex' | 'custom'
+  type: 'openclaw' | 'claude-cli' | 'codex' | 'kilo' | 'custom'
   model: string
   cwd?: string
   workspace?: string
@@ -166,6 +167,7 @@ export interface PhaseResult {
   endTime: string
   durationMs: number
   model: string
+  provider?: string
   tokenUsage?: { input: number; output: number }
   costEstimate?: number
 }
@@ -215,6 +217,7 @@ export interface PhaseMetric {
   round: number
   durationMs: number
   model: string
+  provider?: string
   costEstimate: number
 }
 
@@ -229,6 +232,12 @@ export interface SeverityCounts {
 
 export interface AgentAdapter {
   execute(task: string, options: ExecuteOptions): Promise<AgentResult>
+  preflight?(options: ExecuteOptions): Promise<void>
+  executeWithAgent?(
+    task: string,
+    agentId: string,
+    options: ExecuteOptions & { designTier?: 'quick' | 'polished' | 'impeccable' },
+  ): Promise<AgentResult>
 }
 
 export interface ExecuteOptions {
@@ -242,6 +251,7 @@ export interface ExecuteOptions {
 export interface AgentResult {
   success: boolean
   output: string
+  provider?: string
   timing: {
     startMs: number
     endMs: number
@@ -263,6 +273,7 @@ export interface TranscriptPhase {
   round: number
   actor: string          // 'moe', 'dev', 'quinn', etc.
   model: string
+  provider?: string
   startTime: string
   endTime: string
   promptSent: string     // full prompt sent to the agent

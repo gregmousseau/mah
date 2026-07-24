@@ -6,7 +6,7 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import chalk from 'chalk'
-import { OpenClawAdapter } from './adapters/openclaw.js'
+import { createAgentAdapter, preflightAdapter } from './adapters/factory.js'
 import {
   generateContract,
   generateSprintId,
@@ -226,7 +226,10 @@ async function runChainSprint(
   sprintDir: string,
   metricsDir: string,
 ): Promise<{ contract: SprintContract; metrics: SprintMetrics }> {
-  const adapter = new OpenClawAdapter()
+  const generatorAdapter = createAgentAdapter(config.agents.generator)
+  const evaluatorAdapter = createAgentAdapter(config.agents.evaluator)
+  await preflightAdapter(generatorAdapter, config.agents.generator)
+  await preflightAdapter(evaluatorAdapter, config.agents.evaluator)
   let lastDevOutput = ''
   let lastQAOutput = ''
   const sprintStartTime = Date.now()
@@ -264,7 +267,7 @@ async function runChainSprint(
       devPrompt = inputContext + devPrompt
     }
 
-    const devResult = await adapter.execute(devPrompt, {
+    const devResult = await generatorAdapter.execute(devPrompt, {
       model: config.agents.generator.model,
       cwd: config.agents.generator.cwd,
       timeoutMs: 10 * 60 * 1000,
@@ -276,6 +279,7 @@ async function runChainSprint(
       round,
       actor: 'dev',
       model: config.agents.generator.model,
+      provider: devResult.provider,
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
       promptSent: devPrompt.slice(0, 500) + '...',
@@ -316,7 +320,7 @@ async function runChainSprint(
     contract.status = 'qa'
     const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
     const tierBudget = budgetForContract(contract)
-    const qaResult = await adapter.execute(qaPrompt, {
+    const qaResult = await evaluatorAdapter.execute(qaPrompt, {
       model: config.agents.evaluator.model,
       cwd: config.agents.evaluator.workspace,
       timeoutMs: tierBudget.timeoutMs,
@@ -328,6 +332,7 @@ async function runChainSprint(
       round,
       actor: 'quinn',
       model: config.agents.evaluator.model,
+      provider: qaResult.provider,
       startTime: new Date(qaResult.timing.startMs).toISOString(),
       endTime: new Date(qaResult.timing.endMs).toISOString(),
       promptSent: qaPrompt.slice(0, 500) + '...',
@@ -363,6 +368,7 @@ async function runChainSprint(
           })),
           summary: qaReport.summary,
           model: uxGrader.agent.model,
+          provider: qaResult.provider,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
@@ -373,7 +379,9 @@ async function runChainSprint(
     for (const grader of graders.filter((candidate) => candidate.type === 'code-review')) {
       try {
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
-        const crResult = await adapter.execute(crPrompt, {
+        const graderAdapter = createAgentAdapter(grader.agent)
+        await preflightAdapter(graderAdapter, grader.agent)
+        const crResult = await graderAdapter.execute(crPrompt, {
           model: grader.agent.model,
           cwd: config.agents.generator.cwd,
           timeoutMs: 5 * 60 * 1000,
@@ -385,6 +393,7 @@ async function runChainSprint(
           round,
           actor: 'code-reviewer',
           model: grader.agent.model,
+          provider: crResult.provider,
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt.slice(0, 500) + '...',
@@ -392,14 +401,16 @@ async function runChainSprint(
           tokenUsage: crResult.tokenUsage,
           costEstimate: crResult.costEstimate,
         })
-        graderResults.push(parseCodeReviewResult(
+        const parsedReview = parseCodeReviewResult(
           crResult.output,
           grader.id,
           grader.name,
           grader.agent.model,
           crResult.timing.durationMs,
           crResult.costEstimate ?? 0,
-        ))
+        )
+        parsedReview.provider = crResult.provider
+        graderResults.push(parsedReview)
       } catch (error) {
         graderResults.push(failedGraderResult(grader, error))
       }

@@ -52,8 +52,8 @@ program
         project: { name, repo },
         priorities: { speed, quality, cost },
         agents: {
-          generator: { type: 'openclaw', model: 'sonnet', cwd: repo },
-          evaluator: { type: 'openclaw', model: 'sonnet' },
+          generator: { type: 'codex', model: 'gpt-5.6-sol', cwd: repo },
+          evaluator: { type: 'codex', model: 'gpt-5.6-sol' },
         },
         qa: { defaultTier: 'targeted', maxIterations: 3 },
         human: {
@@ -246,8 +246,8 @@ program
         console.log(`    name:        ${ticket.title}`)
         console.log(`    sprint id:   ${ticket.identifier}`)
         console.log(`    branch:      ${ticket.branchName}`)
-        console.log(`    generator:   ${config.agents.generator.agentId ?? '(default)'} / ${config.agents.generator.model}`)
-        console.log(`    evaluator:   ${config.agents.evaluator.agentId ?? '(default)'} / ${config.agents.evaluator.model}`)
+        console.log(`    generator:   ${config.agents.generator.agentId ?? '(default)'} / ${config.agents.generator.type} / ${config.agents.generator.model}`)
+        console.log(`    evaluator:   ${config.agents.evaluator.agentId ?? '(default)'} / ${config.agents.evaluator.type} / ${config.agents.evaluator.model}`)
         console.log()
         console.log(chalk.bold('  Task'))
         console.log(chalk.dim(task.split('\n').map(l => `    ${l}`).join('\n')))

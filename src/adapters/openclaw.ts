@@ -37,7 +37,7 @@ function inferDesignTier(task: string): DesignTier {
   return 'quick'
 }
 
-function buildAgentContext(agentId: string, task: string, designTier?: DesignTier): string {
+export function buildAgentContext(agentId: string, task: string, designTier?: DesignTier): string {
   const workspace = getAgentWorkspace(agentId)
   const agentName = getAgentName(agentId) || agentId
 
@@ -106,6 +106,20 @@ export class OpenClawAdapter implements AgentAdapter {
       return this.executeMock(task, options)
     }
     return this.executeClaude(task, options)
+  }
+
+  async preflight(options: ExecuteOptions): Promise<void> {
+    if (this.useMock) {
+      throw new Error('Claude CLI is unavailable; delivery runs may not use the mock adapter')
+    }
+    const result = await this.executeClaude('Reply with exactly: MAH_PROVIDER_OK', {
+      ...options,
+      cwd: options.cwd ?? process.cwd(),
+      timeoutMs: Math.min(options.timeoutMs ?? 60_000, 60_000),
+    })
+    if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {
+      throw new Error(`Claude provider/model preflight failed for ${options.model ?? 'sonnet'}`)
+    }
   }
 
   /**
@@ -182,6 +196,7 @@ export class OpenClawAdapter implements AgentAdapter {
         resolve({
           success,
           output: stdout || (success ? '' : `[Process exited with code ${code}]\n${stderr}`),
+          provider: 'claude',
           timing: { startMs, endMs, durationMs },
           tokenUsage: { input: inputTokens, output: outputTokens },
           costEstimate: estimateCost(model, inputTokens, outputTokens),
@@ -219,6 +234,7 @@ export class OpenClawAdapter implements AgentAdapter {
     return {
       success: true,
       output,
+      provider: 'mock',
       timing: { startMs, endMs, durationMs: endMs - startMs },
       tokenUsage: { input: inputTokens, output: outputTokens },
       costEstimate: estimateCost(model, inputTokens, outputTokens),

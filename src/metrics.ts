@@ -27,6 +27,7 @@ export function createSprintMetrics(
         round: iter.round,
         durationMs: iter.dev.durationMs,
         model: iter.dev.model,
+        provider: iter.dev.provider,
         costEstimate: devCost,
       })
     }
@@ -40,6 +41,7 @@ export function createSprintMetrics(
         round: iter.round,
         durationMs: iter.qa.durationMs,
         model: iter.qa.model,
+        provider: iter.qa.provider,
         costEstimate: qaCost,
       })
     }

@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import chalk from 'chalk'
-import { OpenClawAdapter } from './adapters/openclaw.js'
+import { createAgentAdapter, preflightAdapter } from './adapters/factory.js'
 import {
   generateContract,
   generateSprintId,
@@ -123,7 +123,7 @@ function saveTranscriptDirect(transcript: SprintTranscript, sprintFullPath: stri
 }
 
 function agentResultToPhaseResult(
-  result: Awaited<ReturnType<OpenClawAdapter['execute']>>,
+  result: AgentResult,
   model: string
 ): PhaseResult {
   return {
@@ -132,6 +132,7 @@ function agentResultToPhaseResult(
     endTime: new Date(result.timing.endMs).toISOString(),
     durationMs: result.timing.durationMs,
     model,
+    provider: result.provider,
     tokenUsage: result.tokenUsage,
     costEstimate: result.costEstimate,
   }
@@ -229,7 +230,12 @@ export async function runSprint(
     return { contract, metrics }
   }
 
-  const adapter = new OpenClawAdapter()
+  const generatorAdapter = createAgentAdapter(config.agents.generator)
+  const evaluatorAdapter = createAgentAdapter(config.agents.evaluator)
+  await preflightAdapter(generatorAdapter, config.agents.generator)
+  await preflightAdapter(evaluatorAdapter, config.agents.evaluator)
+  events.log('moe', 'milestone', 'preflight',
+    `Providers ready: generator=${config.agents.generator.type}/${config.agents.generator.model}, evaluator=${config.agents.evaluator.type}/${config.agents.evaluator.model}`)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'contract'
@@ -273,8 +279,8 @@ export async function runSprint(
       label: `dev-${contract.id}-r${round}`,
     }
     const devResult = contract.agentConfig?.generator.agentId
-      ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions)
-      : await adapter.execute(devPrompt, devExecOptions)
+      ? await generatorAdapter.executeWithAgent!(devPrompt, contract.agentConfig.generator.agentId, devExecOptions)
+      : await generatorAdapter.execute(devPrompt, devExecOptions)
 
     // Capture dev transcript phase
     const devTranscriptPhase: TranscriptPhase = {
@@ -282,6 +288,7 @@ export async function runSprint(
       round,
       actor: contract.agentConfig?.generator.agentName ?? 'dev',
       model: config.agents.generator.model,
+      provider: devResult.provider,
       startTime: new Date(devResult.timing.startMs).toISOString(),
       endTime: new Date(devResult.timing.endMs).toISOString(),
       promptSent: devPrompt,
@@ -323,7 +330,7 @@ export async function runSprint(
     const graders = rawGraders.map(g => ({
       ...g,
       agent: g.agent ?? {
-        type: 'openclaw' as const,
+        type: config.agents.evaluator.type,
         model: (g as unknown as Record<string, unknown>).model as string ?? config.agents.evaluator.model,
         workspace: config.agents.evaluator.workspace,
         testUrl: config.agents.evaluator.testUrl,
@@ -341,10 +348,12 @@ export async function runSprint(
       saveContract(contract, sprintDir)
     }
 
-    let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
+    let qaResult: AgentResult | null = null
 
     for (const grader of graders) {
       try {
+        const graderAdapter = createAgentAdapter(grader.agent)
+        await preflightAdapter(graderAdapter, grader.agent)
         if (grader.type === 'ux') {
         // ── Quinn (UX) grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
@@ -360,8 +369,8 @@ export async function runSprint(
         }
         const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId
-          ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId, qaExecOptions)
-          : await adapter.execute(qaPrompt, qaExecOptions)
+          ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId, qaExecOptions)
+          : await graderAdapter.execute(qaPrompt, qaExecOptions)
         if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaTranscriptPhase: TranscriptPhase = {
@@ -369,6 +378,7 @@ export async function runSprint(
           round,
           actor: contract.agentConfig?.evaluator.agentName ?? 'quinn',
           model: grader.agent.model,
+          provider: qaResult.provider,
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),
           promptSent: qaPrompt,
@@ -405,6 +415,7 @@ export async function runSprint(
           })),
           summary: qaReport.summary,
           model: grader.agent.model,
+          provider: qaResult.provider,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
@@ -423,7 +434,7 @@ export async function runSprint(
         // ── Code Review grader ──
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
-        const crResult = await adapter.execute(crPrompt, {
+        const crResult = await graderAdapter.execute(crPrompt, {
           model: grader.agent.model,
           cwd: config.agents.generator.cwd,  // run in repo context
           timeoutMs: 5 * 60 * 1000,
@@ -436,6 +447,7 @@ export async function runSprint(
           round,
           actor: 'code-reviewer',
           model: grader.agent.model,
+          provider: crResult.provider,
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt,
@@ -458,6 +470,7 @@ export async function runSprint(
           crResult.timing.durationMs,
           crResult.costEstimate ?? 0
         )
+        crGraderResult.provider = crResult.provider
         graderResults.push(crGraderResult)
         }
       } catch (error) {
@@ -616,7 +629,12 @@ export async function runExistingContract(
     events.log('moe', 'milestone', 'contract', `Evaluator skills: ${evalSkills2.map(s => s.name).join(', ')}`)
   }
 
-  const adapter = new OpenClawAdapter()
+  const generatorAdapter = createAgentAdapter(config.agents.generator)
+  const evaluatorAdapter = createAgentAdapter(config.agents.evaluator)
+  await preflightAdapter(generatorAdapter, config.agents.generator)
+  await preflightAdapter(evaluatorAdapter, config.agents.evaluator)
+  events.log('moe', 'milestone', 'preflight',
+    `Providers ready: generator=${config.agents.generator.type}/${config.agents.generator.model}, evaluator=${config.agents.evaluator.type}/${config.agents.evaluator.model}`)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'dev'
@@ -768,8 +786,8 @@ export async function runExistingContract(
         label: `dev-${contract.id}-r${round}`,
       }
       devResult = contract.agentConfig?.generator.agentId
-        ? await adapter.executeWithAgent(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
-        : await adapter.execute(devPrompt, devExecOptions2)
+        ? await generatorAdapter.executeWithAgent!(devPrompt, contract.agentConfig.generator.agentId, devExecOptions2)
+        : await generatorAdapter.execute(devPrompt, devExecOptions2)
     }
 
     if (!skipDev) {
@@ -778,6 +796,7 @@ export async function runExistingContract(
         round,
         actor: contract.agentConfig?.generator.agentName ?? 'dev',
         model: config.agents.generator.model,
+        provider: devResult.provider,
         startTime: new Date(devResult.timing.startMs).toISOString(),
         endTime: new Date(devResult.timing.endMs).toISOString(),
         promptSent: '(see contract)',
@@ -821,7 +840,7 @@ export async function runExistingContract(
     const graders = rawGraders.map(g => ({
       ...g,
       agent: g.agent ?? {
-        type: 'openclaw' as const,
+        type: config.agents.evaluator.type,
         model: (g as unknown as Record<string, unknown>).model as string ?? config.agents.evaluator.model,
         workspace: config.agents.evaluator.workspace,
         testUrl: config.agents.evaluator.testUrl,
@@ -850,10 +869,12 @@ export async function runExistingContract(
       saveContractDirect(contract, sprintFullPath)
     }
 
-    let qaResult: Awaited<ReturnType<OpenClawAdapter['execute']>> | null = null
+    let qaResult: AgentResult | null = null
 
     for (const grader of graders) {
       try {
+        const graderAdapter = createAgentAdapter(grader.agent)
+        await preflightAdapter(graderAdapter, grader.agent)
         if (grader.type === 'ux') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for QA R${round}`)
         const qaPrompt = contractToQAPrompt(contract, devResult.output, round, evalSkills2)
@@ -868,8 +889,8 @@ export async function runExistingContract(
         }
         const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId2
-          ? await adapter.executeWithAgent(qaPrompt, evaluatorAgentId2, qaExecOptions2)
-          : await adapter.execute(qaPrompt, qaExecOptions2)
+          ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId2, qaExecOptions2)
+          : await graderAdapter.execute(qaPrompt, qaExecOptions2)
         if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaTranscriptPhase: TranscriptPhase = {
@@ -877,6 +898,7 @@ export async function runExistingContract(
           round,
           actor: contract.agentConfig?.evaluator.agentName ?? 'quinn',
           model: grader.agent.model,
+          provider: qaResult.provider,
           startTime: new Date(qaResult.timing.startMs).toISOString(),
           endTime: new Date(qaResult.timing.endMs).toISOString(),
           promptSent: qaPrompt,
@@ -911,6 +933,7 @@ export async function runExistingContract(
           })),
           summary: qaReport.summary,
           model: grader.agent.model,
+          provider: qaResult.provider,
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
@@ -927,7 +950,7 @@ export async function runExistingContract(
         } else if (grader.type === 'code-review') {
         events.log('moe', 'spawn', 'qa', `Spawned ${grader.name} for code review R${round}`)
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
-        const crResult = await adapter.execute(crPrompt, {
+        const crResult = await graderAdapter.execute(crPrompt, {
           model: grader.agent.model,
           cwd: config.agents.generator.cwd,
           timeoutMs: 5 * 60 * 1000,
@@ -940,6 +963,7 @@ export async function runExistingContract(
           round,
           actor: 'code-reviewer',
           model: grader.agent.model,
+          provider: crResult.provider,
           startTime: new Date(crResult.timing.startMs).toISOString(),
           endTime: new Date(crResult.timing.endMs).toISOString(),
           promptSent: crPrompt,
@@ -962,6 +986,7 @@ export async function runExistingContract(
           crResult.timing.durationMs,
           crResult.costEstimate ?? 0
         )
+        crGraderResult.provider = crResult.provider
         graderResults.push(crGraderResult)
         }
       } catch (error) {

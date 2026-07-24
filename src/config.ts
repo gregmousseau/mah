@@ -17,7 +17,7 @@ const DEFAULTS: Partial<ProjectConfig> = {
   sprints: { directory: '.mah/sprints/' },
 }
 
-const SUPPORTED_AGENT_TYPES = ['openclaw', 'claude-cli', 'codex', 'custom']
+const SUPPORTED_AGENT_TYPES = ['openclaw', 'claude-cli', 'codex', 'kilo', 'custom']
 
 export function resolveVerdictMode(
   configured: VerdictMode | undefined,
@@ -63,8 +63,8 @@ export function loadNamedAgents(configPath?: string): Map<string, NamedAgentConf
     agents.set(id, {
       role: v.role as NamedAgentConfig['role'],
       specialty: v.specialty as string | undefined,
-      model: (v.model as string) ?? 'sonnet',
-      type: (v.type as string) ?? 'openclaw',
+      model: (v.model as string) ?? 'gpt-5.6-sol',
+      type: (v.type as string) ?? 'codex',
       cwd: v.cwd as string | undefined,
       workspace: v.workspace as string | undefined,
       testUrl: v.testUrl as string | undefined,
@@ -148,15 +148,18 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
 
 function normalizeAgent(raw: unknown): ProjectConfig['agents']['generator'] {
   if (!raw || typeof raw !== 'object') {
-    return { type: 'openclaw', model: 'sonnet' }
+    return { type: 'codex', model: 'gpt-5.6-sol' }
   }
   const agent = raw as Record<string, unknown>
   const agentId = agent.agentId as string | undefined
   const explicitModel = agent.model as string | undefined
-  // Resolution order: explicit yaml model → registry default for agentId → 'sonnet'
-  const model = explicitModel ?? (agentId ? getAgentModel(agentId) : undefined) ?? 'sonnet'
+  const type = (agent.type as string as ProjectConfig['agents']['generator']['type']) ?? 'codex'
+  // Resolution order: explicit yaml model → registry default for agentId → provider default.
+  const model = explicitModel
+    ?? (agentId ? getAgentModel(agentId) : undefined)
+    ?? (type === 'codex' ? 'gpt-5.6-sol' : 'sonnet')
   return {
-    type: (agent.type as string as ProjectConfig['agents']['generator']['type']) ?? 'openclaw',
+    type,
     model,
     cwd: agent.cwd as string | undefined,
     workspace: agent.workspace as string | undefined,
