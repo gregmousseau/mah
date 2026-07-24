@@ -32,7 +32,13 @@ export class KiloAdapter implements AgentAdapter {
     const key = `${model}:${resolvedCwd(options)}`
     if (verifiedModels.has(key)) return
     const result = await this.run('Reply with exactly: MAH_PROVIDER_OK', options)
-    if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {
+    const expectedModel = model.replace(/^kilocode\//, '')
+    if (
+      !result.success ||
+      !result.output.includes('MAH_PROVIDER_OK') ||
+      result.provider !== 'kilocode' ||
+      result.model !== expectedModel
+    ) {
       throw new Error(`Kilo provider/model preflight failed for ${model}: ${result.output.slice(0, 300)}`)
     }
     verifiedModels.add(key)

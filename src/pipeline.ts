@@ -349,6 +349,7 @@ export async function runSprint(
     let qaResult: AgentResult | null = null
 
     for (const grader of graders) {
+      let graderExecution: AgentResult | undefined
       try {
         const graderAdapter = createAgentAdapter(grader.agent)
         await preflightAdapter(graderAdapter, grader.agent)
@@ -369,7 +370,7 @@ export async function runSprint(
         qaResult = evaluatorAgentId
           ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId, qaExecOptions)
           : await graderAdapter.execute(qaPrompt, qaExecOptions)
-        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
+        graderExecution = qaResult
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -386,6 +387,7 @@ export async function runSprint(
         }
         transcript.phases.push(qaTranscriptPhase)
         saveTranscript(transcript, sprintDir, contract.id)
+        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaDuration = formatDuration(qaResult.timing.durationMs)
         const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''
@@ -438,7 +440,7 @@ export async function runSprint(
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
-        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        graderExecution = crResult
 
         const crTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -455,6 +457,7 @@ export async function runSprint(
         }
         transcript.phases.push(crTranscriptPhase)
         saveTranscript(transcript, sprintDir, contract.id)
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
 
         const crDuration = formatDuration(crResult.timing.durationMs)
         const crCost = crResult.costEstimate ? `$${crResult.costEstimate.toFixed(4)}` : ''
@@ -473,7 +476,7 @@ export async function runSprint(
         }
       } catch (error) {
         if (grader.type === 'ux') qaResult = null
-        graderResults.push(failedGraderResult(grader, error))
+        graderResults.push(failedGraderResult(grader, error, graderExecution))
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
@@ -868,6 +871,7 @@ export async function runExistingContract(
     let qaResult: AgentResult | null = null
 
     for (const grader of graders) {
+      let graderExecution: AgentResult | undefined
       try {
         const graderAdapter = createAgentAdapter(grader.agent)
         await preflightAdapter(graderAdapter, grader.agent)
@@ -887,7 +891,7 @@ export async function runExistingContract(
         qaResult = evaluatorAgentId2
           ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId2, qaExecOptions2)
           : await graderAdapter.execute(qaPrompt, qaExecOptions2)
-        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
+        graderExecution = qaResult
 
         const qaTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -904,6 +908,7 @@ export async function runExistingContract(
         }
         transcript.phases.push(qaTranscriptPhase)
         saveTranscriptDirect(transcript, sprintFullPath)
+        if (!qaResult.success) throw new Error(qaResult.output || `${grader.name} failed`)
 
         const qaDuration = formatDuration(qaResult.timing.durationMs)
         const qaCost = qaResult.costEstimate ? `$${qaResult.costEstimate.toFixed(4)}` : ''
@@ -952,7 +957,7 @@ export async function runExistingContract(
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
-        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        graderExecution = crResult
 
         const crTranscriptPhase: TranscriptPhase = {
           phase: 'qa',
@@ -969,6 +974,7 @@ export async function runExistingContract(
         }
         transcript.phases.push(crTranscriptPhase)
         saveTranscriptDirect(transcript, sprintFullPath)
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
 
         const crDuration = formatDuration(crResult.timing.durationMs)
         const crCost = crResult.costEstimate ? `$${crResult.costEstimate.toFixed(4)}` : ''
@@ -987,7 +993,7 @@ export async function runExistingContract(
         }
       } catch (error) {
         if (grader.type === 'ux') qaResult = null
-        graderResults.push(failedGraderResult(grader, error))
+        graderResults.push(failedGraderResult(grader, error, graderExecution))
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }

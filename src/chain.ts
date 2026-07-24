@@ -353,7 +353,7 @@ async function runChainSprint(
       })
       const qaReport = parseQAReport(qaResult.output)
       if (!qaResult.success) {
-        graderResults.push(failedGraderResult(uxGrader, qaResult.output || 'Chain QA agent failed.'))
+        graderResults.push(failedGraderResult(uxGrader, qaResult.output || 'Chain QA agent failed.', qaResult))
       } else {
         graderResults.push({
           graderId: uxGrader.id,
@@ -377,6 +377,7 @@ async function runChainSprint(
     }
 
     for (const grader of graders.filter((candidate) => candidate.type === 'code-review')) {
+      let graderExecution: AgentResult | undefined
       try {
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
         const graderAdapter = createAgentAdapter(grader.agent)
@@ -387,7 +388,7 @@ async function runChainSprint(
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
         })
-        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
+        graderExecution = crResult
         transcript.phases.push({
           phase: 'qa',
           round,
@@ -401,6 +402,7 @@ async function runChainSprint(
           tokenUsage: crResult.tokenUsage,
           costEstimate: crResult.costEstimate,
         })
+        if (!crResult.success) throw new Error(crResult.output || `${grader.name} failed`)
         const parsedReview = parseCodeReviewResult(
           crResult.output,
           grader.id,
@@ -412,7 +414,7 @@ async function runChainSprint(
         parsedReview.provider = crResult.provider
         graderResults.push(parsedReview)
       } catch (error) {
-        graderResults.push(failedGraderResult(grader, error))
+        graderResults.push(failedGraderResult(grader, error, graderExecution))
       }
     }
 
