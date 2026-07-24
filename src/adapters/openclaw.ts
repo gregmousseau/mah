@@ -118,7 +118,11 @@ export class OpenClawAdapter implements AgentAdapter {
       cwd: options.cwd ?? process.cwd(),
       timeoutMs: Math.min(options.timeoutMs ?? 60_000, 60_000),
     })
-    if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {
+    if (
+      !result.success ||
+      result.provider !== 'claude' ||
+      !result.output.includes('MAH_PROVIDER_OK')
+    ) {
       throw new AdapterPreflightError(
         `Claude provider/model preflight failed for ${options.model ?? 'sonnet'}`,
         result,
@@ -151,7 +155,7 @@ export class OpenClawAdapter implements AgentAdapter {
     const spawnEnv = { ...process.env }
     delete spawnEnv.CLAUDECODE
     delete spawnEnv.ANTHROPIC_API_KEY  // Force OAuth/Max plan instead of API billing
-    const claudePath = spawnEnv.HOME ? `${spawnEnv.HOME}/.local/bin/claude` : 'claude'
+    const claudePath = process.env.CLAUDE_CMD ?? 'claude'
 
     return new Promise((resolve, reject) => {
       const child = spawn(claudePath, args, {
@@ -213,13 +217,14 @@ export class OpenClawAdapter implements AgentAdapter {
       child.on('error', (err: NodeJS.ErrnoException) => {
         clearTimeout(timer)
         const endMs = Date.now()
-        if (err.code === 'ENOENT') {
-          // claude binary not found — fall back to mock
-          this.useMock = true
-          resolve(this.executeMock(task, options))
-        } else {
-          reject(new Error(`Failed to spawn claude: ${err.message}`))
-        }
+        resolve({
+          success: false,
+          output: `Failed to spawn Claude: ${err.message}`,
+          provider: 'claude',
+          model,
+          timing: { startMs, endMs, durationMs: endMs - startMs },
+          costEstimate: 0,
+        })
       })
     })
   }
