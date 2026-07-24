@@ -55,14 +55,25 @@ export function inspectWorktreeCheckpoint(
   const ignored = ignoredStatePaths
     .map((path) => normalizePath(relative(repo, resolve(path))))
     .filter((path) => path && !path.startsWith('../'))
-  const dirtyPaths = execFileSync(
+  const statusFields = execFileSync(
     'git',
-    ['status', '--porcelain=v1', '--untracked-files=all'],
+    ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
     { cwd: repo, encoding: 'utf8' },
   )
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => normalizePath(line.slice(3).split(' -> ').at(-1) ?? ''))
+    .split('\0')
+  const allDirtyPaths: string[] = []
+  for (let index = 0; index < statusFields.length; index += 1) {
+    const entry = statusFields[index]
+    if (!entry) continue
+    const status = entry.slice(0, 2)
+    allDirtyPaths.push(normalizePath(entry.slice(3)))
+    if (/[RC]/.test(status)) {
+      const sourcePath = statusFields[index + 1]
+      if (sourcePath) allDirtyPaths.push(normalizePath(sourcePath))
+      index += 1
+    }
+  }
+  const dirtyPaths = [...new Set(allDirtyPaths)]
     .filter((path) => path && !ignored.some(
       (prefix) => path === prefix || path.startsWith(`${prefix}/`),
     ))

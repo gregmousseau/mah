@@ -104,6 +104,36 @@ test('QA-only resume rejects replacement content at the same checkpoint paths', 
   }
 })
 
+test('QA-only resume binds both sides of a staged rename', () => {
+  const fixture = createRepo()
+  try {
+    execFileSync('git', ['mv', 'candidate.txt', 'renamed.txt'], { cwd: fixture.repo })
+    const checkpoint = persistRecoverableCheckpoint({
+      sprintPath: fixture.sprint,
+      repoPath: fixture.repo,
+      round: 1,
+      result: agentResult('idle-timeout'),
+    })
+    assert.ok(checkpoint)
+    assert.deepEqual(checkpoint.dirtyPaths, ['candidate.txt', 'renamed.txt'])
+
+    writeFileSync(join(fixture.repo, 'candidate.txt'), 'base\n')
+    execFileSync('git', ['add', 'candidate.txt', 'renamed.txt'], { cwd: fixture.repo })
+    execFileSync('git', ['commit', '-m', 'restore rename source'], { cwd: fixture.repo })
+
+    assert.throws(
+      () => verifyQAOnlyResume({
+        sprintPath: fixture.sprint,
+        repoPath: fixture.repo,
+        request: { candidateSha: gitSha(fixture.repo), round: 1 },
+      }),
+      /candidate does not contain checkpoint path/,
+    )
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true })
+  }
+})
+
 function createRepo(): { root: string; repo: string; sprint: string } {
   const root = mkdtempSync(join(tmpdir(), 'mah-checkpoint-test-'))
   const repo = join(root, 'repo')
