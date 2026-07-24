@@ -1,0 +1,41 @@
+{
+  "name": "AWC-241 replay — code-review finding on a PR-touched path",
+  "candidateSha": "0000000000000000000000000000000000000241",
+  "currentPrPaths": ["src/release-contract.ts"],
+  "findings": [
+    {
+      "id": "CR-01",
+      "severity": "major",
+      "category": "delivery",
+      "file": "src/release-contract.ts",
+      "line": 42,
+      "description": "Release contract missing required cohort assertion. token=[REDACTED]",
+      "scopeRelationship": "introduced",
+      "releaseImpact": "required-for-release-safety",
+      "evidenceConfidence": "confirmed"
+    },
+    {
+      "id": "CR-02",
+      "severity": "minor",
+      "category": "delivery",
+      "file": "src/release-contract.ts",
+      "line": 90,
+      "description": "Contract lacks explanatory comment for the retry ladder.",
+      "scopeRelationship": "pre-existing",
+      "releaseImpact": "not-release-blocking",
+      "evidenceConfidence": "confirmed"
+    },
+    {
+      "id": "CR-03",
+      "severity": "info",
+      "category": "design",
+      "file": "docs/architecture.md",
+      "description": "Consider documenting the new lane in the arch overview.",
+      "scopeRelationship": "unknown",
+      "releaseImpact": "unknown",
+      "evidenceConfidence": "insufficient",
+      "investigationQuestion": "Which architecture consumers need the new lane documented?",
+      "exitCriterion": "List affected consumers or close with evidence that none exist."
+    }
+  ]
+}

@@ -109,6 +109,7 @@ export function failedGraderResult(
 export function buildConsolidatedRepairBrief(
   results: GraderResult[],
   failures: DeliveryFailure[] = [],
+  options: { includeInformational?: boolean } = {},
 ): string {
   const lines = ['# Consolidated Repair Brief', '']
   const seen = new Set<string>()
@@ -117,7 +118,7 @@ export function buildConsolidatedRepairBrief(
   for (const result of results) {
     let graderFindingCount = 0
     for (const finding of result.findings) {
-      if (!isMaterialFinding(finding)) continue
+      if (!options.includeInformational && !isMaterialFinding(finding)) continue
       const key = [finding.severity, finding.file ?? '', finding.line ?? '', finding.description]
         .join('|')
         .toLowerCase()
@@ -167,9 +168,10 @@ export function restoreRepairFeedback(
   rawGraderOutput: string,
   results: GraderResult[] | undefined,
   failures: DeliveryFailure[] = [],
+  options: { includeInformational?: boolean } = {},
 ): string {
   if (!results) return rawGraderOutput
-  return buildConsolidatedRepairBrief(results, failures)
+  return buildConsolidatedRepairBrief(results, failures, options)
 }
 
 export function canResumeQAWithPinnedCandidate(
@@ -253,6 +255,57 @@ export function inspectDeliveryPreflight(
   return { identity: { candidateSha, dependencyFingerprint }, envFile }
 }
 
+export function changedPathsForCandidate(
+  repoPath: string,
+  baselineSha: string,
+  candidateSha: string,
+): string[] {
+  const requestedRepo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
+  try {
+    const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: requestedRepo,
+      encoding: 'utf8',
+    }).trim()
+    execFileSync('git', ['rev-parse', '--verify', `${baselineSha}^{commit}`], {
+      cwd: requestedRepo,
+      stdio: 'ignore',
+    })
+    execFileSync('git', ['rev-parse', '--verify', `${candidateSha}^{commit}`], {
+      cwd: requestedRepo,
+      stdio: 'ignore',
+    })
+    execFileSync('git', ['merge-base', '--is-ancestor', baselineSha, candidateSha], {
+      cwd: requestedRepo,
+      stdio: 'ignore',
+    })
+    const output = execFileSync(
+      'git',
+      ['diff', '--name-only', '--find-renames', baselineSha, candidateSha, '--'],
+      { cwd: requestedRepo, encoding: 'utf8' },
+    )
+    const rootPaths = output.split('\n').map((path) => path.trim()).filter(Boolean)
+    const packagePrefix = relative(repoRoot, requestedRepo)
+      .replaceAll('\\', '/')
+      .replace(/\/+$/, '')
+    const packageAliases = !packagePrefix
+      || packagePrefix === '.'
+      || packagePrefix.startsWith('../')
+      ? []
+      : rootPaths
+        .filter((path) => path.startsWith(`${packagePrefix}/`))
+        .map((path) => path.slice(packagePrefix.length + 1))
+    const paths = [...new Set([...rootPaths, ...packageAliases])]
+    if (paths.length === 0) throw new Error('cumulative candidate diff contains no changed paths')
+    return paths
+  } catch (error) {
+    throw new Error(
+      `Scope evidence unavailable for baseline ${baselineSha} and candidate ${candidateSha}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    )
+  }
+}
+
 function isIgnoredHarnessPath(
   path: string,
   repo: string,
@@ -265,9 +318,11 @@ function isIgnoredHarnessPath(
     '.mah/events',
     '.mah/metrics',
     '.mah/queue',
+    '.mah/registrar',
     '.mah/sprints',
     '.mah/heartbeat.json',
     '.mah/notifications/latest.json',
+    '.tmp/node-compile-cache',
   ]
   const ignored = [repo, requestedRepo, invocationPath]
     .flatMap((base) => ['.env.mah.local', ...runtimePaths].map((candidate) => resolve(base, candidate)))

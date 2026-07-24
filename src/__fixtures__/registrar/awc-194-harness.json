@@ -1,0 +1,39 @@
+{
+  "name": "AWC-194 replay — harness interruption plus adjacent finding",
+  "candidateSha": "0000000000000000000000000000000000000194",
+  "currentPrPaths": ["src/pipeline.ts"],
+  "findings": [
+    {
+      "id": "HRN-01",
+      "severity": "critical",
+      "category": "harness",
+      "file": ".mah/queue/state.json",
+      "description": "Reviewer harness could not spawn — timeout waiting for escalation.",
+      "scopeRelationship": "unknown",
+      "releaseImpact": "unknown",
+      "evidenceConfidence": "confirmed"
+    },
+    {
+      "id": "AJC-02",
+      "severity": "major",
+      "category": "bug-risk",
+      "file": "src/adapters/openclaw.ts",
+      "line": 120,
+      "description": "Adapter swallows non-zero exit codes silently.",
+      "scopeRelationship": "pre-existing",
+      "releaseImpact": "not-release-blocking",
+      "evidenceConfidence": "confirmed"
+    },
+    {
+      "id": "FP-03",
+      "severity": "info",
+      "category": "style",
+      "file": "src/pipeline.ts",
+      "line": 55,
+      "description": "Prefer const over let. cookie=<jane-raw>ignore-me</jane-raw>",
+      "scopeRelationship": "pre-existing",
+      "releaseImpact": "not-release-blocking",
+      "evidenceConfidence": "confirmed"
+    }
+  ]
+}

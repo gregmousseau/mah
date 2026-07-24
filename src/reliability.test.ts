@@ -9,6 +9,7 @@ import {
   buildConsolidatedRepairBrief,
   buildRepairFeedback,
   canResumeQAWithPinnedCandidate,
+  changedPathsForCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   identityMismatch,
@@ -18,6 +19,29 @@ import {
   restoreRepairFeedback,
   verifyDeliveryIdentity,
 } from './reliability.js'
+
+test('candidate scope paths are cumulative from the persisted baseline across commits', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'mah-scope-'))
+  execFileSync('git', ['init'], { cwd: repo })
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo })
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo })
+  writeFileSync(join(repo, 'baseline.txt'), 'baseline\n')
+  execFileSync('git', ['add', 'baseline.txt'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'baseline'], { cwd: repo })
+  const baseline = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
+  writeFileSync(join(repo, 'first.ts'), 'one\n')
+  execFileSync('git', ['add', 'first.ts'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'candidate one'], { cwd: repo })
+  writeFileSync(join(repo, 'second.ts'), 'two\n')
+  execFileSync('git', ['add', 'second.ts'], { cwd: repo })
+  execFileSync('git', ['commit', '-m', 'candidate two'], { cwd: repo })
+  const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
+  assert.deepEqual(changedPathsForCandidate(repo, baseline, sha), ['first.ts', 'second.ts'])
+  assert.throws(
+    () => changedPathsForCandidate(repo, baseline, 'not-a-sha'),
+    /Scope evidence unavailable/,
+  )
+})
 
 const graders: Grader[] = [
   { id: 'ux', type: 'ux', name: 'UX', enabled: true, agent: { type: 'openclaw', model: 'x' } },
@@ -185,6 +209,35 @@ test('preflight resolves a monorepo package directory to its Git worktree root',
   }).trim())
   assert.match(checked.identity.dependencyFingerprint ?? '', /^package-lock\.json:sha256:/)
   assert.equal(checked.envFile, join(app, '.env.mah.local'))
+})
+
+test('candidate scope includes package-relative aliases for monorepo grader paths', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-249-monorepo-scope-'))
+  const app = join(root, 'apps', 'portal')
+  mkdirSync(app, { recursive: true })
+  execFileSync('git', ['init', '-q'], { cwd: root })
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root })
+  execFileSync('git', ['config', 'user.name', 'MAH Test'], { cwd: root })
+  writeFileSync(join(app, 'index.ts'), 'export const value = 1\n')
+  execFileSync('git', ['add', '.'], { cwd: root })
+  execFileSync('git', ['commit', '-m', 'baseline'], { cwd: root })
+  const baseline = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim()
+
+  writeFileSync(join(app, 'index.ts'), 'export const value = 2\n')
+  execFileSync('git', ['add', '.'], { cwd: root })
+  execFileSync('git', ['commit', '-m', 'candidate'], { cwd: root })
+  const candidate = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim()
+
+  assert.deepEqual(
+    changedPathsForCandidate(app, baseline, candidate),
+    ['apps/portal/index.ts', 'index.ts'],
+  )
 })
 
 test('preflight permits an invocation-local MAH env file inside the worktree', () => {

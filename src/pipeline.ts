@@ -21,6 +21,10 @@ import { createSprintMetrics, saveMetrics } from './metrics.js'
 import { EventLogger } from './events.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import {
+  repairScopedGraderResults,
+} from './registrar/routing.js'
+import { processScopeAwareFindingRound } from './registrar/round.js'
+import {
   buildConsolidatedRepairBrief,
   canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
@@ -44,6 +48,12 @@ import type {
   GraderResult,
   AgentResult,
 } from './types.js'
+
+export {
+  repairScopedGraderResults,
+  registrarHarnessFailures,
+  scopeAwareVerdict,
+} from './registrar/routing.js'
 
 function writeNotification(
   contract: SprintContract,
@@ -253,6 +263,13 @@ export async function runSprint(
   let crashError: Error | null = null
   try {
   await preflightAdapter(generatorAdapter, config.agents.generator)
+  if (config.findings?.findingsMode !== 'off' && !contract.scopeBaselineSha) {
+    contract.scopeBaselineSha = inspectDeliveryPreflight(
+      config.agents.generator.cwd ?? contract.devBrief.repo,
+      { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+    ).identity.candidateSha
+    saveContract(contract, sprintDir)
+  }
   events.log('moe', 'milestone', 'preflight',
     `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
@@ -414,11 +431,16 @@ export async function runSprint(
           graderType: 'ux',
           graderName: grader.name,
           verdict: uxVerdict,
-          findings: qaReport.defects.map((d, i) => ({
+          findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
-            category: 'ux',
+            category: d.category ?? 'ux',
             description: d.description,
+            scopeRelationship: d.scopeRelationship,
+            releaseImpact: d.releaseImpact,
+            evidenceConfidence: d.evidenceConfidence,
+            investigationQuestion: d.investigationQuestion,
+            exitCriterion: d.exitCriterion,
           })),
           summary: qaReport.summary,
           model: qaResult.model ?? grader.agent.model,
@@ -504,16 +526,48 @@ export async function runSprint(
       )
       if (failure) delivery.failures.push(failure)
     }
-    const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
+    let aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     // Extract QA defects from UX grader result (for backward compat)
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const qaDefects = materialGraderFindings(graderResults).map(f => ({
+    const findingsConfig = {
+      ...(config.findings ?? {
+      scopeGate: 'advisory' as const,
+      findingsMode: 'report' as const,
+      ticketDispatchEnabled: false,
+      currentPrPaths: [],
+      }),
+      currentPrPaths: [...(config.findings?.currentPrPaths ?? [])],
+    }
+    const findingsRound = candidateIdentity
+      ? await processScopeAwareFindingRound({
+        repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+        baselineSha: contract.scopeBaselineSha,
+        candidateSha: candidateIdentity.candidateSha,
+        graderResults,
+        failures: delivery.failures,
+        originalVerdict: aggregateVerdict,
+        config: findingsConfig,
+        scopeStage: `findings-scope-r${round}`,
+        reportPath: join(sprintDir, contract.id, `findings-r${round}.json`),
+      })
+      : undefined
+    const findingsReport = findingsRound?.report
+    if (findingsRound) aggregateVerdict = findingsRound.verdict
+    const qaDefects = materialGraderFindings(
+      repairScopedGraderResults(graderResults, findingsReport),
+    ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
+      category: f.category,
       description: f.description,
       fixed: false,
-    })) ?? []
+      scopeRelationship: f.scopeRelationship,
+      releaseImpact: f.releaseImpact,
+      evidenceConfidence: f.evidenceConfidence,
+      investigationQuestion: f.investigationQuestion,
+      exitCriterion: f.exitCriterion,
+    }))
 
     // 3d. Record iteration (backward compatible)
     const iteration: SprintIteration = {
@@ -524,6 +578,7 @@ export async function runSprint(
       graderResults,
       deliveryFailures: delivery.failures,
       candidateIdentity,
+      findingsReport,
     }
     contract.iterations.push(iteration)
 
@@ -557,7 +612,14 @@ export async function runSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = buildConsolidatedRepairBrief(graderResults, delivery.failures)
+    lastQAOutput = buildConsolidatedRepairBrief(
+      repairScopedGraderResults(graderResults, findingsReport),
+      delivery.failures,
+      {
+        includeInformational:
+          findingsReport?.scopeGate === 'enforced' && findingsReport.reviewComplete,
+      },
+    )
   }
   } catch (err) {
     crashError = err as Error
@@ -686,10 +748,21 @@ export async function runExistingContract(
             // All required graders were aggregated before the crash; advance to repair.
             resumeFromRound = lastPhase.round + 1
             resumeFromPhase = 'dev'
+            const persistedRepairResults = lastIteration?.graderResults
+              ? repairScopedGraderResults(
+                lastIteration.graderResults,
+                lastIteration.findingsReport,
+              )
+              : undefined
             lastQAOutput = restoreRepairFeedback(
               lastPhase.responseReceived,
-              lastIteration?.graderResults,
+              persistedRepairResults,
               lastIteration?.deliveryFailures,
+              {
+                includeInformational:
+                  lastIteration?.findingsReport?.scopeGate === 'enforced'
+                  && lastIteration.findingsReport.reviewComplete,
+              },
             )
             events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} dev phase (previous QA findings carried forward)`)
           } else {
@@ -731,6 +804,18 @@ export async function runExistingContract(
   let crashError: Error | null = null
   try {
   await preflightAdapter(generatorAdapter, config.agents.generator)
+  if (
+    config.findings?.findingsMode !== 'off'
+    && !contract.scopeBaselineSha
+    && !previousTranscript?.phases.some((phase) => phase.phase === 'dev')
+    && contract.iterations.length === 0
+  ) {
+    contract.scopeBaselineSha = inspectDeliveryPreflight(
+      config.agents.generator.cwd ?? contract.devBrief.repo,
+      { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
+    ).identity.candidateSha
+    saveContractDirect(contract, sprintFullPath)
+  }
   events.log('moe', 'milestone', 'preflight',
     `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   for (let round = 1; round <= config.qa.maxIterations; round++) {
@@ -943,8 +1028,13 @@ export async function runExistingContract(
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
-            category: 'ux',
+            category: d.category ?? 'ux',
             description: d.description,
+            scopeRelationship: d.scopeRelationship,
+            releaseImpact: d.releaseImpact,
+            evidenceConfidence: d.evidenceConfidence,
+            investigationQuestion: d.investigationQuestion,
+            exitCriterion: d.exitCriterion,
           })),
           summary: qaReport.summary,
           model: qaResult.model ?? grader.agent.model,
@@ -1027,15 +1117,47 @@ export async function runExistingContract(
       )
       if (failure) delivery.failures.push(failure)
     }
-    const aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
+    let aggregateVerdict = delivery.failures.length > 0 ? 'fail' : delivery.verdict
 
     const uxResult = graderResults.find(r => r.graderType === 'ux')
-    const qaDefects = materialGraderFindings(graderResults).map(f => ({
+    const findingsConfig = {
+      ...(config.findings ?? {
+      scopeGate: 'advisory' as const,
+      findingsMode: 'report' as const,
+      ticketDispatchEnabled: false,
+      currentPrPaths: [],
+      }),
+      currentPrPaths: [...(config.findings?.currentPrPaths ?? [])],
+    }
+    const findingsRound = candidateIdentity
+      ? await processScopeAwareFindingRound({
+        repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+        baselineSha: contract.scopeBaselineSha,
+        candidateSha: candidateIdentity.candidateSha,
+        graderResults,
+        failures: delivery.failures,
+        originalVerdict: aggregateVerdict,
+        config: findingsConfig,
+        scopeStage: `findings-scope-r${round}`,
+        reportPath: join(sprintFullPath, `findings-r${round}.json`),
+      })
+      : undefined
+    const findingsReport = findingsRound?.report
+    if (findingsRound) aggregateVerdict = findingsRound.verdict
+    const qaDefects = materialGraderFindings(
+      repairScopedGraderResults(graderResults, findingsReport),
+    ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
+      category: f.category,
       description: f.description,
       fixed: false,
-    })) ?? []
+      scopeRelationship: f.scopeRelationship,
+      releaseImpact: f.releaseImpact,
+      evidenceConfidence: f.evidenceConfidence,
+      investigationQuestion: f.investigationQuestion,
+      exitCriterion: f.exitCriterion,
+    }))
 
     const iteration: SprintIteration = {
       round,
@@ -1045,6 +1167,7 @@ export async function runExistingContract(
       graderResults,
       deliveryFailures: delivery.failures,
       candidateIdentity,
+      findingsReport,
     }
     contract.iterations.push(iteration)
 
@@ -1076,7 +1199,14 @@ export async function runExistingContract(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = buildConsolidatedRepairBrief(graderResults, delivery.failures)
+    lastQAOutput = buildConsolidatedRepairBrief(
+      repairScopedGraderResults(graderResults, findingsReport),
+      delivery.failures,
+      {
+        includeInformational:
+          findingsReport?.scopeGate === 'enforced' && findingsReport.reviewComplete,
+      },
+    )
   }
   } catch (err) {
     crashError = err as Error

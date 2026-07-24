@@ -47,6 +47,13 @@ export interface GraderFinding {
   line?: number
   description: string
   suggestion?: string
+  // Scope and release impact, rather than severity, decide whether a
+  // product finding belongs in the active repair loop.
+  scopeRelationship?: 'introduced' | 'worsened' | 'activated' | 'pre-existing' | 'unknown'
+  releaseImpact?: 'required-for-release-safety' | 'not-release-blocking' | 'unknown'
+  evidenceConfidence?: 'confirmed' | 'plausible' | 'insufficient'
+  investigationQuestion?: string
+  exitCriterion?: string
 }
 
 // ─── Project Configuration (from mah.yaml) ───
@@ -69,6 +76,14 @@ export interface ProjectConfig {
     defaultTier: 'smoke' | 'targeted' | 'full'
     maxIterations: number
     verdictMode?: VerdictMode
+  }
+  findings?: {
+    scopeGate: 'advisory' | 'enforced'
+    findingsMode: 'off' | 'report' | 'ticket'
+    ticketDispatchEnabled: boolean
+    currentPrPaths: string[]
+    falsePositiveIds?: string[]
+    ticketTeamId?: string
   }
   human: {
     notificationChannel: string
@@ -146,6 +161,9 @@ export interface SprintContract {
   deliveryFailures?: DeliveryFailure[]
   activeCandidateIdentity?: DeliveryIdentity
   activeCandidateRound?: number
+  // Exact HEAD captured before the first dev action. Finding scope is
+  // the cumulative diff from this baseline to each pinned candidate.
+  scopeBaselineSha?: string
   iterations: SprintIteration[]
   createdAt: string
   completedAt?: string
@@ -159,6 +177,7 @@ export interface SprintIteration {
   graderResults?: GraderResult[]  // results from all graders this round
   deliveryFailures?: DeliveryFailure[]
   candidateIdentity?: DeliveryIdentity
+  findingsReport?: import('./registrar/types.js').RegistrarReport
 }
 
 export interface PhaseResult {
@@ -175,8 +194,14 @@ export interface PhaseResult {
 export interface Defect {
   id: string           // e.g., "P1-01"
   severity: 'p0' | 'p1' | 'p2' | 'p3'
+  category?: string
   description: string
   fixed: boolean
+  scopeRelationship?: GraderFinding['scopeRelationship']
+  releaseImpact?: GraderFinding['releaseImpact']
+  evidenceConfidence?: GraderFinding['evidenceConfidence']
+  investigationQuestion?: string
+  exitCriterion?: string
 }
 
 // ─── QA Report (parsed from evaluator output) ───

@@ -30,8 +30,72 @@ qa:
   writeFileSync(invalidPath, `${base}  verdictMode: permissive\n`)
 
   assert.equal(loadConfig(defaultPath).qa.verdictMode, 'fail-closed')
+  assert.deepEqual(loadConfig(defaultPath).findings, {
+    scopeGate: 'advisory',
+    findingsMode: 'report',
+    ticketDispatchEnabled: false,
+    currentPrPaths: [],
+    falsePositiveIds: [],
+  })
   assert.equal(loadConfig(legacyPath).qa.verdictMode, 'legacy')
   assert.throws(() => loadConfig(invalidPath), /verdictMode/)
+})
+
+test('findings rollout modes are independently configurable and validated', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-249-config-'))
+  const path = join(root, 'mah.yaml')
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings:
+  scopeGate: enforced
+  findingsMode: off
+  ticketDispatchEnabled: false
+  currentPrPaths: [src/pipeline.ts]
+`)
+  const config = loadConfig(path)
+  assert.equal(config.findings?.scopeGate, 'enforced')
+  assert.equal(config.findings?.findingsMode, 'off')
+  assert.equal(config.findings?.ticketDispatchEnabled, false)
+  assert.deepEqual(config.findings?.currentPrPaths, ['src/pipeline.ts'])
+
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings: { scopeGate: permissive }
+`)
+  assert.throws(() => loadConfig(path), /findings.scopeGate/)
+
+  for (const invalidEntry of ['../secret', '/absolute/path', '']) {
+    writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings:
+  currentPrPaths: [${JSON.stringify(invalidEntry)}]
+`)
+    assert.throws(() => loadConfig(path), /repository-relative/)
+  }
+
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings: { findingsMode: ticket, ticketDispatchEnabled: true }
+`)
+  assert.throws(() => loadConfig(path), /ticketTeamId/)
+
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings:
+  scopeGate: enforced
+  findingsMode: report
+  ticketDispatchEnabled: true
+  falsePositiveIds: [QA-FP-1]
+`)
+  const reportOnly = loadConfig(path)
+  assert.equal(reportOnly.findings?.findingsMode, 'report')
+  assert.equal(reportOnly.findings?.ticketTeamId, undefined)
+  assert.deepEqual(reportOnly.findings?.falsePositiveIds, ['QA-FP-1'])
 })
 
 test('direct config entry points honor the verdict mode environment override', () => {
