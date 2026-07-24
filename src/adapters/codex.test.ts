@@ -18,6 +18,7 @@ test('Codex adapter uses activity-reset idle timeout, absolute ceiling, and boun
   const rawDir = join(root, 'raw')
   const originalPath = process.env.PATH
   const originalBehavior = process.env.MAH_TEST_CODEX_BEHAVIOR
+  const originalMarker = process.env.MAH_TEST_DESCENDANT_MARKER
   try {
     const { mkdirSync } = await import('node:fs')
     mkdirSync(bin)
@@ -51,6 +52,14 @@ case "\${MAH_TEST_CODEX_BEHAVIOR:-active}" in
       printf 'absolute-tick\\n'
       sleep 0.02
     done
+    ;;
+  descendant)
+    (
+      trap '' TERM
+      sleep 0.20
+      printf survived > "\${MAH_TEST_DESCENDANT_MARKER}"
+    ) &
+    sleep 2
     ;;
   large)
     printf 'HEAD:'
@@ -90,6 +99,7 @@ esac
         cwd: root,
         idleTimeoutMs: 40,
         absoluteTimeoutMs: 500,
+        terminationGraceMs: 10,
       })
       assert.equal(result.success, false)
       assert.equal(result.termination?.reason, 'idle-timeout')
@@ -103,9 +113,26 @@ esac
         cwd: root,
         idleTimeoutMs: 50,
         absoluteTimeoutMs: 140,
+        terminationGraceMs: 10,
       })
       assert.equal(result.success, false)
       assert.equal(result.termination?.reason, 'absolute-timeout')
+    })
+
+    await t.test('timeout waits for process-group SIGKILL before returning', async () => {
+      process.env.MAH_TEST_CODEX_BEHAVIOR = 'descendant'
+      const marker = join(root, 'descendant-survived')
+      process.env.MAH_TEST_DESCENDANT_MARKER = marker
+      const result = await adapter.execute('test', {
+        model: 'test-model',
+        cwd: root,
+        idleTimeoutMs: 40,
+        absoluteTimeoutMs: 500,
+        terminationGraceMs: 10,
+      })
+      assert.equal(result.termination?.reason, 'idle-timeout')
+      await new Promise(resolve => setTimeout(resolve, 250))
+      assert.equal(existsSync(marker), false)
     })
 
     await t.test('large final output is bounded and raw activity remains separate', async () => {
@@ -130,6 +157,8 @@ esac
     process.env.PATH = originalPath
     if (originalBehavior === undefined) delete process.env.MAH_TEST_CODEX_BEHAVIOR
     else process.env.MAH_TEST_CODEX_BEHAVIOR = originalBehavior
+    if (originalMarker === undefined) delete process.env.MAH_TEST_DESCENDANT_MARKER
+    else process.env.MAH_TEST_DESCENDANT_MARKER = originalMarker
     rmSync(root, { recursive: true, force: true })
   }
 })

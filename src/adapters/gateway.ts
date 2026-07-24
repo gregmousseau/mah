@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { spawn } from 'node:child_process'
+import {
+  boundTranscriptResponse,
+  resolveAdapterExecutionPolicy,
+} from '../execution-policy.js'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+import { runActivityAwareProcess } from './activity-aware-process.js'
 import { AdapterPreflightError } from './errors.js'
 
 interface GatewayResponse {
@@ -51,7 +55,7 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
     return this.run(task, options)
   }
 
-  private run(task: string, options: ExecuteOptions): Promise<AgentResult> {
+  private async run(task: string, options: ExecuteOptions): Promise<AgentResult> {
     const startMs = Date.now()
     const model = options.model?.trim()
     if (!model) throw new Error('OpenClaw provider requires an explicit provider/model')
@@ -65,7 +69,7 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
         timing: { startMs, endMs, durationMs: endMs - startMs },
       })
     }
-    const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
+    const policy = resolveAdapterExecutionPolicy(options)
     const cwd = resolvedCwd(options)
     const message = [
       `Work only in this directory: ${cwd}`,
@@ -79,69 +83,57 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
       '--session-id', `mah-gateway-${randomUUID()}`,
       '--model', model,
       '--thinking', 'high',
-      '--timeout', String(Math.max(1, Math.ceil(timeoutMs / 1000))),
+      '--timeout', String(Math.max(1, Math.ceil(policy.absoluteTimeoutMs / 1000))),
       '--message', message,
       '--json',
     ]
 
-    return new Promise((resolve, reject) => {
-      const child = spawn(process.env.OPENCLAW_CMD ?? 'openclaw', args, {
-        cwd,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', chunk => { stdout += chunk.toString() })
-      child.stderr.on('data', chunk => { stderr += chunk.toString() })
-      const timer = setTimeout(() => {
-        child.kill('SIGTERM')
-        setTimeout(() => child.kill('SIGKILL'), 5000)
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: stdout || stderr || `[Timeout after ${timeoutMs / 1000}s]`,
-          provider: 'openclaw',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-        })
-      }, timeoutMs)
-      child.on('close', code => {
-        clearTimeout(timer)
-        const endMs = Date.now()
-        try {
-          const parsed = JSON.parse(stdout) as GatewayResponse
-          const output = parsed.result?.payloads?.map(item => item.text ?? '').filter(Boolean).join('\n') ?? ''
-          const meta = parsed.result?.meta?.agentMeta
-          const usage = meta?.usage
-          resolve({
-            success: code === 0 && Boolean(output),
-            output: output || stderr || 'OpenClaw gateway returned no response',
-            provider: meta?.provider ?? 'openclaw',
-            model: meta?.model ?? model,
-            timing: { startMs, endMs, durationMs: endMs - startMs },
-            tokenUsage: usage ? { input: usage.input ?? 0, output: usage.output ?? 0 } : undefined,
-          })
-        } catch {
-          resolve({
-            success: false,
-            output: stderr || 'OpenClaw gateway returned invalid JSON',
-            provider: 'openclaw',
-            model,
-            timing: { startMs, endMs, durationMs: endMs - startMs },
-          })
-        }
-      })
-      child.on('error', error => {
-        clearTimeout(timer)
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: `Failed to invoke OpenClaw gateway: ${error.message}`,
-          provider: 'openclaw',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-        })
-      })
+    const execution = await runActivityAwareProcess({
+      command: process.env.OPENCLAW_CMD ?? 'openclaw',
+      args,
+      cwd,
+      execution: options,
+      terminationGraceMs: options.terminationGraceMs,
     })
+    let output = execution.stderr
+    let provider = 'openclaw'
+    let confirmedModel = model
+    let tokenUsage: AgentResult['tokenUsage']
+    let parsedSuccessfully = false
+    if (execution.termination.reason === 'completed' && execution.code === 0) {
+      try {
+        const parsed = JSON.parse(execution.stdout) as GatewayResponse
+        output = parsed.result?.payloads
+          ?.map(item => item.text ?? '')
+          .filter(Boolean)
+          .join('\n') ?? ''
+        const meta = parsed.result?.meta?.agentMeta
+        provider = meta?.provider ?? provider
+        confirmedModel = meta?.model ?? confirmedModel
+        const usage = meta?.usage
+        if (usage) tokenUsage = { input: usage.input ?? 0, output: usage.output ?? 0 }
+        parsedSuccessfully = Boolean(output)
+      } catch {
+        output = execution.stderr || 'OpenClaw gateway returned invalid JSON'
+      }
+    } else if (execution.error) {
+      output = `Failed to invoke OpenClaw gateway: ${execution.error.message}`
+    } else {
+      output = execution.stdout || execution.stderr
+        || `[${execution.termination.reason}; last activity ${execution.termination.lastActivityAt}]`
+    }
+    return {
+      success:
+        execution.termination.reason === 'completed'
+        && execution.code === 0
+        && parsedSuccessfully,
+      output: boundTranscriptResponse(output, policy.transcriptMaxChars),
+      provider,
+      model: confirmedModel,
+      rawActivityPath: execution.rawActivityPath,
+      termination: execution.termination,
+      timing: execution.timing,
+      tokenUsage,
+    }
   }
 }

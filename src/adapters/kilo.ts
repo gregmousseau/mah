@@ -1,6 +1,10 @@
-import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import {
+  boundTranscriptResponse,
+  resolveAdapterExecutionPolicy,
+} from '../execution-policy.js'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+import { runActivityAwareProcess } from './activity-aware-process.js'
 import { AdapterPreflightError } from './errors.js'
 
 const verifiedModels = new Set<string>()
@@ -54,8 +58,7 @@ export class KiloAdapter implements AgentAdapter {
   }
 
   private async run(task: string, options: ExecuteOptions): Promise<AgentResult> {
-    const startMs = Date.now()
-    const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
+    const policy = resolveAdapterExecutionPolicy(options)
     const cwd = resolvedCwd(options)
     const model = options.model?.trim()
     if (!model) throw new Error('Kilo provider requires an explicit model')
@@ -75,75 +78,57 @@ export class KiloAdapter implements AgentAdapter {
       '--session-id', sessionId,
       '--model', normalizedModel(model),
       '--thinking', 'high',
-      '--timeout', String(Math.max(1, Math.ceil(timeoutMs / 1000))),
+      '--timeout', String(Math.max(1, Math.ceil(policy.absoluteTimeoutMs / 1000))),
       '--message', message,
       '--json',
     ]
 
-    return new Promise((resolve, reject) => {
-      const child = spawn(executable, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', chunk => { stdout += chunk.toString() })
-      child.stderr.on('data', chunk => { stderr += chunk.toString() })
-      const timer = setTimeout(() => {
-        child.kill('SIGTERM')
-        setTimeout(() => child.kill('SIGKILL'), 5000)
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: stdout || stderr || `[Timeout after ${timeoutMs / 1000}s]`,
-          provider: 'kilo',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-        })
-      }, timeoutMs)
-      child.on('close', code => {
-        clearTimeout(timer)
-        const endMs = Date.now()
-        let output = stdout
-        let provider = 'kilo'
-        let confirmedModel = model
-        let tokenUsage: AgentResult['tokenUsage']
-        let parsedSuccessfully = false
-        if (code === 0) {
-          try {
-            const parsed = JSON.parse(stdout) as OpenClawAgentResponse
-            output = parsed.result?.payloads
-              ?.map(payload => payload.text ?? '')
-              .filter(Boolean)
-              .join('\n') ?? ''
-            provider = parsed.result?.meta?.agentMeta?.provider ?? provider
-            confirmedModel = parsed.result?.meta?.agentMeta?.model ?? confirmedModel
-            const usage = parsed.result?.meta?.agentMeta?.usage
-            if (usage) tokenUsage = { input: usage.input ?? 0, output: usage.output ?? 0 }
-            parsedSuccessfully = Boolean(output)
-          } catch {
-            output = stderr || 'Kilo gateway returned invalid JSON'
-          }
-        }
-        resolve({
-          success: code === 0 && parsedSuccessfully,
-          output: output || stderr || `[Process exited with code ${code}]`,
-          provider,
-          model: confirmedModel,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-          tokenUsage,
-          costEstimate: 0,
-        })
-      })
-      child.on('error', err => {
-        clearTimeout(timer)
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: `Failed to invoke Kilo through OpenClaw: ${err.message}`,
-          provider: 'kilocode',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-          costEstimate: 0,
-        })
-      })
+    const execution = await runActivityAwareProcess({
+      command: executable,
+      args,
+      cwd,
+      execution: options,
+      terminationGraceMs: options.terminationGraceMs,
     })
+    let output = execution.stdout
+    let provider = 'kilo'
+    let confirmedModel = model
+    let tokenUsage: AgentResult['tokenUsage']
+    let parsedSuccessfully = false
+    if (execution.termination.reason === 'completed' && execution.code === 0) {
+      try {
+        const parsed = JSON.parse(execution.stdout) as OpenClawAgentResponse
+        output = parsed.result?.payloads
+          ?.map(payload => payload.text ?? '')
+          .filter(Boolean)
+          .join('\n') ?? ''
+        provider = parsed.result?.meta?.agentMeta?.provider ?? provider
+        confirmedModel = parsed.result?.meta?.agentMeta?.model ?? confirmedModel
+        const usage = parsed.result?.meta?.agentMeta?.usage
+        if (usage) tokenUsage = { input: usage.input ?? 0, output: usage.output ?? 0 }
+        parsedSuccessfully = Boolean(output)
+      } catch {
+        output = execution.stderr || 'Kilo gateway returned invalid JSON'
+      }
+    } else if (execution.error) {
+      output = `Failed to invoke Kilo through OpenClaw: ${execution.error.message}`
+    } else {
+      output = execution.stdout || execution.stderr
+        || `[${execution.termination.reason}; last activity ${execution.termination.lastActivityAt}]`
+    }
+    return {
+      success:
+        execution.termination.reason === 'completed'
+        && execution.code === 0
+        && parsedSuccessfully,
+      output: boundTranscriptResponse(output, policy.transcriptMaxChars),
+      provider,
+      model: confirmedModel,
+      rawActivityPath: execution.rawActivityPath,
+      termination: execution.termination,
+      timing: execution.timing,
+      tokenUsage,
+      costEstimate: 0,
+    }
   }
 }

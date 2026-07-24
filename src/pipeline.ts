@@ -25,6 +25,7 @@ import {
   devExecuteOptions,
 } from './execution-policy.js'
 import {
+  RECOVERABLE_CHECKPOINT_CODE,
   loadRecoverableCheckpoint,
   persistRecoverableCheckpoint,
   recoverableCheckpointError,
@@ -754,8 +755,21 @@ export async function runExistingContract(
   let resumeFromPhase: 'dev' | 'qa' = 'dev'
 
   try {
+    if (options.qaOnly && !existsSync(existingTranscriptPath)) {
+      throw new Error(
+        `${RECOVERABLE_CHECKPOINT_CODE}: QA-only resume requires a persisted transcript.`,
+      )
+    }
     if (existsSync(existingTranscriptPath)) {
       previousTranscript = JSON.parse(readFileSync(existingTranscriptPath, 'utf-8'))
+      if (
+        options.qaOnly
+        && (!previousTranscript || previousTranscript.phases.length === 0)
+      ) {
+        throw new Error(
+          `${RECOVERABLE_CHECKPOINT_CODE}: QA-only resume requires a non-empty persisted transcript.`,
+        )
+      }
       if (previousTranscript && previousTranscript.phases.length > 0) {
         const checkpoint = loadRecoverableCheckpoint(sprintFullPath)
         if (options.qaOnly) {

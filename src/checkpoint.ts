@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { relative, resolve } from 'node:path'
 import type { AgentResult, DeliveryIdentity } from './types.js'
 import { inspectDeliveryPreflight } from './reliability.js'
@@ -8,13 +15,14 @@ export const RECOVERABLE_CHECKPOINT_FILE = 'recoverable-checkpoint.json'
 export const RECOVERABLE_CHECKPOINT_CODE = 'MAH_RECOVERABLE_CHECKPOINT'
 
 export interface RecoverableCheckpoint {
-  version: 1
+  version: 2
   status: 'dirty' | 'verified'
   recordedAt: string
   repoPath: string
   baseHeadSha: string
   round: number
   dirtyPaths: string[]
+  contentIdentities: Record<string, string>
   termination?: AgentResult['termination']
   rawActivityPath?: string
   candidateIdentity?: DeliveryIdentity
@@ -75,13 +83,19 @@ export function persistRecoverableCheckpoint(input: {
   )
   if (state.dirtyPaths.length === 0) return null
   const checkpoint: RecoverableCheckpoint = {
-    version: 1,
+    version: 2,
     status: 'dirty',
     recordedAt: new Date().toISOString(),
     repoPath: state.repoPath,
     baseHeadSha: state.headSha,
     round: input.round,
     dirtyPaths: state.dirtyPaths,
+    contentIdentities: Object.fromEntries(
+      state.dirtyPaths.map((path) => [
+        path,
+        worktreeContentIdentity(state.repoPath, path),
+      ]),
+    ),
     termination: input.result.termination,
     rawActivityPath: input.result.rawActivityPath,
   }
@@ -98,7 +112,11 @@ export function loadRecoverableCheckpoint(
   const path = resolve(sprintPath, RECOVERABLE_CHECKPOINT_FILE)
   if (!existsSync(path)) return null
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as RecoverableCheckpoint
-  if (parsed.version !== 1 || !Array.isArray(parsed.dirtyPaths)) {
+  if (
+    parsed.version !== 2
+    || !Array.isArray(parsed.dirtyPaths)
+    || !parsed.contentIdentities
+  ) {
     throw new Error(`${RECOVERABLE_CHECKPOINT_CODE}: invalid checkpoint record.`)
   }
   return parsed
@@ -165,6 +183,20 @@ export function verifyQAOnlyResume(input: {
       + missing.slice(0, 3).join(', '),
     )
   }
+  const contentMismatches = checkpoint.dirtyPaths.filter(
+    (path) =>
+      candidateContentIdentity(
+        checkpoint.repoPath,
+        input.request.candidateSha,
+        path,
+      ) !== checkpoint.contentIdentities[path],
+  )
+  if (contentMismatches.length > 0) {
+    throw new Error(
+      `${RECOVERABLE_CHECKPOINT_CODE}: candidate content does not match the saved checkpoint: `
+      + contentMismatches.slice(0, 3).join(', '),
+    )
+  }
   const verified: RecoverableCheckpoint = {
     ...checkpoint,
     status: 'verified',
@@ -184,4 +216,54 @@ function resolveExpanded(path: string): string {
 
 function normalizePath(path: string): string {
   return path.replaceAll('\\', '/').replace(/^"+|"+$/g, '')
+}
+
+function worktreeContentIdentity(repoPath: string, path: string): string {
+  const absolutePath = resolve(repoPath, path)
+  let stat
+  try {
+    stat = lstatSync(absolutePath)
+  } catch {
+    return 'deleted'
+  }
+  const mode = stat.isSymbolicLink()
+    ? '120000'
+    : (stat.mode & 0o111) !== 0 ? '100755' : '100644'
+  const content = stat.isSymbolicLink()
+    ? Buffer.from(readlinkSync(absolutePath))
+    : readFileSync(absolutePath)
+  return contentIdentity(mode, content)
+}
+
+function candidateContentIdentity(
+  repoPath: string,
+  candidateSha: string,
+  path: string,
+): string {
+  const entry = execFileSync(
+    'git',
+    ['ls-tree', candidateSha, '--', path],
+    { cwd: repoPath, encoding: 'utf8' },
+  ).trim()
+  if (!entry) return 'deleted'
+  const match = entry.match(/^(\d{6})\s+blob\s+([a-f0-9]{40})\t/)
+  if (!match) {
+    throw new Error(
+      `${RECOVERABLE_CHECKPOINT_CODE}: unsupported checkpoint entry for ${path}.`,
+    )
+  }
+  const content = execFileSync(
+    'git',
+    ['cat-file', 'blob', match[2]],
+    { cwd: repoPath, encoding: 'buffer', maxBuffer: 100 * 1024 * 1024 },
+  )
+  return contentIdentity(match[1], content)
+}
+
+function contentIdentity(mode: string, content: Buffer): string {
+  return createHash('sha256')
+    .update(mode)
+    .update('\0')
+    .update(content)
+    .digest('hex')
 }

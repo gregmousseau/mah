@@ -76,6 +76,34 @@ test('QA-only resume requires the exact clean commit derived from the checkpoint
   }
 })
 
+test('QA-only resume rejects replacement content at the same checkpoint paths', () => {
+  const fixture = createRepo()
+  try {
+    writeFileSync(join(fixture.repo, 'candidate.txt'), 'checkpoint work\n')
+    const checkpoint = persistRecoverableCheckpoint({
+      sprintPath: fixture.sprint,
+      repoPath: fixture.repo,
+      round: 1,
+      result: agentResult('idle-timeout'),
+    })
+    assert.ok(checkpoint)
+    writeFileSync(join(fixture.repo, 'candidate.txt'), 'unrelated replacement\n')
+    execFileSync('git', ['add', 'candidate.txt'], { cwd: fixture.repo })
+    execFileSync('git', ['commit', '-m', 'replace checkpoint'], { cwd: fixture.repo })
+
+    assert.throws(
+      () => verifyQAOnlyResume({
+        sprintPath: fixture.sprint,
+        repoPath: fixture.repo,
+        request: { candidateSha: gitSha(fixture.repo), round: 1 },
+      }),
+      /content does not match/,
+    )
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true })
+  }
+})
+
 function createRepo(): { root: string; repo: string; sprint: string } {
   const root = mkdtempSync(join(tmpdir(), 'mah-checkpoint-test-'))
   const repo = join(root, 'repo')

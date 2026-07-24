@@ -281,6 +281,8 @@ export interface ExecuteOptions {
   absoluteTimeoutMs?: number
   transcriptMaxChars?: number
   rawActivityPath?: string
+  /** Test-only override for the fixed five-second SIGKILL grace period. */
+  terminationGraceMs?: number
 }
 
 export type AgentTerminationReason =

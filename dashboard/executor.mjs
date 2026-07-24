@@ -150,7 +150,13 @@ async function advanceQueue(completedSprintId, completedStatus) {
       cwd: MAH_ROOT,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: (() => { const e = { ...process.env, MAH_ROOT }; delete e.CLAUDECODE; return e; })(),
+      env: (() => {
+        const e = { ...process.env, MAH_ROOT };
+        delete e.CLAUDECODE;
+        delete e.MAH_QA_ONLY_CANDIDATE_SHA;
+        delete e.MAH_QA_ONLY_ROUND;
+        return e;
+      })(),
     }
   );
 
@@ -203,6 +209,7 @@ function buildConfig(contract) {
   const repo = projectConfig.repo
     ? resolve(projectConfig.repo.replace("~", process.env.HOME ?? "/home/greg"))
     : MAH_ROOT;
+  const savedExecution = projectConfig.config?.execution ?? {};
 
   return {
     project: {
@@ -226,6 +233,11 @@ function buildConfig(contract) {
     qa: {
       defaultTier: "targeted",
       maxIterations: 3,
+    },
+    execution: {
+      devIdleTimeoutMinutes: savedExecution.devIdleTimeoutMinutes ?? 12,
+      devAbsoluteTimeoutMinutes: savedExecution.devAbsoluteTimeoutMinutes ?? 45,
+      transcriptMaxChars: savedExecution.transcriptMaxChars ?? 32000,
     },
     human: {
       notificationChannel: "",
@@ -291,13 +303,18 @@ async function main() {
         writeFileSync(contractPath, JSON.stringify(currentContract, null, 2));
       }
 
-      const { contract: finalContract, metrics } = await runExistingContract(
+      const {
+        contract: finalContract,
+        metrics,
+        crashError,
+      } = await runExistingContract(
         currentContract,
         config,
         events,
         sprintFullPath,
         qaOnlyResumeOptions()
       );
+      if (crashError) throw crashError;
 
       console.log(`[executor] Sprint ${finalContract.id} completed: ${finalContract.status}`);
       console.log(`[executor] Duration: ${metrics.totals.durationMs}ms`);
