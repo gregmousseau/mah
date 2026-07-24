@@ -1,38 +1,54 @@
-import { spawn, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { spawn } from 'node:child_process'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
 
-function resolveAcpxCommand(): string {
-  if (process.env.ACPX_CMD) return process.env.ACPX_CMD
-  const openClawInstall = process.env.HOME
-    ? join(process.env.HOME, '.openclaw', 'npm', 'node_modules', '.bin', 'acpx')
-    : null
-  return openClawInstall && existsSync(openClawInstall) ? openClawInstall : 'acpx'
-}
+const verifiedModels = new Set<string>()
 
 function resolvedCwd(options: ExecuteOptions): string {
   const raw = options.cwd ?? options.workspace ?? process.cwd()
   return raw.startsWith('~') ? raw.replace('~', process.env.HOME ?? '') : raw
 }
 
-export class KiloAdapter implements AgentAdapter {
-  private readonly command = resolveAcpxCommand()
+function command(): { executable: string; prefix: string[] } {
+  if (process.env.KILO_CMD) return { executable: process.env.KILO_CMD, prefix: [] }
+  return { executable: 'npx', prefix: ['-y', '@kilocode/cli'] }
+}
 
-  async preflight(): Promise<void> {
-    const result = spawnSync(this.command, ['--version'], { encoding: 'utf-8' })
-    if (result.status !== 0) {
-      throw new Error(`Kilo/acpx preflight failed: ${(result.stderr || result.stdout || 'acpx unavailable').trim()}`)
+export class KiloAdapter implements AgentAdapter {
+  async preflight(options: ExecuteOptions): Promise<void> {
+    const model = options.model?.trim()
+    if (!model) throw new Error('Kilo provider requires an explicit model')
+    const key = `${model}:${resolvedCwd(options)}`
+    if (verifiedModels.has(key)) return
+    const result = await this.run('Reply with exactly: MAH_PROVIDER_OK', options, false)
+    if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {
+      throw new Error(`Kilo provider/model preflight failed for ${model}: ${result.output.slice(0, 300)}`)
     }
+    verifiedModels.add(key)
   }
 
   async execute(task: string, options: ExecuteOptions): Promise<AgentResult> {
+    return this.run(task, options, true)
+  }
+
+  private async run(task: string, options: ExecuteOptions, approveWrites: boolean): Promise<AgentResult> {
     const startMs = Date.now()
     const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
     const cwd = resolvedCwd(options)
-    const args = ['kilocode', 'exec', '--cwd', cwd, '--format', 'quiet', task]
+    const model = options.model?.trim()
+    if (!model) throw new Error('Kilo provider requires an explicit model')
+    const cli = command()
+    const args = [
+      ...cli.prefix,
+      'run',
+      '--model', model,
+      '--dir', cwd,
+      '--format', 'default',
+      ...(approveWrites ? ['--auto'] : []),
+      task,
+    ]
+
     return new Promise((resolve, reject) => {
-      const child = spawn(this.command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+      const child = spawn(cli.executable, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
       let stdout = ''
       let stderr = ''
       child.stdout.on('data', chunk => { stdout += chunk.toString() })
@@ -60,7 +76,7 @@ export class KiloAdapter implements AgentAdapter {
       })
       child.on('error', err => {
         clearTimeout(timer)
-        reject(new Error(`Failed to spawn Kilo/acpx: ${err.message}`))
+        reject(new Error(`Failed to spawn Kilo: ${err.message}`))
       })
     })
   }
