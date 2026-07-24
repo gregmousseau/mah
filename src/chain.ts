@@ -328,6 +328,7 @@ async function runChainSprint(
     const uxGrader = graders.find((grader) => grader.type === 'ux')
     let qaResult: AgentResult | undefined
     if (uxGrader) {
+      try {
       const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
       const tierBudget = budgetForContract(contract)
       const uxAdapter = createAgentAdapter(uxGrader.agent)
@@ -373,6 +374,9 @@ async function runChainSprint(
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
         })
+      }
+      } catch (error) {
+        graderResults.push(failedGraderResult(uxGrader, error))
       }
     }
 

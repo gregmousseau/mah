@@ -55,6 +55,16 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
     const startMs = Date.now()
     const model = options.model?.trim()
     if (!model) throw new Error('OpenClaw provider requires an explicit provider/model')
+    if (/^(anthropic\/|.*claude)/i.test(model)) {
+      const endMs = Date.now()
+      return Promise.resolve({
+        success: false,
+        output: 'Claude models require the explicit claude-cli provider',
+        provider: 'openclaw',
+        model,
+        timing: { startMs, endMs, durationMs: endMs - startMs },
+      })
+    }
     const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
     const cwd = resolvedCwd(options)
     const message = [
