@@ -5,6 +5,28 @@
 // evidence before it lands in a packet.
 
 const REDACTION_PATTERNS: { name: string; pattern: RegExp }[] = [
+  // Provider-labelled raw content is sensitive as a whole. Do not depend on
+  // callers adding the synthetic XML markers below: once a Gmail/Jane payload
+  // is identified, retain no tail that could contain an arbitrary body,
+  // clinical note, or patient record.
+  {
+    name: 'sensitive-provider-content',
+    pattern: /\b(?:raw\s+)?(?:gmail(?:\s+api)?|jane(?:\s+(?:app|api))?)\s+(?:raw\s+)?(?:message|body|payload|response|record|data|content|thread|email|appointment)s?\b[\s\S]*/gi,
+  },
+  // Recognize provider-native shapes even when the provider name and the
+  // synthetic tags are both absent.
+  {
+    name: 'raw-email-message',
+    pattern: /^(?=[\s\S]*(?:^|\r?\n)(?:from|to|reply-to):[^\r\n]*)(?=[\s\S]*(?:^|\r?\n)(?:subject|message-id|mime-version|content-type):[^\r\n]*)[\s\S]*$/gi,
+  },
+  {
+    name: 'gmail-api-payload',
+    pattern: /^(?=[\s\S]*"(?:threadId|labelIds|historyId|internalDate)"\s*:)(?=[\s\S]*"(?:payload|snippet|raw)"\s*:)[\s\S]*$/gi,
+  },
+  {
+    name: 'jane-api-payload',
+    pattern: /^(?=[\s\S]*["']?(?:patient|client)(?:[-_ ]?(?:id|number|name))?["']?\s*:)(?=[\s\S]*["']?(?:appointment|chart|clinical|medical|treatment|insurance)(?:[-_ ][a-z0-9_-]+)?["']?\s*:)[\s\S]*$/gi,
+  },
   { name: 'aws-key', pattern: /AKIA[0-9A-Z]{16}/g },
   { name: 'bearer-token', pattern: /Bearer\s+[A-Za-z0-9._~+/-]{16,}=*/gi },
   { name: 'basic-auth', pattern: /Basic\s+[A-Za-z0-9+/]{16,}=*/gi },
@@ -52,6 +74,8 @@ const REDACTION_PATTERNS: { name: string; pattern: RegExp }[] = [
 ]
 
 const MAX_EVIDENCE_LEN = 800
+const SENSITIVE_PROVIDER_FIELD =
+  /(?:gmail|jane).*(?:raw|message|body|payload|response|record|data|content|thread|email|snippet|appointment)|(?:raw|message|body|payload|response|record|data|content|thread|email|snippet|appointment).*(?:gmail|jane)/
 
 export function sanitizeEvidence(raw: string): string {
   if (!raw) return ''
@@ -78,7 +102,10 @@ export function sanitizeIdentifier(raw: string, fallback = 'unknown'): string {
   return sanitized || fallback
 }
 
-export function sanitizeForPersistence<T>(value: T): T {
+export function sanitizeForPersistence<T>(value: T, fieldName?: string): T {
+  if (fieldName && isSensitiveProviderField(fieldName)) {
+    return '[REDACTED:sensitive-provider-content]' as T
+  }
   if (typeof value === 'string') return sanitizeEvidence(value) as T
   if (Array.isArray(value)) {
     return value.map((item) => sanitizeForPersistence(item)) as T
@@ -86,8 +113,14 @@ export function sanitizeForPersistence<T>(value: T): T {
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .map(([key, item]) => [key, sanitizeForPersistence(item)]),
+        .map(([key, item]) => [key, sanitizeForPersistence(item, key)]),
     ) as T
   }
   return value
+}
+
+function isSensitiveProviderField(fieldName: string): boolean {
+  return SENSITIVE_PROVIDER_FIELD.test(
+    fieldName.toLowerCase().replace(/[^a-z0-9]+/g, ''),
+  )
 }

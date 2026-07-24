@@ -19,25 +19,32 @@ unaffected during the shadow rollout — the registrar is advisory only.
 `shadow-only`. The registrar emits a `ready` action only when the
 independent dispatch gate is also enabled. Dispatch additionally requires
 `ticketTeamId`; it uses the AWC API-key file, queries Linear by registrar
-fingerprint before mutation, creates in Todo, and persists the issue identity.
+fingerprint **within that team** before mutation, creates in Todo, and persists
+the issue identity in a team-scoped receipt. The shipped configuration remains
+report-only: none of these settings is enabled automatically.
 
 ## Classifications
 
 | Classification        | Meaning                                                                 | Repair-loop? |
 | --------------------- | ----------------------------------------------------------------------- | ------------ |
-| `current-pr-blocker`  | Material finding on a PR-touched path                                   | Yes          |
-| `follow-up`           | Non-material finding on a PR-touched path, or any finding on an adjacent path | No     |
-| `spike-candidate`     | Adjacent + exploratory/informational                                     | No           |
-| `harness-defect`      | Category ∈ {harness, infrastructure, infra, ci, tooling}                | No (advisory), but registrar bubbles it up |
-| `false-positive`      | Deterministic allowlist                                                  | Suppressed   |
+| `current-pr-blocker`  | Introduced/worsened/activated by the candidate, required for release safety, or unknown relationship on a PR-touched path | Yes |
+| `follow-up`           | Provisionally adjacent or explicitly pre-existing product work         | Only leaves the enforced loop with complete metadata |
+| `spike-candidate`     | Plausible/insufficient evidence requiring bounded investigation         | Only leaves the enforced loop with complete metadata |
+| `harness-defect`      | Category ∈ {harness, infrastructure, infra, ci, tooling, environment, credentials, preflight, evaluation, grader} | Enforced mode fails closed |
+| `false-positive`      | Deterministic explicit allowlist                                        | Suppressed   |
 
 Classification is a **pure function** of `(finding, config)`; same input
 always yields the same packet id and ticket fingerprint.
 
 Reports expose `currentBlockers`, `adjacent`, `harnessDefects`, and
 `suppressed` as separate routes. `reviewComplete` is true only when every
-packet was classified successfully. If it is false, enforced mode keeps
-the original fail-closed verdict and repair evidence intact.
+packet was classified successfully and every finding routed out of the repair
+loop explicitly says `scopeRelationship: pre-existing` and
+`releaseImpact: not-release-blocking`. Missing or unknown relationship/release
+metadata can still produce a provisional adjacent classification for advisory
+reporting, but enforced mode treats that review as incomplete, returns `FAIL`,
+and keeps the original unfiltered repair evidence intact. Severity never makes
+incomplete scope provenance safe to discard.
 
 ## Packet shape
 
@@ -48,7 +55,7 @@ the original fail-closed verdict and repair evidence intact.
   "classification":  "current-pr-blocker",
   "severity":        "major",
   "scopeProvenance": {
-    "reason":          "Material finding on PR-touched path \"src/x.ts\".",
+    "reason":          "Finding was introduced by the candidate change.",
     "inRepairScope":   true,
     "matchedPath":     "src/x.ts",
     "sourceGraderId":  "code"
@@ -74,13 +81,14 @@ the original fail-closed verdict and repair evidence intact.
 | I2  | `findingsMode: off` yields an empty report — no packets, no actions.     | Early-return branch. Test: *findingsMode="off"*. |
 | I3  | `scopeGate: advisory` never emits `registrarBlockers`.                   | `registrarBlockers()` short-circuits unless `enforced`. Test: *advisory scopeGate*. |
 | I4  | Ticket dispatch requires `findingsMode: 'ticket'` **and** `ticketDispatchEnabled: true`. | `pickReason()` in `ticket.ts`. Tests: *ticket mode with dispatch disabled*, *no external mutation*. |
-| I5  | Ticket actions dedupe by normalized root-cause path and evidence, regardless of finding ID or later reclassification, and query Linear before creation. | `buildTicketActions` `seenThisRun` + `existing` sets and dispatcher fingerprint lookup. Tests: *deduplication*, *fingerprints merge equivalent root causes*. |
+| I5  | Ticket actions dedupe by normalized root-cause path and evidence, regardless of finding ID or later reclassification, but only within the configured Linear team. | Report-bound team identity, team-bound exported identities, search filters, in-memory keys, and durable receipt paths. Tests: *deduplication*, *team isolation*, *fingerprints merge equivalent root causes*. |
 | I6  | Shadow/report modes never call Linear; approved dispatch uses only search and issue-create APIs. | Dispatch gate plus runtime canary and mocked dispatcher tests. |
-| I7  | Sanitization strips bearer tokens, AWS keys, JWTs, cookies, auth headers, emails, phone numbers, DOB/MRN markers, `<jane-raw>`/`<gmail-body>` blobs. | `redact.ts` REDACTION_PATTERNS. Test: *privacy*. |
+| I7  | Sanitization strips bearer tokens, AWS keys, JWTs, cookies, auth headers, emails, phone numbers, DOB/MRN markers, and raw Gmail/Jane content even without synthetic tags. | Provider-context redaction plus provider-key redaction at the final persistence boundary. Tests: *privacy*. |
 | I8  | Packet ids and ticket fingerprints are stable across runs given identical inputs. | Deterministic SHA-256 over ordered fields. Test: *packet id … deterministic*. |
 | I9  | Ticket target state is always `Todo`; no sprint auto-dispatch.           | Hard-coded `targetState: 'Todo'` in `ticket.ts`. Doc: *no auto-sprint*. |
 | I10 | Stale candidate SHAs produce distinct packet ids so replays cannot alias. | SHA in packet id derivation. Test: *stale candidate*. |
 | I11 | A finding with no `file` path is treated as **in-scope** by default, so a real blocker without file context cannot be silently classified as adjacent. | `isInCurrentPrScope` fallback. |
+| I12 | A definitely pre-mutation issue-create failure is retryable; any failure after the mutation boundary leaves a pending receipt for manual reconciliation. | Typed pre-mutation error plus team-scoped durable reservation. Tests: *safe retry*, *ambiguous failure*. |
 
 ## Rollout plan (shadow)
 
@@ -91,8 +99,9 @@ the original fail-closed verdict and repair evidence intact.
    suite in CI. Snapshot registrar reports from a chosen subset of live
    sprints (opt-in, off by default).
 3. **Enable scope enforcement.** Set `scopeGate: enforced`; only
-   current-PR blockers remain in the repair brief. Unexplained grader
-   failures and registrar failures remain fail-closed.
+   findings proven pre-existing and non-release-blocking may leave the repair
+   brief. Missing provenance, unexplained grader failures, harness failures,
+   and registrar failures remain fail-closed.
 4. **Enable ticket mode (still no dispatch).** Turn on
    `findingsMode: 'ticket'` for a canary project; verify dedupe and
    fingerprint stability against a Linear export.

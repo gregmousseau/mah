@@ -5,7 +5,7 @@
 // performs the mutation after querying Linear for the same fingerprint.
 //
 // A dispatched ticket must:
-//   * be deduped against existingTicketFingerprints
+//   * be deduped against existingTicketFingerprints in its target team
 //   * land in "Todo" (never "In Progress" and never start a sprint)
 //
 // Dispatch is performed separately so report/shadow registration remains
@@ -18,10 +18,17 @@ export function buildTicketActions(
   packets: FindingPacket[],
   config: Pick<
     RegistrarConfig,
-    'findingsMode' | 'ticketDispatchEnabled' | 'existingTicketFingerprints'
+    'findingsMode'
+    | 'ticketDispatchEnabled'
+    | 'existingTicketFingerprints'
+    | 'ticketTeamId'
   >,
 ): TicketAction[] {
-  const existing = new Set(config.existingTicketFingerprints ?? [])
+  const existing = new Set(
+    (config.existingTicketFingerprints ?? [])
+      .filter((item) => item.teamId === config.ticketTeamId)
+      .map((item) => item.fingerprint),
+  )
   const seenThisRun = new Set<string>()
   const actions: TicketAction[] = []
 

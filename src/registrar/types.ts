@@ -22,6 +22,11 @@ export type FindingClassification =
 export type ScopeGateMode = 'advisory' | 'enforced'
 export type FindingsMode = 'off' | 'report' | 'ticket'
 
+export interface ExistingTicketFingerprint {
+  teamId: string
+  fingerprint: string
+}
+
 export interface RegistrarConfig {
   scopeGate: ScopeGateMode
   findingsMode: FindingsMode
@@ -34,10 +39,10 @@ export interface RegistrarConfig {
   // File paths (repo-relative) that are part of the current PR scope.
   // Findings outside this set are treated as adjacent, not current-PR.
   currentPrPaths?: string[]
-  // Optional read-only bridge used to dedupe against existing tickets.
-  // The registrar never calls listExistingIssues during sprint/tests/
-  // canary — the caller must resolve issues out-of-band.
-  existingTicketFingerprints?: string[]
+  // Optional read-only bridge used to dedupe against existing tickets in
+  // the configured team. The registrar never calls listExistingIssues
+  // during sprint/tests/canary — the caller resolves issues out-of-band.
+  existingTicketFingerprints?: ExistingTicketFingerprint[]
   // Linear team UUID used only after explicit ticket dispatch approval.
   ticketTeamId?: string
 }
@@ -107,9 +112,13 @@ export interface RegistrarReport {
   scopeGate: ScopeGateMode
   findingsMode: FindingsMode
   ticketDispatchEnabled: boolean
-  // True only when every finding was reviewed successfully. Dispatch
-  // failures do not change this bit, so they cannot put adjacent product
-  // findings back into the active repair loop.
+  // Team identity captured with the report so dispatch cannot be redirected
+  // to a different team after dedupe/classification.
+  ticketTeamId?: string
+  // True only when every finding was reviewed successfully and every route
+  // out of the repair loop has explicit relationship/release provenance.
+  // Dispatch failures do not change this bit, so they cannot put adjacent
+  // product findings back into the active repair loop.
   reviewComplete: boolean
   packets: FindingPacket[]
   currentBlockers: FindingPacket[]

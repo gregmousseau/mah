@@ -16,6 +16,15 @@ export interface LinearTicket {
   url: string
 }
 
+// Signals that issue creation failed before issueCreate was sent. Callers may
+// safely clear an exactly-once reservation only for this error class.
+export class LinearIssueCreateNotAttemptedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'LinearIssueCreateNotAttemptedError'
+  }
+}
+
 interface GraphQLResponse<T> {
   data?: T
   errors?: Array<{ message: string; extensions?: Record<string, unknown> }>
@@ -155,8 +164,14 @@ export async function setStatus(id: string, stateName: string, teamId: string): 
 }
 
 const FINDING_SEARCH_QUERY = `
-  query FindingSearch($query: String!) {
-    issueSearch(query: $query, first: 10) {
+  query FindingSearch($teamId: ID!, $fingerprintMarker: String!) {
+    issues(
+      first: 10
+      filter: {
+        team: { id: { eq: $teamId } }
+        description: { contains: $fingerprintMarker }
+      }
+    ) {
       nodes { id identifier title description url state { name type } team { key id } branchName }
     }
   }
@@ -172,14 +187,17 @@ const ISSUE_CREATE_MUTATION = `
 `
 
 export async function findIssueByRegistrarFingerprint(
+  teamId: string,
   fingerprint: string,
 ): Promise<LinearTicket | null> {
-  const data = await gql<{ issueSearch: { nodes: LinearTicket[] } }>(
+  const fingerprintMarker = `Registrar fingerprint: ${fingerprint}`
+  const data = await gql<{ issues: { nodes: LinearTicket[] } }>(
     FINDING_SEARCH_QUERY,
-    { query: `"Registrar fingerprint: ${fingerprint}"` },
+    { teamId, fingerprintMarker },
   )
-  return data.issueSearch.nodes.find((issue) =>
-    issue.description?.includes(`Registrar fingerprint: ${fingerprint}`)) ?? null
+  return data.issues.nodes.find((issue) =>
+    issue.team.id === teamId
+    && issue.description?.includes(fingerprintMarker)) ?? null
 }
 
 export async function createTodoIssue(
@@ -187,9 +205,16 @@ export async function createTodoIssue(
   title: string,
   description: string,
 ): Promise<LinearTicket> {
-  const todoState = await resolveState(teamId, 'Todo')
+  let todoState: WorkflowState
+  try {
+    todoState = await resolveState(teamId, 'Todo')
+  } catch (error) {
+    throw new LinearIssueCreateNotAttemptedError(
+      error instanceof Error ? error.message : String(error),
+    )
+  }
   if (todoState.type.toLowerCase() !== 'unstarted') {
-    throw new Error(
+    throw new LinearIssueCreateNotAttemptedError(
       `Linear state "Todo" is not an unstarted state for team ${teamId}; refusing to create future work.`,
     )
   }
@@ -202,11 +227,14 @@ export async function createTodoIssue(
     throw new Error('Linear issueCreate returned success=false or no issue')
   }
   if (
+    data.issueCreate.issue.team.id !== teamId
+    ||
     data.issueCreate.issue.state.name.toLowerCase() !== 'todo'
     || data.issueCreate.issue.state.type.toLowerCase() !== 'unstarted'
   ) {
     throw new Error(
-      `Created issue did not land in unstarted Todo: ${data.issueCreate.issue.identifier}`,
+      `Created issue did not land in team ${teamId}'s unstarted Todo: `
+      + data.issueCreate.issue.identifier,
     )
   }
   return data.issueCreate.issue

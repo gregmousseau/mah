@@ -16,7 +16,10 @@ import { sanitizeEvidence } from './registrar/redact.js'
 import { buildTicketActions, ticketFingerprint } from './registrar/ticket.js'
 import { dispatchFindingTickets } from './registrar/dispatch.js'
 import { processScopeAwareFindingRound } from './registrar/round.js'
-import type { LinearTicket } from './integrations/linear.js'
+import {
+  LinearIssueCreateNotAttemptedError,
+  type LinearTicket,
+} from './integrations/linear.js'
 import {
   repairScopedGraderResults,
   scopeAwareVerdict,
@@ -322,10 +325,51 @@ test('deduplication: identical findings collapse to one ticket action per run an
       currentPrPaths: fixture.currentPrPaths,
       findingsMode: 'ticket',
       ticketDispatchEnabled: false,
-      existingTicketFingerprints: [ticketFingerprint(report.adjacent[0])],
+      ticketTeamId: 'team-a',
+      existingTicketFingerprints: [{
+        teamId: 'team-a',
+        fingerprint: ticketFingerprint(report.adjacent[0]),
+      }],
     },
   )
   assert.ok(withExisting.ticketActions.some((a) => a.reason === 'duplicate'))
+})
+
+test('deduplication ignores fingerprints exported from another Linear team', () => {
+  const finding: GraderFinding = {
+    id: 'TEAM-SCOPE',
+    severity: 'major',
+    category: 'bug',
+    file: 'adjacent.ts',
+    description: 'team-scoped root cause',
+    scopeRelationship: 'pre-existing',
+    releaseImpact: 'not-release-blocking',
+    evidenceConfidence: 'confirmed',
+  }
+  const baseline = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [finding],
+  }, {
+    currentPrPaths: ['current.ts'],
+    findingsMode: 'ticket',
+    ticketDispatchEnabled: false,
+    ticketTeamId: 'team-a',
+  })
+  const report = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [finding],
+  }, {
+    currentPrPaths: ['current.ts'],
+    findingsMode: 'ticket',
+    ticketDispatchEnabled: false,
+    ticketTeamId: 'team-a',
+    existingTicketFingerprints: [{
+      teamId: 'team-b',
+      fingerprint: baseline.ticketActions[0].fingerprint,
+    }],
+  })
+
+  assert.equal(report.ticketActions[0].reason, 'shadow-only')
 })
 
 test('privacy: sanitization strips bearer tokens, AWS keys, cookies, emails, PHI markers', () => {
@@ -404,6 +448,84 @@ test('privacy: every persisted and ticket-dispatched field is sanitized', () => 
       new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     )
   }
+})
+
+test('privacy: untagged Gmail and Jane provider content is redacted deterministically', () => {
+  const gmail = [
+    'From: member@synthetic.invalid',
+    'To: clinic@synthetic.invalid',
+    'Subject: synthetic request',
+    'Message-ID: synthetic-message-id',
+    '',
+    'opaque-private-gmail-text',
+  ].join('\n')
+  const jane = JSON.stringify({
+    patient_id: 'synthetic-patient',
+    appointment_note: 'opaque-private-jane-text',
+  })
+  const report = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [
+      {
+        id: 'GMAIL-RAW',
+        severity: 'minor',
+        category: 'privacy',
+        file: 'src/gmail.ts',
+        description: gmail,
+        scopeRelationship: 'pre-existing',
+        releaseImpact: 'not-release-blocking',
+        evidenceConfidence: 'confirmed',
+      },
+      {
+        id: 'JANE-RAW',
+        severity: 'minor',
+        category: 'privacy',
+        file: 'src/jane.ts',
+        description: jane,
+        scopeRelationship: 'pre-existing',
+        releaseImpact: 'not-release-blocking',
+        evidenceConfidence: 'confirmed',
+      },
+    ],
+  }, {
+    currentPrPaths: ['src/current.ts'],
+    findingsMode: 'ticket',
+  })
+  const dir = mkdtempSync(join(tmpdir(), 'mah-249-untagged-private-'))
+  const out = join(dir, 'report.json')
+  writeRegistrarReport(report, out)
+  const externallyVisible = [
+    readFileSync(out, 'utf8'),
+    ...report.ticketActions.map((action) => `${action.title}\n${action.body}`),
+  ].join('\n')
+
+  assert.doesNotMatch(externallyVisible, /opaque-private-(?:gmail|jane)-text/)
+  assert.equal(report.packets[0].sanitizedEvidence, '[REDACTED:raw-email-message]')
+  assert.equal(report.packets[1].sanitizedEvidence, '[REDACTED:jane-api-payload]')
+  assert.equal(
+    sanitizeEvidence(report.packets[0].sanitizedEvidence),
+    report.packets[0].sanitizedEvidence,
+  )
+})
+
+test('privacy: persistence redacts untagged provider fields at the final boundary', () => {
+  const report = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [],
+  })
+  const synthetic = report as unknown as Record<string, unknown>
+  synthetic.gmailMessageBody = 'opaque-private-gmail-field'
+  synthetic.janeApiResponse = {
+    clinicalNarrative: 'opaque-private-jane-field',
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'mah-249-provider-private-'))
+  const out = join(dir, 'report.json')
+
+  writeRegistrarReport(report, out)
+  const persisted = readFileSync(out, 'utf8')
+
+  assert.doesNotMatch(persisted, /opaque-private-(?:gmail|jane)-field/)
+  assert.match(persisted, /\[REDACTED:sensitive-provider-content\]/)
 })
 
 test('sanitizeEvidence is idempotent (retry/idempotency contract)', () => {
@@ -587,6 +709,36 @@ test('enforced scope preserves non-pass when registration is off, errored, or in
   assert.deepEqual(repairScopedGraderResults([result], errored), [result])
 })
 
+test('enforced scope fails closed when an unchanged critical finding lacks scope metadata', () => {
+  const results = [{
+    graderId: 'code',
+    graderType: 'code-review',
+    graderName: 'Code',
+    verdict: 'fail' as const,
+    summary: 'Critical finding without provenance.',
+    model: 'm',
+    durationMs: 0,
+    costEstimate: 0,
+    findings: [{
+      id: 'CRITICAL-UNSCOPED',
+      severity: 'critical' as const,
+      category: 'bug',
+      file: 'src/unchanged.ts',
+      description: 'A critical failure cannot be scoped safely.',
+    }],
+  }]
+  const report = registerFromGraderResults('0'.repeat(40), results, {
+    currentPrPaths: ['src/current.ts'],
+    scopeGate: 'enforced',
+  })
+
+  assert.equal(report.adjacent[0].classification, 'follow-up')
+  assert.equal(report.reviewComplete, false)
+  assert.match(report.errors.join('\n'), /Scope metadata incomplete/)
+  assert.equal(scopeAwareVerdict('fail', results, [], report), 'fail')
+  assert.deepEqual(repairScopedGraderResults(results, report), results)
+})
+
 test('fingerprints merge equivalent root causes across IDs and separate unrelated evidence', () => {
   const a = fakePacket('ID-A', 'follow-up')
   const b = { ...fakePacket('ID-B', 'follow-up'), originFindingId: 'different-id' }
@@ -652,6 +804,9 @@ test('enforced routing keeps only current-PR blockers in the repair brief', () =
           category: 'bug',
           file: 'src/current.ts',
           description: 'Current candidate regression.',
+          scopeRelationship: 'introduced' as const,
+          releaseImpact: 'not-release-blocking' as const,
+          evidenceConfidence: 'confirmed' as const,
         },
       ],
     },
@@ -671,6 +826,9 @@ test('enforced routing keeps only current-PR blockers in the repair brief', () =
           category: 'bug',
           file: 'src/adjacent.ts',
           description: 'Pre-existing adjacent regression.',
+          scopeRelationship: 'pre-existing' as const,
+          releaseImpact: 'not-release-blocking' as const,
+          evidenceConfidence: 'confirmed' as const,
         },
       ],
     },
@@ -704,6 +862,9 @@ test('an adjacent-only material finding leaves the enforced repair loop', () => 
       category: 'bug',
       file: 'src/adjacent.ts',
       description: 'Adjacent product defect.',
+      scopeRelationship: 'pre-existing' as const,
+      releaseImpact: 'not-release-blocking' as const,
+      evidenceConfidence: 'confirmed' as const,
     }],
   }]
   const report = registerFromGraderResults('0'.repeat(40), results, {
@@ -735,6 +896,9 @@ test('routing distinguishes duplicate finding IDs within one grader', () => {
         category: 'bug',
         file: 'src/current.ts',
         description: 'Candidate regression.',
+        scopeRelationship: 'introduced' as const,
+        releaseImpact: 'not-release-blocking' as const,
+        evidenceConfidence: 'confirmed' as const,
       },
       {
         id: 'CR-01',
@@ -743,6 +907,8 @@ test('routing distinguishes duplicate finding IDs within one grader', () => {
         file: 'src/adjacent.ts',
         description: 'Adjacent pre-existing defect.',
         scopeRelationship: 'pre-existing' as const,
+        releaseImpact: 'not-release-blocking' as const,
+        evidenceConfidence: 'confirmed' as const,
       },
     ],
   }]
@@ -772,6 +938,9 @@ test('mismatched packet identity makes scope review incomplete and preserves ori
       category: 'bug',
       file: 'src/adjacent.ts',
       description: 'Adjacent defect.',
+      scopeRelationship: 'pre-existing' as const,
+      releaseImpact: 'not-release-blocking' as const,
+      evidenceConfidence: 'confirmed' as const,
     }],
   }]
   const report = registerFromGraderResults('0'.repeat(40), results, {
@@ -833,8 +1002,22 @@ test('spike packets and ticket bodies contain bounded planning fields', () => {
 test('approved ticket dispatch dedupes before create and persists created identity', async () => {
   const report = registerFindings({
     candidateSha: '0'.repeat(40),
-    findings: [{ id: 'F', severity: 'minor', category: 'bug', file: 'adjacent.ts', description: 'root cause' }],
-  }, { currentPrPaths: ['current.ts'], findingsMode: 'ticket', ticketDispatchEnabled: true })
+    findings: [{
+      id: 'F',
+      severity: 'minor',
+      category: 'bug',
+      file: 'adjacent.ts',
+      description: 'root cause',
+      scopeRelationship: 'pre-existing',
+      releaseImpact: 'not-release-blocking',
+      evidenceConfidence: 'confirmed',
+    }],
+  }, {
+    currentPrPaths: ['current.ts'],
+    findingsMode: 'ticket',
+    ticketDispatchEnabled: true,
+    ticketTeamId: 'team',
+  })
   let creates = 0
   const issue = {
     id: 'uuid', identifier: 'AWC-999', title: 't', description: 'd',
@@ -842,7 +1025,10 @@ test('approved ticket dispatch dedupes before create and persists created identi
     branchName: '', url: 'https://linear.app/issue/AWC-999',
   } satisfies LinearTicket
   await dispatchFindingTickets(report, 'team', {
-    findByFingerprint: async () => null,
+    findByFingerprint: async (teamId) => {
+      assert.equal(teamId, 'team')
+      return null
+    },
     createTodo: async () => { creates += 1; return issue },
   })
   assert.equal(creates, 1)
@@ -852,10 +1038,27 @@ test('approved ticket dispatch dedupes before create and persists created identi
 
   const duplicate = registerFindings({
     candidateSha: '0'.repeat(40),
-    findings: [{ id: 'OTHER', severity: 'minor', category: 'bug', file: 'adjacent.ts', description: 'root cause' }],
-  }, { currentPrPaths: ['current.ts'], findingsMode: 'ticket', ticketDispatchEnabled: true })
+    findings: [{
+      id: 'OTHER',
+      severity: 'minor',
+      category: 'bug',
+      file: 'adjacent.ts',
+      description: 'root cause',
+      scopeRelationship: 'pre-existing',
+      releaseImpact: 'not-release-blocking',
+      evidenceConfidence: 'confirmed',
+    }],
+  }, {
+    currentPrPaths: ['current.ts'],
+    findingsMode: 'ticket',
+    ticketDispatchEnabled: true,
+    ticketTeamId: 'team',
+  })
   await dispatchFindingTickets(duplicate, 'team', {
-    findByFingerprint: async () => issue,
+    findByFingerprint: async (teamId) => {
+      assert.equal(teamId, 'team')
+      return issue
+    },
     createTodo: async () => { throw new Error('must not create') },
   })
   assert.equal(duplicate.ticketActions[0].reason, 'duplicate')
@@ -886,6 +1089,76 @@ test('durable ticket reservation serializes concurrent sprints by fingerprint', 
     [first.ticketActions[0].reason, second.ticketActions[0].reason].sort(),
     ['created', 'duplicate'],
   )
+})
+
+test('ticket search and durable receipts are isolated by Linear team', async () => {
+  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-team-reservations-'))
+  const teamA = ticketReadyReport('TEAM-A', 'team-a')
+  const teamB = ticketReadyReport('TEAM-B', 'team-b')
+  const searchedTeams: string[] = []
+  const createdTeams: string[] = []
+  const client = {
+    findByFingerprint: async (teamId: string) => {
+      searchedTeams.push(teamId)
+      return teamId === 'team-b' ? fakeLinearTicket('team-a') : null
+    },
+    createTodo: async (teamId: string) => {
+      createdTeams.push(teamId)
+      return fakeLinearTicket(teamId)
+    },
+  }
+
+  await dispatchFindingTickets(teamA, 'team-a', client, { reservationDirectory })
+  await dispatchFindingTickets(teamB, 'team-b', client, { reservationDirectory })
+
+  assert.deepEqual(searchedTeams.sort(), ['team-a', 'team-b'])
+  assert.deepEqual(createdTeams.sort(), ['team-a', 'team-b'])
+  assert.equal(teamA.ticketActions[0].reason, 'created')
+  assert.equal(teamB.ticketActions[0].reason, 'created')
+})
+
+test('ticket dispatch cannot be redirected away from the report team', async () => {
+  const report = ticketReadyReport('TEAM-BINDING', 'team-a')
+  let calls = 0
+
+  await dispatchFindingTickets(report, 'team-b', {
+    findByFingerprint: async () => {
+      calls += 1
+      return null
+    },
+    createTodo: async () => {
+      calls += 1
+      return fakeLinearTicket('team-b')
+    },
+  })
+
+  assert.equal(calls, 0)
+  assert.equal(report.ticketActions[0].reason, 'dispatch-failed')
+  assert.match(report.ticketActions[0].error ?? '', /mismatched/)
+})
+
+test('definite pre-mutation failure clears the reservation and permits a safe retry', async () => {
+  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-retryable-'))
+  const first = ticketReadyReport()
+  const second = ticketReadyReport('SAFE-RETRY')
+  let attempts = 0
+  const client = {
+    findByFingerprint: async () => null,
+    createTodo: async () => {
+      attempts += 1
+      if (attempts === 1) {
+        throw new LinearIssueCreateNotAttemptedError('Todo state lookup failed')
+      }
+      return fakeLinearTicket()
+    },
+  }
+
+  await dispatchFindingTickets(first, 'team', client, { reservationDirectory })
+  await dispatchFindingTickets(second, 'team', client, { reservationDirectory })
+
+  assert.equal(attempts, 2)
+  assert.equal(first.ticketActions[0].reason, 'dispatch-failed')
+  assert.equal(second.ticketActions[0].reason, 'created')
 })
 
 test('ambiguous Linear failure leaves a pending reservation and never retries creation', async () => {
@@ -926,6 +1199,9 @@ test('ticket dispatch failure stays outside scope-review completeness', async ()
       category: 'bug',
       file: 'adjacent.ts',
       description: 'root cause',
+      scopeRelationship: 'pre-existing' as const,
+      releaseImpact: 'not-release-blocking' as const,
+      evidenceConfidence: 'confirmed' as const,
     }],
   }]
   const report = registerFromGraderResults('0'.repeat(40), results, {
@@ -933,6 +1209,7 @@ test('ticket dispatch failure stays outside scope-review completeness', async ()
     scopeGate: 'enforced',
     findingsMode: 'ticket',
     ticketDispatchEnabled: true,
+    ticketTeamId: 'team',
   })
   await dispatchFindingTickets(report, 'team', {
     findByFingerprint: async () => null,
@@ -1257,7 +1534,10 @@ function fakePacket(id: string, classification: FindingPacket['classification'])
   }
 }
 
-function ticketReadyReport(id = 'F'): ReturnType<typeof registerFindings> {
+function ticketReadyReport(
+  id = 'F',
+  teamId = 'team',
+): ReturnType<typeof registerFindings> {
   return registerFindings({
     candidateSha: '0'.repeat(40),
     findings: [{
@@ -1274,17 +1554,18 @@ function ticketReadyReport(id = 'F'): ReturnType<typeof registerFindings> {
     currentPrPaths: ['current.ts'],
     findingsMode: 'ticket',
     ticketDispatchEnabled: true,
+    ticketTeamId: teamId,
   })
 }
 
-function fakeLinearTicket(): LinearTicket {
+function fakeLinearTicket(teamId = 'team'): LinearTicket {
   return {
     id: 'uuid',
     identifier: 'AWC-999',
     title: 't',
     description: 'd',
     state: { name: 'Todo', type: 'unstarted' },
-    team: { key: 'AWC', id: 'team' },
+    team: { key: 'AWC', id: teamId },
     branchName: '',
     url: 'https://linear.app/issue/AWC-999',
   }

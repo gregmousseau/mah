@@ -50,12 +50,18 @@ export const DEFAULT_REGISTRAR_CONFIG: RegistrarConfig = {
 function emptyReport(
   candidateSha: string,
   generatedAt: string,
-  config: Pick<RegistrarConfig, 'scopeGate' | 'findingsMode' | 'ticketDispatchEnabled'>,
+  config: Pick<
+    RegistrarConfig,
+    'scopeGate' | 'findingsMode' | 'ticketDispatchEnabled' | 'ticketTeamId'
+  >,
 ): RegistrarReport {
   return {
     scopeGate: config.scopeGate,
     findingsMode: config.findingsMode,
     ticketDispatchEnabled: config.ticketDispatchEnabled,
+    ...(config.ticketTeamId
+      ? { ticketTeamId: sanitizeIdentifier(config.ticketTeamId) }
+      : {}),
     reviewComplete: false,
     packets: [],
     currentBlockers: [],
@@ -87,7 +93,15 @@ export function registerFindings(
     ?? (input.findings ?? []).map((finding) => ({ finding, graderId: input.graderId }))
   for (const { finding, graderId } of findingInputs) {
     try {
-      packets.push(buildPacket(finding, input, config, now, graderId))
+      const packet = buildPacket(finding, input, config, now, graderId)
+      packets.push(packet)
+      if (!hasSufficientScopeMetadata(finding, packet)) {
+        errors.push(sanitizeEvidence(
+          `Scope metadata incomplete for finding ${safeFindingId(finding)}: `
+          + 'an adjacent finding requires explicit scopeRelationship=pre-existing '
+          + 'and releaseImpact=not-release-blocking.',
+        ))
+      }
     } catch (err) {
       // I1: never let a per-finding failure hide the rest of the batch.
       // The finding still surfaces as a synthetic packet flagged as a
@@ -121,6 +135,9 @@ export function registerFindings(
     scopeGate: config.scopeGate,
     findingsMode: config.findingsMode,
     ticketDispatchEnabled: config.ticketDispatchEnabled,
+    ...(config.ticketTeamId
+      ? { ticketTeamId: sanitizeIdentifier(config.ticketTeamId) }
+      : {}),
     reviewComplete: errors.length === 0,
     packets,
     currentBlockers,
@@ -196,6 +213,23 @@ function mergeConfig(partial?: Partial<RegistrarConfig>): RegistrarConfig {
     throw new Error('registrar.ticketDispatchEnabled must be boolean')
   }
   return merged
+}
+
+function hasSufficientScopeMetadata(
+  finding: GraderFinding,
+  packet: FindingPacket,
+): boolean {
+  // Findings that already fail closed do not need evidence proving that they
+  // can leave the repair loop. Every adjacent route does.
+  if (
+    packet.classification === 'current-pr-blocker'
+    || packet.classification === 'harness-defect'
+    || packet.classification === 'false-positive'
+  ) {
+    return true
+  }
+  return finding.scopeRelationship === 'pre-existing'
+    && finding.releaseImpact === 'not-release-blocking'
 }
 
 function fallbackConfig(partial?: Partial<RegistrarConfig>): RegistrarConfig {
