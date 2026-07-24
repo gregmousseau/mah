@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { userInfo } from 'node:os'
 import { resolve } from 'node:path'
 import {
   createTodoIssue,
@@ -40,11 +41,6 @@ const defaultClient: FindingTicketClient = {
   createTodo: createTodoIssue,
 }
 
-const customClientReceipts = new WeakMap<
-  FindingTicketClient,
-  Map<string, Promise<DispatchResult>>
->()
-
 interface DispatchResult {
   issue: LinearTicket
   created: boolean
@@ -80,7 +76,6 @@ export async function promoteReviewedFindingTicket(
   teamId: string | undefined,
   approval: FindingPromotionApproval,
   client: FindingTicketClient = defaultClient,
-  options: { reservationDirectory?: string } = {},
 ): Promise<void> {
   if (report.findingsMode !== 'ticket' || !report.ticketDispatchEnabled) return
   if (!report.reviewComplete) return
@@ -114,14 +109,11 @@ export async function promoteReviewedFindingTicket(
   }
 
   try {
-    const result = client === defaultClient || options.reservationDirectory
-      ? await dispatchWithDurableReservation(
-        action,
-        teamId,
-        client,
-        options.reservationDirectory,
-      )
-      : await dispatchWithClientReservation(action, teamId, client)
+    const result = await dispatchWithDurableReservation(
+      action,
+      teamId,
+      client,
+    )
     action.dispatched = result.created
     action.reason = result.created ? 'created' : 'duplicate'
     attachIssue(action, result.issue)
@@ -186,12 +178,8 @@ async function dispatchWithDurableReservation(
   action: RegistrarReport['ticketActions'][number],
   teamId: string,
   client: FindingTicketClient,
-  reservationDirectory?: string,
 ): Promise<DispatchResult> {
-  const root = resolve(
-    reservationDirectory
-      ?? resolve(process.cwd(), '.mah', 'registrar', 'ticket-reservations'),
-  )
+  const root = findingTicketReservationRoot()
   await mkdir(root, { recursive: true })
   const identity = reservationIdentity(teamId, action.fingerprint)
   const receiptPath = resolve(root, `${identity}.json`)
@@ -266,42 +254,13 @@ async function dispatchWithDurableReservation(
   }
 }
 
-async function dispatchWithClientReservation(
-  action: RegistrarReport['ticketActions'][number],
-  teamId: string,
-  client: FindingTicketClient,
-): Promise<DispatchResult> {
-  let receipts = customClientReceipts.get(client)
-  if (!receipts) {
-    receipts = new Map()
-    customClientReceipts.set(client, receipts)
-  }
-  const identity = reservationIdentity(teamId, action.fingerprint)
-  const pending = receipts.get(identity)
-  if (pending) {
-    const result = await pending
-    return { issue: result.issue, created: false }
-  }
-
-  const operation = (async () => {
-    let mutationAttempted = false
-    try {
-      const existing = await client.findByFingerprint(teamId, action.fingerprint)
-      if (existing?.team.id === teamId) return { issue: existing, created: false }
-      mutationAttempted = true
-      const issue = await client.createTodo(teamId, action.title, action.body)
-      assertIssueTeam(issue, teamId)
-      return { issue, created: true }
-    } catch (error) {
-      if (!mutationAttempted || error instanceof LinearIssueCreateNotAttemptedError) {
-        receipts.delete(identity)
-        throw error
-      }
-      throw pendingReservationError(teamId, action.fingerprint, error)
-    }
-  })()
-  receipts.set(identity, operation)
-  return operation
+export function findingTicketReservationRoot(): string {
+  return resolve(
+    userInfo().homedir,
+    '.mah',
+    'registrar',
+    'ticket-reservations',
+  )
 }
 
 async function acquireLock(lockPath: string): Promise<void> {

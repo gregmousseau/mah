@@ -25,8 +25,9 @@ artifact per finding, bound by digest to the exact candidate SHA, team, packet,
 fingerprint, title, and body. It additionally requires `ticketTeamId`; it uses
 the AWC API-key file, queries Linear by registrar fingerprint **within that
 team** before mutation, creates in Todo, and persists the issue identity in a
-team-scoped receipt. Configuration flags and automated `reviewComplete` state
-are not promotion authorization.
+team-scoped receipt under one canonical per-user MAH state directory,
+independent of the caller's working directory. Configuration flags and
+automated `reviewComplete` state are not promotion authorization.
 
 ## Classifications
 

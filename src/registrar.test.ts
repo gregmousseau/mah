@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,6 +18,7 @@ import { sanitizeEvidence } from './registrar/redact.js'
 import { buildTicketActions, ticketFingerprint } from './registrar/ticket.js'
 import {
   findingPromotionDigest,
+  findingTicketReservationRoot,
   promoteReviewedFindingTicket,
   type FindingPromotionApproval,
 } from './registrar/dispatch.js'
@@ -1022,6 +1025,7 @@ test('human-reviewed ticket promotion dedupes before create and persists created
     ticketDispatchEnabled: true,
     ticketTeamId: 'team',
   })
+  isolateTicketReservation(report, 'team')
   let creates = 0
   const issue = {
     id: 'uuid', identifier: 'AWC-999', title: 't', description: 'd',
@@ -1090,24 +1094,23 @@ test('ticket promotion refuses a missing or stale human-review binding before Li
   assert.match(report.ticketActions[0].error ?? '', /digest does not match/)
 })
 
-test('durable ticket reservation serializes concurrent sprints by fingerprint', async () => {
-  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-reservations-'))
+test('ticket promotion serializes concurrent approval replays by fingerprint', async () => {
   const first = ticketReadyReport()
-  const second = ticketReadyReport('OTHER-ID')
+  const second = ticketReadyReport()
   let creates = 0
   const issue = fakeLinearTicket()
-  const client = {
+  const client = () => ({
     findByFingerprint: async () => null,
     createTodo: async () => {
       creates += 1
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 20))
       return issue
     },
-  }
+  })
 
   await Promise.all([
-    promoteReviewedFindingTicket(first, 'team', approvalFor(first), client, { reservationDirectory }),
-    promoteReviewedFindingTicket(second, 'team', approvalFor(second), client, { reservationDirectory }),
+    promoteReviewedFindingTicket(first, 'team', approvalFor(first), client()),
+    promoteReviewedFindingTicket(second, 'team', approvalFor(second), client()),
   ])
 
   assert.equal(creates, 1)
@@ -1117,8 +1120,7 @@ test('durable ticket reservation serializes concurrent sprints by fingerprint', 
   )
 })
 
-test('ticket search and durable receipts are isolated by Linear team', async () => {
-  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-team-reservations-'))
+test('ticket search and receipts are isolated by Linear team', async () => {
   const teamA = ticketReadyReport('TEAM-A', 'team-a')
   const teamB = ticketReadyReport('TEAM-B', 'team-b')
   const searchedTeams: string[] = []
@@ -1139,20 +1141,37 @@ test('ticket search and durable receipts are isolated by Linear team', async () 
     'team-a',
     approvalFor(teamA, 'team-a'),
     client,
-    { reservationDirectory },
   )
   await promoteReviewedFindingTicket(
     teamB,
     'team-b',
     approvalFor(teamB, 'team-b'),
     client,
-    { reservationDirectory },
   )
 
   assert.deepEqual(searchedTeams.sort(), ['team-a', 'team-b'])
   assert.deepEqual(createdTeams.sort(), ['team-a', 'team-b'])
   assert.equal(teamA.ticketActions[0].reason, 'created')
   assert.equal(teamB.ticketActions[0].reason, 'created')
+})
+
+test('ticket reservation root is canonical across working directories', () => {
+  const originalDirectory = process.cwd()
+  const firstDirectory = mkdtempSync(join(tmpdir(), 'mah-249-cwd-a-'))
+  const secondDirectory = mkdtempSync(join(tmpdir(), 'mah-249-cwd-b-'))
+
+  try {
+    process.chdir(firstDirectory)
+    const firstRoot = findingTicketReservationRoot()
+    process.chdir(secondDirectory)
+    const secondRoot = findingTicketReservationRoot()
+
+    assert.equal(firstRoot, secondRoot)
+    assert.ok(!firstRoot.startsWith(firstDirectory))
+    assert.ok(!firstRoot.startsWith(secondDirectory))
+  } finally {
+    process.chdir(originalDirectory)
+  }
 })
 
 test('ticket dispatch cannot be redirected away from the report team', async () => {
@@ -1176,9 +1195,8 @@ test('ticket dispatch cannot be redirected away from the report team', async () 
 })
 
 test('definite pre-mutation failure clears the reservation and permits a safe retry', async () => {
-  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-retryable-'))
   const first = ticketReadyReport()
-  const second = ticketReadyReport('SAFE-RETRY')
+  const second = ticketReadyReport()
   let attempts = 0
   const client = {
     findByFingerprint: async () => null,
@@ -1196,14 +1214,12 @@ test('definite pre-mutation failure clears the reservation and permits a safe re
     'team',
     approvalFor(first),
     client,
-    { reservationDirectory },
   )
   await promoteReviewedFindingTicket(
     second,
     'team',
     approvalFor(second),
     client,
-    { reservationDirectory },
   )
 
   assert.equal(attempts, 2)
@@ -1212,9 +1228,8 @@ test('definite pre-mutation failure clears the reservation and permits a safe re
 })
 
 test('ambiguous Linear failure leaves a pending reservation and never retries creation', async () => {
-  const reservationDirectory = mkdtempSync(join(tmpdir(), 'mah-249-pending-'))
   const first = ticketReadyReport()
-  const second = ticketReadyReport('RETRY-ID')
+  const second = ticketReadyReport()
   let creates = 0
   const client = {
     findByFingerprint: async () => null,
@@ -1229,14 +1244,12 @@ test('ambiguous Linear failure leaves a pending reservation and never retries cr
     'team',
     approvalFor(first),
     client,
-    { reservationDirectory },
   )
   await promoteReviewedFindingTicket(
     second,
     'team',
     approvalFor(second),
     client,
-    { reservationDirectory },
   )
 
   assert.equal(creates, 1)
@@ -1273,6 +1286,7 @@ test('ticket dispatch failure stays outside scope-review completeness', async ()
     ticketDispatchEnabled: true,
     ticketTeamId: 'team',
   })
+  isolateTicketReservation(report, 'team')
   await promoteReviewedFindingTicket(report, 'team', approvalFor(report), {
     findByFingerprint: async () => null,
     createTodo: async () => { throw new Error('Linear unavailable') },
@@ -1638,7 +1652,7 @@ function ticketReadyReport(
   id = 'F',
   teamId = 'team',
 ): ReturnType<typeof registerFindings> {
-  return registerFindings({
+  const report = registerFindings({
     candidateSha: '0'.repeat(40),
     findings: [{
       id,
@@ -1656,7 +1670,33 @@ function ticketReadyReport(
     ticketDispatchEnabled: true,
     ticketTeamId: teamId,
   })
+  isolateTicketReservation(report, teamId)
+  return report
 }
+
+const isolatedTicketReservationPaths = new Set<string>()
+
+function isolateTicketReservation(
+  report: ReturnType<typeof registerFindings>,
+  teamId: string,
+): void {
+  const fingerprint = report.ticketActions[0]?.fingerprint
+  if (!fingerprint) return
+  const identity = `awc249-${createHash('sha256')
+    .update(`${teamId}\0${fingerprint}`)
+    .digest('hex')}`
+  for (const suffix of ['.json', '.lock']) {
+    const path = resolve(findingTicketReservationRoot(), `${identity}${suffix}`)
+    isolatedTicketReservationPaths.add(path)
+    rmSync(path, { recursive: true, force: true })
+  }
+}
+
+test.after(() => {
+  for (const path of isolatedTicketReservationPaths) {
+    rmSync(path, { recursive: true, force: true })
+  }
+})
 
 function approvalFor(
   report: ReturnType<typeof registerFindings>,
