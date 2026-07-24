@@ -58,13 +58,17 @@ export async function preflightAdapter(adapter: AgentAdapter, config: AgentConfi
     })
   } catch (cause) {
     const endMs = Date.now()
+    const actual = typeof cause === 'object' && cause !== null && 'result' in cause
+      ? (cause as { result?: AgentResult }).result
+      : undefined
     throw new ProviderPreflightError(config, cause, {
       success: false,
-      output: cause instanceof Error ? cause.message : String(cause),
-      provider: config.type,
-      model: config.model,
-      timing: { startMs, endMs, durationMs: endMs - startMs },
-      costEstimate: 0,
+      output: actual?.output ?? (cause instanceof Error ? cause.message : String(cause)),
+      provider: actual?.provider ?? config.type,
+      model: actual?.model ?? config.model,
+      timing: actual?.timing ?? { startMs, endMs, durationMs: endMs - startMs },
+      tokenUsage: actual?.tokenUsage,
+      costEstimate: actual?.costEstimate,
     })
   }
 }

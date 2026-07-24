@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+import { AdapterPreflightError } from './errors.js'
 
 const verifiedModels = new Set<string>()
 
@@ -19,7 +20,10 @@ export class CodexAdapter implements AgentAdapter {
     if (verifiedModels.has(key)) return
     const result = await this.run('Reply with exactly: MAH_PROVIDER_OK', options, true)
     if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {
-      throw new Error(`Codex provider/model preflight failed for ${model}: ${result.output.slice(0, 300)}`)
+      throw new AdapterPreflightError(
+        `Codex provider/model preflight failed for ${model}: ${result.output.slice(0, 300)}`,
+        result,
+      )
     }
     verifiedModels.add(key)
   }

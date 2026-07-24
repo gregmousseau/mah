@@ -350,6 +350,13 @@ export async function runSprint(
 
     for (const grader of graders) {
       let graderExecution: AgentResult | undefined
+      if (grader.type !== 'ux' && grader.type !== 'code-review') {
+        graderResults.push(failedGraderResult(
+          grader,
+          new Error(`Grader type "${grader.type}" has no execution adapter`),
+        ))
+        continue
+      }
       try {
         const graderAdapter = createAgentAdapter(grader.agent)
         await preflightAdapter(graderAdapter, grader.agent)
@@ -872,6 +879,13 @@ export async function runExistingContract(
 
     for (const grader of graders) {
       let graderExecution: AgentResult | undefined
+      if (grader.type !== 'ux' && grader.type !== 'code-review') {
+        graderResults.push(failedGraderResult(
+          grader,
+          new Error(`Grader type "${grader.type}" has no execution adapter`),
+        ))
+        continue
+      }
       try {
         const graderAdapter = createAgentAdapter(grader.agent)
         await preflightAdapter(graderAdapter, grader.agent)

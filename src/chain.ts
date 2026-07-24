@@ -417,6 +417,14 @@ async function runChainSprint(
         graderResults.push(failedGraderResult(grader, error, graderExecution))
       }
     }
+    for (const grader of graders.filter(
+      candidate => candidate.type !== 'ux' && candidate.type !== 'code-review',
+    )) {
+      graderResults.push(failedGraderResult(
+        grader,
+        new Error(`Grader type "${grader.type}" has no execution adapter`),
+      ))
+    }
 
     const delivery = evaluateDeliveryVerdict(graders, graderResults, config.qa.verdictMode)
     const deliveryFailures: DeliveryFailure[] = [...delivery.failures]

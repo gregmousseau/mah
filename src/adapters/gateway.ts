@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+import { AdapterPreflightError } from './errors.js'
 
 interface GatewayResponse {
   result?: {
@@ -23,8 +24,26 @@ function resolvedCwd(options: ExecuteOptions): string {
 export class OpenClawGatewayAdapter implements AgentAdapter {
   async preflight(options: ExecuteOptions): Promise<void> {
     const result = await this.run('Reply with exactly: MAH_PROVIDER_OK', options)
-    if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {
-      throw new Error(`OpenClaw gateway preflight failed for ${options.model}: ${result.output.slice(0, 300)}`)
+    const requested = options.model?.trim() ?? ''
+    const separator = requested.indexOf('/')
+    if (separator < 1) {
+      throw new AdapterPreflightError(
+        `OpenClaw gateway requires an explicit provider/model, received "${requested}"`,
+        result,
+      )
+    }
+    const expectedProvider = requested.slice(0, separator)
+    const expectedModel = requested.slice(separator + 1)
+    if (
+      !result.success ||
+      !result.output.includes('MAH_PROVIDER_OK') ||
+      result.provider !== expectedProvider ||
+      result.model !== expectedModel
+    ) {
+      throw new AdapterPreflightError(
+        `OpenClaw gateway preflight failed for ${requested}: ${result.output.slice(0, 300)}`,
+        result,
+      )
     }
   }
 
@@ -91,7 +110,6 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
             model: meta?.model ?? model,
             timing: { startMs, endMs, durationMs: endMs - startMs },
             tokenUsage: usage ? { input: usage.input ?? 0, output: usage.output ?? 0 } : undefined,
-            costEstimate: 0,
           })
         } catch {
           resolve({
@@ -112,7 +130,6 @@ export class OpenClawGatewayAdapter implements AgentAdapter {
           provider: 'openclaw',
           model,
           timing: { startMs, endMs, durationMs: endMs - startMs },
-          costEstimate: 0,
         })
       })
     })

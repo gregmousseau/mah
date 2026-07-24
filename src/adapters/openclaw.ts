@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
 import { getAgentWorkspace, getAgentName } from '../lib/agentRegistry.js'
+import { AdapterPreflightError } from './errors.js'
 
 // Frontend design tiers — like QA tiers but for UI quality
 export type DesignTier = 'quick' | 'polished' | 'impeccable'
@@ -118,7 +119,10 @@ export class OpenClawAdapter implements AgentAdapter {
       timeoutMs: Math.min(options.timeoutMs ?? 60_000, 60_000),
     })
     if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {
-      throw new Error(`Claude provider/model preflight failed for ${options.model ?? 'sonnet'}`)
+      throw new AdapterPreflightError(
+        `Claude provider/model preflight failed for ${options.model ?? 'sonnet'}`,
+        result,
+      )
     }
   }
 

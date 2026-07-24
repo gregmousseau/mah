@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+import { AdapterPreflightError } from './errors.js'
 
 const verifiedModels = new Set<string>()
 
@@ -40,7 +41,10 @@ export class KiloAdapter implements AgentAdapter {
       result.provider !== 'kilocode' ||
       result.model !== expectedModel
     ) {
-      throw new Error(`Kilo provider/model preflight failed for ${model}: ${result.output.slice(0, 300)}`)
+      throw new AdapterPreflightError(
+        `Kilo provider/model preflight failed for ${model}: ${result.output.slice(0, 300)}`,
+        result,
+      )
     }
     verifiedModels.add(key)
   }
