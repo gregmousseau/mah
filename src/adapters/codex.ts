@@ -1,8 +1,21 @@
-import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
+import {
+  boundTranscriptResponse,
+  resolveAdapterExecutionPolicy,
+} from '../execution-policy.js'
+import type {
+  AgentAdapter,
+  AgentResult,
+  ExecuteOptions,
+} from '../types.js'
+import { runActivityAwareProcess } from './activity-aware-process.js'
 import { AdapterPreflightError } from './errors.js'
 
 const verifiedModels = new Set<string>()
@@ -33,10 +46,9 @@ export class CodexAdapter implements AgentAdapter {
   }
 
   private async run(task: string, options: ExecuteOptions, readOnly: boolean): Promise<AgentResult> {
-    const startMs = Date.now()
     const model = options.model?.trim()
     if (!model) throw new Error('Codex provider requires an explicit model')
-    const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
+    const policy = resolveAdapterExecutionPolicy(options)
     const cwd = resolvedCwd(options)
     const outputDir = mkdtempSync(join(tmpdir(), 'mah-codex-'))
     const outputPath = join(outputDir, 'last-message.txt')
@@ -53,57 +65,34 @@ export class CodexAdapter implements AgentAdapter {
       '-',
     ]
 
-    return new Promise((resolve, reject) => {
-      const child = spawn('codex', args, {
-        cwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env },
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', chunk => { stdout += chunk.toString() })
-      child.stderr.on('data', chunk => { stderr += chunk.toString() })
-      child.stdin.write(task, 'utf-8')
-      child.stdin.end()
-
-      const finish = (success: boolean, fallback: string): AgentResult => {
-        const endMs = Date.now()
-        let output = fallback
-        if (existsSync(outputPath)) output = readFileSync(outputPath, 'utf-8')
-        rmSync(outputDir, { recursive: true, force: true })
-        return {
-          success,
-          output,
-          provider: 'codex',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-          costEstimate: 0,
-        }
-      }
-
-      const timer = setTimeout(() => {
-        child.kill('SIGTERM')
-        setTimeout(() => child.kill('SIGKILL'), 5000)
-        resolve(finish(false, stdout || stderr || `[Timeout after ${timeoutMs / 1000}s]`))
-      }, timeoutMs)
-
-      child.on('close', code => {
-        clearTimeout(timer)
-        resolve(finish(code === 0, stdout || stderr || `[Process exited with code ${code}]`))
-      })
-      child.on('error', err => {
-        clearTimeout(timer)
-        rmSync(outputDir, { recursive: true, force: true })
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: `Failed to spawn Codex: ${err.message}`,
-          provider: 'codex',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-          costEstimate: 0,
-        })
-      })
+    const execution = await runActivityAwareProcess({
+      command: 'codex',
+      args,
+      cwd,
+      env: { ...process.env },
+      stdin: task,
+      execution: options,
+      terminationGraceMs: options.terminationGraceMs,
     })
+    let output = execution.stdout || execution.stderr || (
+      execution.termination.reason === 'idle-timeout'
+      || execution.termination.reason === 'absolute-timeout'
+        ? `[${execution.termination.reason}; last activity ${execution.termination.lastActivityAt}]`
+        : `[Process exited with code ${execution.code}]`
+    )
+    if (existsSync(outputPath)) output = readFileSync(outputPath, 'utf8')
+    rmSync(outputDir, { recursive: true, force: true })
+    return {
+      success:
+        execution.termination.reason === 'completed'
+        && execution.code === 0,
+      output: boundTranscriptResponse(output, policy.transcriptMaxChars),
+      provider: 'codex',
+      model,
+      rawActivityPath: execution.rawActivityPath,
+      termination: execution.termination,
+      timing: execution.timing,
+      costEstimate: 0,
+    }
   }
 }

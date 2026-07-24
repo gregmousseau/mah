@@ -7,6 +7,11 @@ import type { ProjectConfig, VerdictMode } from './types.js'
 const DEFAULTS: Partial<ProjectConfig> = {
   priorities: { speed: 1, quality: 2, cost: 3 },
   qa: { defaultTier: 'targeted', maxIterations: 3, verdictMode: 'fail-closed' },
+  execution: {
+    devIdleTimeoutMinutes: 12,
+    devAbsoluteTimeoutMinutes: 45,
+    transcriptMaxChars: 32_000,
+  },
   findings: {
     scopeGate: 'advisory',
     findingsMode: 'report',
@@ -115,6 +120,7 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
   const priorities = (raw.priorities as Record<string, number>) ?? {}
   const agents = (raw.agents as Record<string, unknown>) ?? {}
   const qa = (raw.qa as Record<string, unknown>) ?? {}
+  const execution = (raw.execution as Record<string, unknown>) ?? {}
   const findings = (raw.findings as Record<string, unknown>) ?? {}
   const human = (raw.human as Record<string, unknown>) ?? {}
   const metrics = (raw.metrics as Record<string, unknown>) ?? {}
@@ -138,6 +144,14 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
       defaultTier: (qa.defaultTier as 'smoke' | 'targeted' | 'full') ?? DEFAULTS.qa!.defaultTier,
       maxIterations: (qa.maxIterations as number) ?? DEFAULTS.qa!.maxIterations,
       verdictMode: resolveVerdictMode(qa.verdictMode as ProjectConfig['qa']['verdictMode']),
+    },
+    execution: {
+      devIdleTimeoutMinutes: (execution.devIdleTimeoutMinutes as number)
+        ?? DEFAULTS.execution!.devIdleTimeoutMinutes,
+      devAbsoluteTimeoutMinutes: (execution.devAbsoluteTimeoutMinutes as number)
+        ?? DEFAULTS.execution!.devAbsoluteTimeoutMinutes,
+      transcriptMaxChars: (execution.transcriptMaxChars as number)
+        ?? DEFAULTS.execution!.transcriptMaxChars,
     },
     findings: {
       scopeGate: (findings.scopeGate as NonNullable<ProjectConfig['findings']>['scopeGate'])
@@ -222,6 +236,22 @@ function validate(config: ProjectConfig): void {
   }
   if (!['fail-closed', 'legacy'].includes(config.qa.verdictMode ?? '')) {
     throw new Error('qa.verdictMode must be "fail-closed" or "legacy"')
+  }
+  const execution = config.execution
+  if (!execution) throw new Error('execution configuration was not resolved')
+  if (!Number.isFinite(execution.devIdleTimeoutMinutes) || execution.devIdleTimeoutMinutes <= 0) {
+    throw new Error('execution.devIdleTimeoutMinutes must be a positive number')
+  }
+  if (
+    !Number.isFinite(execution.devAbsoluteTimeoutMinutes)
+    || execution.devAbsoluteTimeoutMinutes < execution.devIdleTimeoutMinutes
+  ) {
+    throw new Error(
+      'execution.devAbsoluteTimeoutMinutes must be greater than or equal to the idle timeout',
+    )
+  }
+  if (!Number.isInteger(execution.transcriptMaxChars) || execution.transcriptMaxChars < 1_000) {
+    throw new Error('execution.transcriptMaxChars must be an integer of at least 1000')
   }
   if (!config.findings) throw new Error('findings configuration was not resolved')
   if (!['advisory', 'enforced'].includes(config.findings.scopeGate)) {

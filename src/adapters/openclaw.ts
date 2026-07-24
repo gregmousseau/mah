@@ -1,9 +1,13 @@
-import { spawn } from 'node:child_process'
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  boundTranscriptResponse,
+  resolveAdapterExecutionPolicy,
+} from '../execution-policy.js'
 import type { AgentAdapter, AgentResult, ExecuteOptions } from '../types.js'
 import { getAgentWorkspace, getAgentName } from '../lib/agentRegistry.js'
+import { runActivityAwareProcess } from './activity-aware-process.js'
 import { AdapterPreflightError } from './errors.js'
 
 // Frontend design tiers — like QA tiers but for UI quality
@@ -140,9 +144,8 @@ export class OpenClawAdapter implements AgentAdapter {
   }
 
   private async executeClaude(task: string, options: ExecuteOptions): Promise<AgentResult> {
-    const startMs = Date.now()
     const model = options.model ?? 'sonnet'
-    const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
+    const policy = resolveAdapterExecutionPolicy(options)
     const rawCwd = options.cwd ?? options.workspace ?? process.cwd()
     const cwd = rawCwd.startsWith('~') ? rawCwd.replace('~', process.env.HOME ?? '') : rawCwd
 
@@ -157,76 +160,39 @@ export class OpenClawAdapter implements AgentAdapter {
     delete spawnEnv.ANTHROPIC_API_KEY  // Force OAuth/Max plan instead of API billing
     const claudePath = process.env.CLAUDE_CMD ?? 'claude'
 
-    return new Promise((resolve, reject) => {
-      const child = spawn(claudePath, args, {
-        cwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: spawnEnv,
-      })
-
-      let stdout = ''
-      let stderr = ''
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString()
-      })
-
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString()
-      })
-
-      // Write task to stdin and close
-      child.stdin.write(task, 'utf-8')
-      child.stdin.end()
-
-      // Timeout handling
-      const timer = setTimeout(() => {
-        child.kill('SIGTERM')
-        setTimeout(() => child.kill('SIGKILL'), 5000)
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: stdout || `[Timeout after ${timeoutMs / 1000}s]`,
-          provider: 'claude',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-        })
-      }, timeoutMs)
-
-      child.on('close', (code) => {
-        clearTimeout(timer)
-        const endMs = Date.now()
-        const durationMs = endMs - startMs
-        const success = code === 0
-
-        // Estimate tokens: input from task length, output from response length
-        const inputTokens = Math.ceil(task.length / 4)
-        const outputTokens = Math.ceil(stdout.length / 4)
-
-        resolve({
-          success,
-          output: stdout || (success ? '' : `[Process exited with code ${code}]\n${stderr}`),
-          provider: 'claude',
-          model,
-          timing: { startMs, endMs, durationMs },
-          tokenUsage: { input: inputTokens, output: outputTokens },
-          costEstimate: estimateCost(model, inputTokens, outputTokens),
-        })
-      })
-
-      child.on('error', (err: NodeJS.ErrnoException) => {
-        clearTimeout(timer)
-        const endMs = Date.now()
-        resolve({
-          success: false,
-          output: `Failed to spawn Claude: ${err.message}`,
-          provider: 'claude',
-          model,
-          timing: { startMs, endMs, durationMs: endMs - startMs },
-          costEstimate: 0,
-        })
-      })
+    const execution = await runActivityAwareProcess({
+      command: claudePath,
+      args,
+      cwd,
+      env: spawnEnv,
+      stdin: task,
+      execution: options,
+      terminationGraceMs: options.terminationGraceMs,
     })
+    const success =
+      execution.termination.reason === 'completed'
+      && execution.code === 0
+    const rawOutput = execution.error
+      ? `Failed to spawn Claude: ${execution.error.message}`
+      : execution.stdout || (
+        success
+          ? ''
+          : execution.stderr
+            || `[${execution.termination.reason}; last activity ${execution.termination.lastActivityAt}]`
+      )
+    const inputTokens = Math.ceil(task.length / 4)
+    const outputTokens = Math.ceil(execution.stdout.length / 4)
+    return {
+      success,
+      output: boundTranscriptResponse(rawOutput, policy.transcriptMaxChars),
+      provider: 'claude',
+      model,
+      rawActivityPath: execution.rawActivityPath,
+      termination: execution.termination,
+      timing: execution.timing,
+      tokenUsage: { input: inputTokens, output: outputTokens },
+      costEstimate: estimateCost(model, inputTokens, outputTokens),
+    }
   }
 
   private async executeMock(task: string, options: ExecuteOptions): Promise<AgentResult> {

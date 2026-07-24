@@ -259,6 +259,14 @@ agents:
 qa:
   defaultTier: targeted
   maxIterations: 3
+
+execution:
+  # Dev is terminated only after 12 minutes without stdout/stderr activity.
+  devIdleTimeoutMinutes: 12
+  # Continuous activity can never extend a Dev run beyond this ceiling.
+  devAbsoluteTimeoutMinutes: 45
+  # Full raw activity is stored under the sprint; transcript/resume context is bounded.
+  transcriptMaxChars: 32000
 ```
 
 ## Execution Engine
@@ -268,8 +276,12 @@ Under the hood, MAH shells out to `claude --print --model <model> --permission-m
 - **Any Claude Code-compatible agent works** — swap models, add MCP servers, use custom system prompts
 - **Detached execution** — sprints run as background Node.js processes
 - **Heartbeat monitoring** — `heartbeat.json` updated every 30s for dashboard polling
-- **Watchdog recovery** — stale heartbeat (>10min) or dead PID triggers automatic resume
-- **Transcript resume** — crashed sprints re-run from the last completed phase, not from scratch
+- **Activity-aware execution** — Dev idle time resets on stdout/stderr activity, with a separate absolute ceiling
+- **Bounded transcripts** — resume context stays bounded while full raw activity is kept under the sprint's `raw/` directory
+- **Checkpoint recovery** — dirty Dev work is preserved in `recoverable-checkpoint.json`; automatic Dev replay is blocked
+- **Pinned QA-only resume** — after validating and committing a checkpoint, set
+  `MAH_QA_ONLY_CANDIDATE_SHA=<40-char-sha>` and `MAH_QA_ONLY_ROUND=<round>`
+  for the dashboard executor to resume QA without rerunning Dev
 
 ## Cost Tracking
 

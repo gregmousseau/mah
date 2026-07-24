@@ -150,7 +150,13 @@ async function advanceQueue(completedSprintId, completedStatus) {
       cwd: MAH_ROOT,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env: (() => { const e = { ...process.env, MAH_ROOT }; delete e.CLAUDECODE; return e; })(),
+      env: (() => {
+        const e = { ...process.env, MAH_ROOT };
+        delete e.CLAUDECODE;
+        delete e.MAH_QA_ONLY_CANDIDATE_SHA;
+        delete e.MAH_QA_ONLY_ROUND;
+        return e;
+      })(),
     }
   );
 
@@ -203,6 +209,7 @@ function buildConfig(contract) {
   const repo = projectConfig.repo
     ? resolve(projectConfig.repo.replace("~", process.env.HOME ?? "/home/greg"))
     : MAH_ROOT;
+  const savedExecution = projectConfig.config?.execution ?? {};
 
   return {
     project: {
@@ -226,6 +233,11 @@ function buildConfig(contract) {
     qa: {
       defaultTier: "targeted",
       maxIterations: 3,
+    },
+    execution: {
+      devIdleTimeoutMinutes: savedExecution.devIdleTimeoutMinutes ?? 12,
+      devAbsoluteTimeoutMinutes: savedExecution.devAbsoluteTimeoutMinutes ?? 45,
+      transcriptMaxChars: savedExecution.transcriptMaxChars ?? 32000,
     },
     human: {
       notificationChannel: "",
@@ -291,12 +303,18 @@ async function main() {
         writeFileSync(contractPath, JSON.stringify(currentContract, null, 2));
       }
 
-      const { contract: finalContract, metrics } = await runExistingContract(
+      const {
+        contract: finalContract,
+        metrics,
+        crashError,
+      } = await runExistingContract(
         currentContract,
         config,
         events,
-        sprintFullPath
+        sprintFullPath,
+        qaOnlyResumeOptions()
       );
+      if (crashError) throw crashError;
 
       console.log(`[executor] Sprint ${finalContract.id} completed: ${finalContract.status}`);
       console.log(`[executor] Duration: ${metrics.totals.durationMs}ms`);
@@ -308,7 +326,13 @@ async function main() {
       process.exit(0);
     } catch (err) {
       const errStr = String(err);
+      const hasRecoverableCheckpoint = errStr.includes("MAH_RECOVERABLE_CHECKPOINT");
       const isRetryable = ['EPIPE', 'SIGTERM', 'timed out', 'ECONNRESET'].some(s => errStr.includes(s));
+
+      if (hasRecoverableCheckpoint) {
+        console.error(`[executor] Recoverable checkpoint preserved; ordinary Dev retry is blocked: ${errStr}`);
+        process.exit(1);
+      }
 
       if (isRetryable && attempt <= MAX_RETRIES) {
         console.error(`[executor] Retryable error on attempt ${attempt}: ${errStr}`);
@@ -340,6 +364,20 @@ async function main() {
       process.exit(1);
     }
   }
+}
+
+function qaOnlyResumeOptions() {
+  const candidateSha = process.env.MAH_QA_ONLY_CANDIDATE_SHA?.trim();
+  const roundRaw = process.env.MAH_QA_ONLY_ROUND?.trim();
+  if (!candidateSha && !roundRaw) return {};
+  if (!candidateSha || !/^[a-f0-9]{40}$/i.test(candidateSha)) {
+    throw new Error("MAH_QA_ONLY_CANDIDATE_SHA must be an exact 40-character commit SHA.");
+  }
+  const round = Number(roundRaw);
+  if (!Number.isInteger(round) || round < 1) {
+    throw new Error("MAH_QA_ONLY_ROUND must be a positive integer.");
+  }
+  return { qaOnly: { candidateSha, round } };
 }
 
 main();
