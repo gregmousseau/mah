@@ -231,11 +231,9 @@ export async function runSprint(
   }
 
   const generatorAdapter = createAgentAdapter(config.agents.generator)
-  const evaluatorAdapter = createAgentAdapter(config.agents.evaluator)
   await preflightAdapter(generatorAdapter, config.agents.generator)
-  await preflightAdapter(evaluatorAdapter, config.agents.evaluator)
   events.log('moe', 'milestone', 'preflight',
-    `Providers ready: generator=${config.agents.generator.type}/${config.agents.generator.model}, evaluator=${config.agents.evaluator.type}/${config.agents.evaluator.model}`)
+    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'contract'
@@ -630,11 +628,9 @@ export async function runExistingContract(
   }
 
   const generatorAdapter = createAgentAdapter(config.agents.generator)
-  const evaluatorAdapter = createAgentAdapter(config.agents.evaluator)
   await preflightAdapter(generatorAdapter, config.agents.generator)
-  await preflightAdapter(evaluatorAdapter, config.agents.evaluator)
   events.log('moe', 'milestone', 'preflight',
-    `Providers ready: generator=${config.agents.generator.type}/${config.agents.generator.model}, evaluator=${config.agents.evaluator.type}/${config.agents.evaluator.model}`)
+    `Generator ready: ${config.agents.generator.type}/${config.agents.generator.model}; graders preflight when selected`)
   let lastDevOutput = ''
   let lastQAOutput = ''
   let currentPhase = 'dev'

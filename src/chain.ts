@@ -44,6 +44,7 @@ import type {
   SprintInput,
   AgentAssignment,
   DeliveryFailure,
+  AgentResult,
 } from './types.js'
 import type { ProposedSprint, SprintProposal } from './planner.js'
 import type { ResolvedSkill } from './skills.js'
@@ -227,9 +228,7 @@ async function runChainSprint(
   metricsDir: string,
 ): Promise<{ contract: SprintContract; metrics: SprintMetrics }> {
   const generatorAdapter = createAgentAdapter(config.agents.generator)
-  const evaluatorAdapter = createAgentAdapter(config.agents.evaluator)
   await preflightAdapter(generatorAdapter, config.agents.generator)
-  await preflightAdapter(evaluatorAdapter, config.agents.evaluator)
   let lastDevOutput = ''
   let lastQAOutput = ''
   const sprintStartTime = Date.now()
@@ -318,30 +317,6 @@ async function runChainSprint(
     }
     lastChainPhase = `qa R${round}`
     contract.status = 'qa'
-    const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
-    const tierBudget = budgetForContract(contract)
-    const qaResult = await evaluatorAdapter.execute(qaPrompt, {
-      model: config.agents.evaluator.model,
-      cwd: config.agents.evaluator.workspace,
-      timeoutMs: tierBudget.timeoutMs,
-      label: `chain-qa-${contract.id}-r${round}`,
-    })
-
-    transcript.phases.push({
-      phase: 'qa',
-      round,
-      actor: 'quinn',
-      model: config.agents.evaluator.model,
-      provider: qaResult.provider,
-      startTime: new Date(qaResult.timing.startMs).toISOString(),
-      endTime: new Date(qaResult.timing.endMs).toISOString(),
-      promptSent: qaPrompt.slice(0, 500) + '...',
-      responseReceived: qaResult.output,
-      tokenUsage: qaResult.tokenUsage,
-      costEstimate: qaResult.costEstimate,
-    })
-
-    const qaReport = parseQAReport(qaResult.output)
     const graders = contract.graders?.filter((grader) => grader.enabled) ?? [{
       id: 'ux-quinn',
       type: 'ux' as const,
@@ -351,7 +326,32 @@ async function runChainSprint(
     }]
     const graderResults: GraderResult[] = []
     const uxGrader = graders.find((grader) => grader.type === 'ux')
+    let qaResult: AgentResult | undefined
     if (uxGrader) {
+      const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
+      const tierBudget = budgetForContract(contract)
+      const uxAdapter = createAgentAdapter(uxGrader.agent)
+      await preflightAdapter(uxAdapter, uxGrader.agent)
+      qaResult = await uxAdapter.execute(qaPrompt, {
+        model: uxGrader.agent.model,
+        cwd: uxGrader.agent.workspace,
+        timeoutMs: tierBudget.timeoutMs,
+        label: `chain-qa-${contract.id}-r${round}`,
+      })
+      transcript.phases.push({
+        phase: 'qa',
+        round,
+        actor: 'quinn',
+        model: uxGrader.agent.model,
+        provider: qaResult.provider,
+        startTime: new Date(qaResult.timing.startMs).toISOString(),
+        endTime: new Date(qaResult.timing.endMs).toISOString(),
+        promptSent: qaPrompt.slice(0, 500) + '...',
+        responseReceived: qaResult.output,
+        tokenUsage: qaResult.tokenUsage,
+        costEstimate: qaResult.costEstimate,
+      })
+      const qaReport = parseQAReport(qaResult.output)
       if (!qaResult.success) {
         graderResults.push(failedGraderResult(uxGrader, qaResult.output || 'Chain QA agent failed.'))
       } else {
@@ -428,7 +428,7 @@ async function runChainSprint(
       if (failure) deliveryFailures.push(failure)
     }
     const effectiveVerdict = deliveryFailures.length > 0 ? 'fail' : delivery.verdict
-    const qaDuration = formatDuration(qaResult.timing.durationMs)
+    const qaDuration = qaResult ? formatDuration(qaResult.timing.durationMs) : 'no UX grader'
     events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)
 
     // Record iteration
@@ -443,15 +443,15 @@ async function runChainSprint(
         tokenUsage: devResult.tokenUsage,
         costEstimate: devResult.costEstimate,
       },
-      qa: {
+      qa: qaResult ? {
         output: qaResult.output,
         startTime: new Date(qaResult.timing.startMs).toISOString(),
         endTime: new Date(qaResult.timing.endMs).toISOString(),
         durationMs: qaResult.timing.durationMs,
-        model: config.agents.evaluator.model,
+        model: uxGrader?.agent.model ?? config.agents.evaluator.model,
         tokenUsage: qaResult.tokenUsage,
         costEstimate: qaResult.costEstimate,
-      },
+      } : undefined,
       defects: materialGraderFindings(graderResults).map((finding) => ({
         id: finding.id,
         severity: chainDefectSeverity(finding.severity),
