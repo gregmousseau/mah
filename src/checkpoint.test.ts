@@ -134,6 +134,57 @@ test('QA-only resume binds both sides of a staged rename', () => {
   }
 })
 
+test('rename checkpoints bind an ignored source when the destination leaves the ignored tree', () => {
+  const fixture = createRepo()
+  try {
+    const ignoredDir = join(fixture.repo, '.mah-state')
+    mkdirSync(ignoredDir)
+    writeFileSync(join(ignoredDir, 'source.txt'), 'state source\n')
+    execFileSync('git', ['add', '.mah-state/source.txt'], { cwd: fixture.repo })
+    execFileSync('git', ['commit', '-m', 'add tracked state source'], { cwd: fixture.repo })
+    execFileSync(
+      'git',
+      ['mv', '.mah-state/source.txt', 'outside.txt'],
+      { cwd: fixture.repo },
+    )
+    const checkpoint = persistRecoverableCheckpoint({
+      sprintPath: fixture.sprint,
+      repoPath: fixture.repo,
+      ignoredStatePaths: [ignoredDir],
+      round: 1,
+      result: agentResult('idle-timeout'),
+    })
+    assert.ok(checkpoint)
+    assert.deepEqual(
+      checkpoint.dirtyPaths,
+      ['.mah-state/source.txt', 'outside.txt'],
+    )
+
+    mkdirSync(ignoredDir, { recursive: true })
+    writeFileSync(join(ignoredDir, 'source.txt'), 'state source\n')
+    execFileSync(
+      'git',
+      ['add', '.mah-state/source.txt', 'outside.txt'],
+      { cwd: fixture.repo },
+    )
+    execFileSync('git', ['commit', '-m', 'restore ignored rename source'], {
+      cwd: fixture.repo,
+    })
+
+    assert.throws(
+      () => verifyQAOnlyResume({
+        sprintPath: fixture.sprint,
+        repoPath: fixture.repo,
+        request: { candidateSha: gitSha(fixture.repo), round: 1 },
+        ignoredStatePaths: [ignoredDir],
+      }),
+      /candidate does not contain checkpoint path/,
+    )
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true })
+  }
+})
+
 function createRepo(): { root: string; repo: string; sprint: string } {
   const root = mkdtempSync(join(tmpdir(), 'mah-checkpoint-test-'))
   const repo = join(root, 'repo')

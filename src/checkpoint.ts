@@ -61,22 +61,28 @@ export function inspectWorktreeCheckpoint(
     { cwd: repo, encoding: 'utf8' },
   )
     .split('\0')
-  const allDirtyPaths: string[] = []
+  const dirtyPathGroups: string[][] = []
   for (let index = 0; index < statusFields.length; index += 1) {
     const entry = statusFields[index]
     if (!entry) continue
     const status = entry.slice(0, 2)
-    allDirtyPaths.push(normalizePath(entry.slice(3)))
+    const paths = [normalizePath(entry.slice(3))]
     if (/[RC]/.test(status)) {
       const sourcePath = statusFields[index + 1]
-      if (sourcePath) allDirtyPaths.push(normalizePath(sourcePath))
+      if (sourcePath) paths.push(normalizePath(sourcePath))
       index += 1
     }
+    dirtyPathGroups.push(paths)
   }
-  const dirtyPaths = [...new Set(allDirtyPaths)]
-    .filter((path) => path && !ignored.some(
+  const isIgnored = (path: string): boolean => ignored.some(
       (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-    ))
+    )
+  const dirtyPaths = [...new Set(
+    dirtyPathGroups.flatMap(
+      (paths) => paths.some((path) => path && !isIgnored(path)) ? paths : [],
+    ),
+  )]
+    .filter(Boolean)
     .sort()
   return { repoPath: repo, headSha, dirtyPaths }
 }
