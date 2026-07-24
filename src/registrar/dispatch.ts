@@ -15,6 +15,26 @@ export interface FindingTicketClient {
   createTodo(teamId: string, title: string, body: string): Promise<LinearTicket>
 }
 
+/**
+ * A single, externally reviewed promotion decision. The digest binds the
+ * decision to one exact report action so approval cannot be reused for a
+ * different candidate, team, finding, title, or body.
+ *
+ * Sprint and chain execution must never construct this artifact. It belongs
+ * to the separate human-reviewed promotion workflow.
+ */
+export interface FindingPromotionApproval {
+  version: 1
+  approvalId: string
+  reviewedBy: string
+  reviewedAt: string
+  candidateSha: string
+  teamId: string
+  packetId: string
+  fingerprint: string
+  actionDigest: string
+}
+
 const defaultClient: FindingTicketClient = {
   findByFingerprint: findIssueByRegistrarFingerprint,
   createTodo: createTodoIssue,
@@ -55,9 +75,10 @@ interface LegacyPendingReservation {
 
 type ReadReservation = TicketReservation | LegacyPendingReservation
 
-export async function dispatchFindingTickets(
+export async function promoteReviewedFindingTicket(
   report: RegistrarReport,
   teamId: string | undefined,
+  approval: FindingPromotionApproval,
   client: FindingTicketClient = defaultClient,
   options: { reservationDirectory?: string } = {},
 ): Promise<void> {
@@ -74,27 +95,91 @@ export async function dispatchFindingTickets(
     return
   }
 
-  for (const action of report.ticketActions.filter((item) => item.reason === 'ready')) {
-    try {
-      const result = client === defaultClient || options.reservationDirectory
-        ? await dispatchWithDurableReservation(
-          action,
-          teamId,
-          client,
-          options.reservationDirectory,
-        )
-        : await dispatchWithClientReservation(action, teamId, client)
-      action.dispatched = result.created
-      action.reason = result.created ? 'created' : 'duplicate'
-      attachIssue(action, result.issue)
-    } catch (error) {
+  const action = report.ticketActions.find(
+    (item) => item.reason === 'ready'
+      && item.packetId === approval.packetId
+      && item.fingerprint === approval.fingerprint,
+  )
+  const approvalError = validatePromotionApproval(report, teamId, action, approval)
+  if (approvalError || !action) {
+    const sanitized = sanitizeEvidence(
+      approvalError ?? 'Approval does not identify exactly one ready finding action.',
+    )
+    if (action) {
       action.reason = 'dispatch-failed'
-      action.error = sanitizeEvidence(
-        error instanceof Error ? error.message : String(error),
-      )
-      report.errors.push(`Ticket dispatch failed for ${action.packetId}: ${action.error}`)
+      action.error = sanitized
     }
+    report.errors.push(`Ticket promotion refused: ${sanitized}`)
+    return
   }
+
+  try {
+    const result = client === defaultClient || options.reservationDirectory
+      ? await dispatchWithDurableReservation(
+        action,
+        teamId,
+        client,
+        options.reservationDirectory,
+      )
+      : await dispatchWithClientReservation(action, teamId, client)
+    action.dispatched = result.created
+    action.reason = result.created ? 'created' : 'duplicate'
+    attachIssue(action, result.issue)
+  } catch (error) {
+    action.reason = 'dispatch-failed'
+    action.error = sanitizeEvidence(
+      error instanceof Error ? error.message : String(error),
+    )
+    report.errors.push(`Ticket dispatch failed for ${action.packetId}: ${action.error}`)
+  }
+}
+
+export function findingPromotionDigest(
+  report: RegistrarReport,
+  teamId: string,
+  action: RegistrarReport['ticketActions'][number],
+): string {
+  return createHash('sha256').update(JSON.stringify({
+    version: 1,
+    candidateSha: report.candidateSha,
+    teamId,
+    packetId: action.packetId,
+    fingerprint: action.fingerprint,
+    title: action.title,
+    body: action.body,
+  })).digest('hex')
+}
+
+function validatePromotionApproval(
+  report: RegistrarReport,
+  teamId: string,
+  action: RegistrarReport['ticketActions'][number] | undefined,
+  approval: FindingPromotionApproval,
+): string | undefined {
+  if (!action) {
+    return 'Approval does not identify exactly one ready finding action.'
+  }
+  if (
+    approval.version !== 1
+    || !approval.approvalId.trim()
+    || !approval.reviewedBy.trim()
+    || !approval.reviewedAt.trim()
+    || Number.isNaN(Date.parse(approval.reviewedAt))
+  ) {
+    return 'Promotion requires a valid external human-review artifact.'
+  }
+  if (
+    approval.candidateSha !== report.candidateSha
+    || approval.teamId !== teamId
+    || approval.packetId !== action.packetId
+    || approval.fingerprint !== action.fingerprint
+  ) {
+    return 'Promotion approval identity does not match the exact report action.'
+  }
+  if (approval.actionDigest !== findingPromotionDigest(report, teamId, action)) {
+    return 'Promotion approval digest does not match the exact report action.'
+  }
+  return undefined
 }
 
 async function dispatchWithDurableReservation(

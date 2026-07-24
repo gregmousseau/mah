@@ -14,7 +14,11 @@ import type { GraderFinding } from './types.js'
 import { classifyFinding } from './registrar/classify.js'
 import { sanitizeEvidence } from './registrar/redact.js'
 import { buildTicketActions, ticketFingerprint } from './registrar/ticket.js'
-import { dispatchFindingTickets } from './registrar/dispatch.js'
+import {
+  findingPromotionDigest,
+  promoteReviewedFindingTicket,
+  type FindingPromotionApproval,
+} from './registrar/dispatch.js'
 import { processScopeAwareFindingRound } from './registrar/round.js'
 import {
   LinearIssueCreateNotAttemptedError,
@@ -999,7 +1003,7 @@ test('spike packets and ticket bodies contain bounded planning fields', () => {
   assert.match(report.ticketActions[0].body, /Rollout \/ cleanup:/)
 })
 
-test('approved ticket dispatch dedupes before create and persists created identity', async () => {
+test('human-reviewed ticket promotion dedupes before create and persists created identity', async () => {
   const report = registerFindings({
     candidateSha: '0'.repeat(40),
     findings: [{
@@ -1024,7 +1028,7 @@ test('approved ticket dispatch dedupes before create and persists created identi
     state: { name: 'Todo', type: 'unstarted' }, team: { key: 'AWC', id: 'team' },
     branchName: '', url: 'https://linear.app/issue/AWC-999',
   } satisfies LinearTicket
-  await dispatchFindingTickets(report, 'team', {
+  await promoteReviewedFindingTicket(report, 'team', approvalFor(report), {
     findByFingerprint: async (teamId) => {
       assert.equal(teamId, 'team')
       return null
@@ -1054,7 +1058,7 @@ test('approved ticket dispatch dedupes before create and persists created identi
     ticketDispatchEnabled: true,
     ticketTeamId: 'team',
   })
-  await dispatchFindingTickets(duplicate, 'team', {
+  await promoteReviewedFindingTicket(duplicate, 'team', approvalFor(duplicate), {
     findByFingerprint: async (teamId) => {
       assert.equal(teamId, 'team')
       return issue
@@ -1062,6 +1066,28 @@ test('approved ticket dispatch dedupes before create and persists created identi
     createTodo: async () => { throw new Error('must not create') },
   })
   assert.equal(duplicate.ticketActions[0].reason, 'duplicate')
+})
+
+test('ticket promotion refuses a missing or stale human-review binding before Linear I/O', async () => {
+  const report = ticketReadyReport('REVIEW-BOUND')
+  const approval = approvalFor(report)
+  approval.actionDigest = '0'.repeat(64)
+  let calls = 0
+
+  await promoteReviewedFindingTicket(report, 'team', approval, {
+    findByFingerprint: async () => {
+      calls += 1
+      return null
+    },
+    createTodo: async () => {
+      calls += 1
+      return fakeLinearTicket()
+    },
+  })
+
+  assert.equal(calls, 0)
+  assert.equal(report.ticketActions[0].reason, 'dispatch-failed')
+  assert.match(report.ticketActions[0].error ?? '', /digest does not match/)
 })
 
 test('durable ticket reservation serializes concurrent sprints by fingerprint', async () => {
@@ -1080,8 +1106,8 @@ test('durable ticket reservation serializes concurrent sprints by fingerprint', 
   }
 
   await Promise.all([
-    dispatchFindingTickets(first, 'team', client, { reservationDirectory }),
-    dispatchFindingTickets(second, 'team', client, { reservationDirectory }),
+    promoteReviewedFindingTicket(first, 'team', approvalFor(first), client, { reservationDirectory }),
+    promoteReviewedFindingTicket(second, 'team', approvalFor(second), client, { reservationDirectory }),
   ])
 
   assert.equal(creates, 1)
@@ -1108,8 +1134,20 @@ test('ticket search and durable receipts are isolated by Linear team', async () 
     },
   }
 
-  await dispatchFindingTickets(teamA, 'team-a', client, { reservationDirectory })
-  await dispatchFindingTickets(teamB, 'team-b', client, { reservationDirectory })
+  await promoteReviewedFindingTicket(
+    teamA,
+    'team-a',
+    approvalFor(teamA, 'team-a'),
+    client,
+    { reservationDirectory },
+  )
+  await promoteReviewedFindingTicket(
+    teamB,
+    'team-b',
+    approvalFor(teamB, 'team-b'),
+    client,
+    { reservationDirectory },
+  )
 
   assert.deepEqual(searchedTeams.sort(), ['team-a', 'team-b'])
   assert.deepEqual(createdTeams.sort(), ['team-a', 'team-b'])
@@ -1121,7 +1159,7 @@ test('ticket dispatch cannot be redirected away from the report team', async () 
   const report = ticketReadyReport('TEAM-BINDING', 'team-a')
   let calls = 0
 
-  await dispatchFindingTickets(report, 'team-b', {
+  await promoteReviewedFindingTicket(report, 'team-b', approvalFor(report, 'team-b'), {
     findByFingerprint: async () => {
       calls += 1
       return null
@@ -1153,8 +1191,20 @@ test('definite pre-mutation failure clears the reservation and permits a safe re
     },
   }
 
-  await dispatchFindingTickets(first, 'team', client, { reservationDirectory })
-  await dispatchFindingTickets(second, 'team', client, { reservationDirectory })
+  await promoteReviewedFindingTicket(
+    first,
+    'team',
+    approvalFor(first),
+    client,
+    { reservationDirectory },
+  )
+  await promoteReviewedFindingTicket(
+    second,
+    'team',
+    approvalFor(second),
+    client,
+    { reservationDirectory },
+  )
 
   assert.equal(attempts, 2)
   assert.equal(first.ticketActions[0].reason, 'dispatch-failed')
@@ -1174,8 +1224,20 @@ test('ambiguous Linear failure leaves a pending reservation and never retries cr
     },
   }
 
-  await dispatchFindingTickets(first, 'team', client, { reservationDirectory })
-  await dispatchFindingTickets(second, 'team', client, { reservationDirectory })
+  await promoteReviewedFindingTicket(
+    first,
+    'team',
+    approvalFor(first),
+    client,
+    { reservationDirectory },
+  )
+  await promoteReviewedFindingTicket(
+    second,
+    'team',
+    approvalFor(second),
+    client,
+    { reservationDirectory },
+  )
 
   assert.equal(creates, 1)
   assert.equal(first.ticketActions[0].reason, 'dispatch-failed')
@@ -1211,7 +1273,7 @@ test('ticket dispatch failure stays outside scope-review completeness', async ()
     ticketDispatchEnabled: true,
     ticketTeamId: 'team',
   })
-  await dispatchFindingTickets(report, 'team', {
+  await promoteReviewedFindingTicket(report, 'team', approvalFor(report), {
     findByFingerprint: async () => null,
     createTodo: async () => { throw new Error('Linear unavailable') },
   })
@@ -1594,6 +1656,24 @@ function ticketReadyReport(
     ticketDispatchEnabled: true,
     ticketTeamId: teamId,
   })
+}
+
+function approvalFor(
+  report: ReturnType<typeof registerFindings>,
+  teamId = 'team',
+): FindingPromotionApproval {
+  const action = report.ticketActions[0]
+  return {
+    version: 1,
+    approvalId: `review-${action.packetId}`,
+    reviewedBy: 'human-reviewer@example.test',
+    reviewedAt: '2026-07-24T14:30:00.000Z',
+    candidateSha: report.candidateSha,
+    teamId,
+    packetId: action.packetId,
+    fingerprint: action.fingerprint,
+    actionDigest: findingPromotionDigest(report, teamId, action),
+  }
 }
 
 function fakeLinearTicket(teamId = 'team'): LinearTicket {

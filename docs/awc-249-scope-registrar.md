@@ -20,10 +20,13 @@ unaffected during the shadow rollout — the registrar is advisory only.
 when project configuration requests ticket mode and enables the dispatch gate.
 They can emit sanitized, fingerprinted ticket actions for later review, but
 cannot query or mutate Linear. Promotion is a separate human-reviewed action
-outside sprint/chain execution. That action additionally requires
-`ticketTeamId`; it uses the AWC API-key file, queries Linear by registrar
-fingerprint **within that team** before mutation, creates in Todo, and persists
-the issue identity in a team-scoped receipt.
+outside sprint/chain execution. That action requires one external approval
+artifact per finding, bound by digest to the exact candidate SHA, team, packet,
+fingerprint, title, and body. It additionally requires `ticketTeamId`; it uses
+the AWC API-key file, queries Linear by registrar fingerprint **within that
+team** before mutation, creates in Todo, and persists the issue identity in a
+team-scoped receipt. Configuration flags and automated `reviewComplete` state
+are not promotion authorization.
 
 ## Classifications
 
@@ -84,7 +87,7 @@ incomplete scope provenance safe to discard.
 | I3  | `scopeGate: advisory` never emits `registrarBlockers`.                   | `registrarBlockers()` short-circuits unless `enforced`. Test: *advisory scopeGate*. |
 | I4  | Sprint and chain rounds always force `ticketDispatchEnabled: false`, including when project configuration requests ticket dispatch. | `processScopeAwareFindingRound()` report-only boundary. Test: *scope-aware sprint rounds force configured ticket dispatch into shadow output*. |
 | I5  | Ticket actions dedupe by normalized root-cause path and evidence, regardless of finding ID or later reclassification, but only within the configured Linear team. | Report-bound team identity, team-bound exported identities, search filters, in-memory keys, and durable receipt paths. Tests: *deduplication*, *team isolation*, *fingerprints merge equivalent root causes*. |
-| I6  | Shadow/report modes never call Linear; approved dispatch uses only search and issue-create APIs. | Dispatch gate plus runtime canary and mocked dispatcher tests. |
+| I6  | Shadow/report modes never call Linear; a promotion requires a distinct exact-action human-review artifact and uses only search and issue-create APIs. | Promotion boundary, digest-binding test, runtime canary, and mocked dispatcher tests. |
 | I7  | Sanitization strips bearer tokens, AWS keys, JWTs, cookies, auth headers, emails, phone numbers, DOB/MRN markers, and raw Gmail/Jane content even without synthetic tags. | Provider-context redaction plus provider-key redaction at the final persistence boundary. Tests: *privacy*. |
 | I8  | Packet ids and ticket fingerprints are stable across runs given identical inputs. | Deterministic SHA-256 over ordered fields. Test: *packet id … deterministic*. |
 | I9  | Ticket target state is always `Todo`; no sprint auto-dispatch.           | Hard-coded `targetState: 'Todo'` in `ticket.ts`. Doc: *no auto-sprint*. |
@@ -107,9 +110,10 @@ incomplete scope provenance safe to discard.
 4. **Enable ticket mode (still no dispatch).** Turn on
    `findingsMode: 'ticket'` for a canary project; verify dedupe and
    fingerprint stability against a Linear export.
-5. **Enable dispatch (last).** Configure `ticketTeamId`, then enable
-   `ticketDispatchEnabled`. Created issues land in `Todo`. The dispatcher
-   exposes no sprint-start operation.
+5. **Enable reviewed promotion (last).** Configure `ticketTeamId` and
+   `ticketDispatchEnabled`, then use the separate human-review workflow to
+   authorize one exact finding action at a time. Created issues land in `Todo`.
+   The promotion boundary exposes no sprint-start operation.
 
 ## Rollback plan
 
