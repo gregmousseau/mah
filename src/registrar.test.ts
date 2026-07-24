@@ -160,6 +160,29 @@ test('harness/infra categories always classify as harness-defect', () => {
     )
     assert.equal(packet.classification, 'harness-defect')
   }
+  assert.equal(classifyFinding(
+    {
+      id: 'combined',
+      severity: 'major',
+      category: 'harness / environment',
+      description: 'Browser setup failed.',
+    },
+    { currentPrPaths: ['src/a.ts'] },
+  ).classification, 'harness-defect')
+})
+
+test('confirmed design improvements remain follow-ups instead of becoming spikes by label', () => {
+  const classified = classifyFinding({
+    id: 'DESIGN',
+    severity: 'minor',
+    category: 'architecture',
+    file: 'src/adjacent.ts',
+    description: 'Confirmed adjacent simplification.',
+    scopeRelationship: 'pre-existing',
+    releaseImpact: 'not-release-blocking',
+    evidenceConfidence: 'confirmed',
+  }, { currentPrPaths: ['src/current.ts'] })
+  assert.equal(classified.classification, 'follow-up')
 })
 
 test('deterministic false-positive allowlist wins over severity', () => {
@@ -180,6 +203,7 @@ test('registrar in shadow mode returns packets, records adjacency, mutates nothi
   assert.equal(report.scopeGate, 'advisory')
   assert.equal(report.ticketDispatchEnabled, false)
   assert.equal(report.candidateSha, fixture.candidateSha)
+  assert.doesNotThrow(() => new Date(report.generatedAt).toISOString())
 
   const blocker = report.currentBlockers.find((p) => p.originFindingId === 'CR-01')
   assert.ok(blocker, 'CR-01 must remain a current-PR blocker')
@@ -573,6 +597,43 @@ test('fingerprints merge equivalent root causes across IDs and separate unrelate
   assert.notEqual(ticketFingerprint(a), ticketFingerprint(c))
 })
 
+test('spike fingerprints keep identical evidence distinct across source files', () => {
+  const report = registerFindings({
+    candidateSha: '0'.repeat(40),
+    findings: [
+      {
+        id: 'SPIKE-A',
+        severity: 'major',
+        category: 'architecture',
+        file: 'src/a.ts',
+        description: 'Investigate the shared failure mode.',
+        evidenceConfidence: 'plausible',
+      },
+      {
+        id: 'SPIKE-B',
+        severity: 'major',
+        category: 'architecture',
+        file: 'src/b.ts',
+        description: 'Investigate the shared failure mode.',
+        evidenceConfidence: 'plausible',
+      },
+    ],
+  }, {
+    currentPrPaths: ['src/current.ts'],
+    findingsMode: 'ticket',
+  })
+
+  assert.deepEqual(
+    report.packets.map((packet) => packet.scopeProvenance.matchedPath),
+    ['src/a.ts', 'src/b.ts'],
+  )
+  assert.notEqual(
+    report.ticketActions[0].fingerprint,
+    report.ticketActions[1].fingerprint,
+  )
+  assert.notEqual(report.ticketActions[1].reason, 'duplicate')
+})
+
 test('enforced routing keeps only current-PR blockers in the repair brief', () => {
   const results = [
     {
@@ -655,6 +716,104 @@ test('an adjacent-only material finding leaves the enforced repair loop', () => 
   assert.equal(scopeAwareVerdict('fail', results, [], report), 'pass')
   assert.deepEqual(scoped[0].findings, [])
   assert.equal(scoped[0].verdict, 'pass')
+})
+
+test('routing distinguishes duplicate finding IDs within one grader', () => {
+  const results = [{
+    graderId: 'code',
+    graderType: 'code-review',
+    graderName: 'Code',
+    verdict: 'fail' as const,
+    summary: 'Duplicate IDs from malformed grader output.',
+    model: 'm',
+    durationMs: 0,
+    costEstimate: 0,
+    findings: [
+      {
+        id: 'CR-01',
+        severity: 'major' as const,
+        category: 'bug',
+        file: 'src/current.ts',
+        description: 'Candidate regression.',
+      },
+      {
+        id: 'CR-01',
+        severity: 'major' as const,
+        category: 'bug',
+        file: 'src/adjacent.ts',
+        description: 'Adjacent pre-existing defect.',
+        scopeRelationship: 'pre-existing' as const,
+      },
+    ],
+  }]
+  const report = registerFromGraderResults('0'.repeat(40), results, {
+    currentPrPaths: ['src/current.ts'],
+    scopeGate: 'enforced',
+  })
+  const scoped = repairScopedGraderResults(results, report)
+  assert.deepEqual(scoped[0].findings.map((finding) => finding.description), [
+    'Candidate regression.',
+  ])
+})
+
+test('mismatched packet identity makes scope review incomplete and preserves original repair data', () => {
+  const results = [{
+    graderId: 'code',
+    graderType: 'code-review',
+    graderName: 'Code',
+    verdict: 'conditional' as const,
+    summary: 'Adjacent.',
+    model: 'm',
+    durationMs: 0,
+    costEstimate: 0,
+    findings: [{
+      id: 'ADJ',
+      severity: 'major' as const,
+      category: 'bug',
+      file: 'src/adjacent.ts',
+      description: 'Adjacent defect.',
+    }],
+  }]
+  const report = registerFromGraderResults('0'.repeat(40), results, {
+    currentPrPaths: ['src/current.ts'],
+    scopeGate: 'enforced',
+  })
+  report.packets[0].packetId = 'pkt-stale'
+
+  assert.equal(scopeAwareVerdict('fail', results, [], report), 'fail')
+  assert.deepEqual(repairScopedGraderResults(results, report), results)
+})
+
+test('informational current blockers remain visible in the consolidated repair brief', () => {
+  const results = [{
+    graderId: 'code',
+    graderType: 'code-review',
+    graderName: 'Code',
+    verdict: 'pass' as const,
+    summary: '',
+    model: 'm',
+    durationMs: 0,
+    costEstimate: 0,
+    findings: [{
+      id: 'INFO-BLOCKER',
+      severity: 'info' as const,
+      category: 'bug',
+      file: 'src/current.ts',
+      description: 'Candidate-scoped informational blocker.',
+      scopeRelationship: 'introduced' as const,
+    }],
+  }]
+  const report = registerFromGraderResults('0'.repeat(40), results, {
+    currentPrPaths: ['src/current.ts'],
+    scopeGate: 'enforced',
+  })
+  const brief = buildConsolidatedRepairBrief(
+    repairScopedGraderResults(results, report),
+    [],
+    { includeInformational: true },
+  )
+  assert.equal(scopeAwareVerdict('pass', results, [], report), 'fail')
+  assert.match(brief, /INFO-BLOCKER.*Candidate-scoped informational blocker/)
 })
 
 test('spike packets and ticket bodies contain bounded planning fields', () => {
@@ -999,6 +1158,77 @@ test('advisory scope discovery errors are reported without changing delivery', a
   assert.equal(result.report.reviewComplete, false)
   assert.match(result.report.errors.join('\n'), /Scope review incomplete/)
   assert.deepEqual(failures, [])
+})
+
+test('report persistence failure preserves packets and fails closed only when enforced', async () => {
+  const repo = initGitFixture()
+  const baselineSha = gitSha(repo)
+  commitFile(repo, 'src/current.ts', 'candidate\n', 'candidate')
+  const candidateSha = gitSha(repo)
+  const blockingParent = join(repo, 'not-a-directory')
+  writeFileSync(blockingParent, 'file\n')
+  const failures: import('./types.js').DeliveryFailure[] = []
+  const graderResults = [{
+    graderId: 'code',
+    graderType: 'code-review',
+    graderName: 'Code',
+    verdict: 'conditional' as const,
+    summary: 'Adjacent only.',
+    model: 'fixture',
+    durationMs: 0,
+    costEstimate: 0,
+    executionStatus: 'completed' as const,
+    findings: [{
+      id: 'ADJ',
+      severity: 'major' as const,
+      category: 'bug',
+      file: 'src/old.ts',
+      description: 'Pre-existing adjacent issue.',
+      scopeRelationship: 'pre-existing' as const,
+      releaseImpact: 'not-release-blocking' as const,
+      evidenceConfidence: 'confirmed' as const,
+    }],
+  }]
+
+  const result = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha,
+    candidateSha,
+    graderResults,
+    failures,
+    originalVerdict: 'fail',
+    config: {
+      scopeGate: 'enforced',
+      findingsMode: 'report',
+      ticketDispatchEnabled: false,
+    },
+    scopeStage: 'persistence',
+    reportPath: join(blockingParent, 'findings.json'),
+  })
+
+  assert.equal(result.report.adjacent[0].originFindingId, 'ADJ')
+  assert.match(result.report.errors.join('\n'), /persistence failed/i)
+  assert.equal(failures[0].stage, 'persistence-report')
+  assert.equal(result.verdict, 'fail')
+
+  const advisoryFailures: import('./types.js').DeliveryFailure[] = []
+  const advisory = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha,
+    candidateSha,
+    graderResults: [],
+    failures: advisoryFailures,
+    originalVerdict: 'pass',
+    config: {
+      scopeGate: 'advisory',
+      findingsMode: 'report',
+      ticketDispatchEnabled: false,
+    },
+    scopeStage: 'advisory-persistence',
+    reportPath: join(blockingParent, 'advisory-findings.json'),
+  })
+  assert.equal(advisory.verdict, 'pass')
+  assert.deepEqual(advisoryFailures, [])
 })
 
 function fakePacket(id: string, classification: FindingPacket['classification']): FindingPacket {

@@ -15,6 +15,7 @@ import {
   dispatchFindingTickets,
   type FindingTicketClient,
 } from './dispatch.js'
+import { sanitizeEvidence } from './redact.js'
 import type { RegistrarConfig, RegistrarReport } from './types.js'
 
 export interface FindingRoundInput {
@@ -86,19 +87,30 @@ export async function processScopeAwareFindingRound(
   }
   appendUniqueFailures(input.failures, registrarHarnessFailures(report))
 
-  const verdict = scopeAwareVerdict(
-    input.failures.length > 0 ? 'fail' : input.originalVerdict,
-    input.graderResults,
-    input.failures,
-    report,
-  )
   await dispatchFindingTickets(
     report,
     config.ticketTeamId,
     input.ticketClient,
     { reservationDirectory: input.reservationDirectory },
   )
-  if (input.reportPath) writeRegistrarReport(report, input.reportPath)
+  if (input.reportPath) {
+    try {
+      writeRegistrarReport(report, input.reportPath)
+    } catch (error) {
+      const failure = classifyDeliveryError(error, `${input.scopeStage}-report`)
+      report.errors.push(sanitizeEvidence(
+        `Registrar report persistence failed: ${failure.message}`,
+      ))
+      if (config.scopeGate === 'enforced') appendUniqueFailures(input.failures, [failure])
+    }
+  }
+
+  const verdict = scopeAwareVerdict(
+    input.failures.length > 0 ? 'fail' : input.originalVerdict,
+    input.graderResults,
+    input.failures,
+    report,
+  )
 
   return {
     verdict,

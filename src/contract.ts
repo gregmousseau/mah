@@ -181,6 +181,7 @@ Provide your QA report in this format:
 [List each defect with severity: P0 (critical), P1 (blocker), P2 (major), P3 (minor)]
 Format each defect with all scope fields:
 **P1-01:** [description]
+  Finding category: [product | harness | infrastructure | credentials | environment | preflight | evaluation | tooling]
   Scope relationship: [introduced | worsened | activated | pre-existing | unknown]
   Release impact: [required-for-release-safety | not-release-blocking | unknown]
   Evidence confidence: [confirmed | plausible | insufficient]

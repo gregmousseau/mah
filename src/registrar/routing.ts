@@ -1,5 +1,5 @@
 import type { DeliveryFailure, GraderResult } from '../types.js'
-import { registrarBlockers } from './registrar.js'
+import { findingPacketId, registrarBlockers } from './registrar.js'
 import type { RegistrarReport } from './types.js'
 
 export function scopeAwareVerdict(
@@ -48,16 +48,19 @@ export function repairScopedGraderResults(
     .filter((packet) => packet.scopeProvenance.sourceGraderId)
     .map((packet) => findingKey(
       packet.scopeProvenance.sourceGraderId!,
-      packet.originFindingId,
+      packet.packetId,
     )))
   const unscopedRepairIds = new Set(blockers
     .filter((packet) => !packet.scopeProvenance.sourceGraderId)
-    .map((packet) => packet.originFindingId))
+    .map((packet) => packet.packetId))
   return results.map((result) => {
     if (result.findings.length === 0) return result
     const findings = result.findings.filter((finding) =>
-      repairKeys.has(findingKey(result.graderId, finding.id))
-      || unscopedRepairIds.has(finding.id))
+      repairKeys.has(findingKey(
+        result.graderId,
+        findingPacketId(report.candidateSha, finding),
+      ))
+      || unscopedRepairIds.has(findingPacketId(report.candidateSha, finding)))
     return {
       ...result,
       findings,
@@ -73,10 +76,33 @@ function isCompleteScopeReview(
   report: RegistrarReport,
 ): boolean {
   if (report.findingsMode === 'off' || !report.reviewComplete) return false
-  const findingCount = results.reduce((count, result) => count + result.findings.length, 0)
-  return report.packets.length === findingCount
+  if (report.packets.some((packet) => packet.candidateSha !== report.candidateSha)) return false
+
+  const expected = new Map<string, number>()
+  for (const result of results) {
+    for (const finding of result.findings) {
+      incrementCount(
+        expected,
+        findingKey(result.graderId, findingPacketId(report.candidateSha, finding)),
+      )
+    }
+  }
+  const actual = new Map<string, number>()
+  for (const packet of report.packets) {
+    if (!packet.scopeProvenance.sourceGraderId) return false
+    incrementCount(
+      actual,
+      findingKey(packet.scopeProvenance.sourceGraderId, packet.packetId),
+    )
+  }
+  if (expected.size !== actual.size) return false
+  return [...expected].every(([key, count]) => actual.get(key) === count)
 }
 
 function findingKey(graderId: string, findingId: string): string {
   return `${graderId}\0${findingId}`
+}
+
+function incrementCount(counts: Map<string, number>, key: string): void {
+  counts.set(key, (counts.get(key) ?? 0) + 1)
 }

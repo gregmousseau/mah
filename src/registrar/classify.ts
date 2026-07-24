@@ -27,7 +27,7 @@ const HARNESS_CATEGORIES = new Set([
   'grader',
 ])
 
-const SPIKE_CATEGORIES = new Set([
+const LEGACY_SPIKE_CATEGORIES = new Set([
   'spike',
   'design',
   'architecture',
@@ -66,7 +66,7 @@ export function classifyFinding(
     }
   }
 
-  if (HARNESS_CATEGORIES.has(category)) {
+  if (isHarnessCategory(category)) {
     return {
       classification: 'harness-defect',
       provenance: {
@@ -100,7 +100,10 @@ export function classifyFinding(
   if (
     evidenceConfidence === 'insufficient'
     || evidenceConfidence === 'plausible'
-    || SPIKE_CATEGORIES.has(category)
+    // Older graders used an explicit spike-like category before they
+    // emitted evidenceConfidence. Preserve that signal without turning a
+    // confirmed architecture/design improvement into an investigation.
+    || (finding.evidenceConfidence === undefined && LEGACY_SPIKE_CATEGORIES.has(category))
   ) {
     return {
       classification: 'spike-candidate',
@@ -200,4 +203,12 @@ function isInCurrentPrScope(
 
 function normalizePath(path: string): string {
   return path.replaceAll('\\', '/').replace(/^\.\//, '').replace(/\/+$/, '')
+}
+
+function isHarnessCategory(category: string): boolean {
+  if (HARNESS_CATEGORIES.has(category)) return true
+  return category
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .some((part) => HARNESS_CATEGORIES.has(part))
 }

@@ -84,11 +84,13 @@ test('grader parsers preserve explicit scope, release, and uncertainty provenanc
 
 ## Defects Found
 **P1-01:** Candidate worsens keyboard navigation.
+  Finding category: harness / environment
   Scope relationship: worsened
   Release impact: not-release-blocking
   Evidence confidence: confirmed
 `)
   assert.equal(qa.defects[0].scopeRelationship, 'worsened')
+  assert.equal(qa.defects[0].category, 'harness / environment')
   assert.equal(qa.defects[0].releaseImpact, 'not-release-blocking')
   assert.equal(qa.defects[0].evidenceConfidence, 'confirmed')
 })

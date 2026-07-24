@@ -17,6 +17,7 @@ const VERDICT_PATTERNS = [
 //   **P1:** description
 //   - P2: description
 const DEFECT_LINE_RE = /(?:\*\*)?(?:[-\s]*)?(P[0-3])(?:-(\d+))?(?:\*\*)?\s*[:–—]\s*(.+)/i
+const FINDING_CATEGORY_RE = /^\s+Finding\s+category\s*:\s*(.+)\s*$/i
 const SCOPE_RE = /^\s+Scope(?:\s+relationship)?\s*:\s*(introduced|worsened|activated|pre-existing|unknown)\s*$/i
 const RELEASE_RE = /^\s+Release\s+impact\s*:\s*(required-for-release-safety|not-release-blocking|unknown)\s*$/i
 const CONFIDENCE_RE = /^\s+Evidence\s+confidence\s*:\s*(confirmed|plausible|insufficient)\s*$/i
@@ -51,6 +52,11 @@ export function parseDefects(output: string): Defect[] {
   let lastDefect: Defect | undefined
 
   for (const line of lines) {
+    const categoryMatch = line.match(FINDING_CATEGORY_RE)
+    if (categoryMatch && lastDefect) {
+      lastDefect.category = categoryMatch[1].trim().toLowerCase()
+      continue
+    }
     const scopeMatch = line.match(SCOPE_RE)
     if (scopeMatch && lastDefect) {
       lastDefect.scopeRelationship = scopeMatch[1].toLowerCase() as NonNullable<Defect['scopeRelationship']>

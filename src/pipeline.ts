@@ -431,10 +431,10 @@ export async function runSprint(
           graderType: 'ux',
           graderName: grader.name,
           verdict: uxVerdict,
-          findings: qaReport.defects.map((d, i) => ({
+          findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
-            category: 'ux',
+            category: d.category ?? 'ux',
             description: d.description,
             scopeRelationship: d.scopeRelationship,
             releaseImpact: d.releaseImpact,
@@ -559,8 +559,14 @@ export async function runSprint(
     ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
+      category: f.category,
       description: f.description,
       fixed: false,
+      scopeRelationship: f.scopeRelationship,
+      releaseImpact: f.releaseImpact,
+      evidenceConfidence: f.evidenceConfidence,
+      investigationQuestion: f.investigationQuestion,
+      exitCriterion: f.exitCriterion,
     }))
 
     // 3d. Record iteration (backward compatible)
@@ -609,6 +615,10 @@ export async function runSprint(
     lastQAOutput = buildConsolidatedRepairBrief(
       repairScopedGraderResults(graderResults, findingsReport),
       delivery.failures,
+      {
+        includeInformational:
+          findingsReport?.scopeGate === 'enforced' && findingsReport.reviewComplete,
+      },
     )
   }
   } catch (err) {
@@ -738,10 +748,21 @@ export async function runExistingContract(
             // All required graders were aggregated before the crash; advance to repair.
             resumeFromRound = lastPhase.round + 1
             resumeFromPhase = 'dev'
+            const persistedRepairResults = lastIteration?.graderResults
+              ? repairScopedGraderResults(
+                lastIteration.graderResults,
+                lastIteration.findingsReport,
+              )
+              : undefined
             lastQAOutput = restoreRepairFeedback(
               lastPhase.responseReceived,
-              lastIteration?.graderResults,
+              persistedRepairResults,
               lastIteration?.deliveryFailures,
+              {
+                includeInformational:
+                  lastIteration?.findingsReport?.scopeGate === 'enforced'
+                  && lastIteration.findingsReport.reviewComplete,
+              },
             )
             events.log('moe', 'milestone', 'resume', `Resuming from round ${resumeFromRound} dev phase (previous QA findings carried forward)`)
           } else {
@@ -1007,7 +1028,7 @@ export async function runExistingContract(
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
-            category: 'ux',
+            category: d.category ?? 'ux',
             description: d.description,
             scopeRelationship: d.scopeRelationship,
             releaseImpact: d.releaseImpact,
@@ -1128,8 +1149,14 @@ export async function runExistingContract(
     ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
+      category: f.category,
       description: f.description,
       fixed: false,
+      scopeRelationship: f.scopeRelationship,
+      releaseImpact: f.releaseImpact,
+      evidenceConfidence: f.evidenceConfidence,
+      investigationQuestion: f.investigationQuestion,
+      exitCriterion: f.exitCriterion,
     }))
 
     const iteration: SprintIteration = {
@@ -1175,6 +1202,10 @@ export async function runExistingContract(
     lastQAOutput = buildConsolidatedRepairBrief(
       repairScopedGraderResults(graderResults, findingsReport),
       delivery.failures,
+      {
+        includeInformational:
+          findingsReport?.scopeGate === 'enforced' && findingsReport.reviewComplete,
+      },
     )
   }
   } catch (err) {

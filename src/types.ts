@@ -82,6 +82,7 @@ export interface ProjectConfig {
     findingsMode: 'off' | 'report' | 'ticket'
     ticketDispatchEnabled: boolean
     currentPrPaths: string[]
+    falsePositiveIds?: string[]
     ticketTeamId?: string
   }
   human: {
@@ -193,6 +194,7 @@ export interface PhaseResult {
 export interface Defect {
   id: string           // e.g., "P1-01"
   severity: 'p0' | 'p1' | 'p2' | 'p3'
+  category?: string
   description: string
   fixed: boolean
   scopeRelationship?: GraderFinding['scopeRelationship']

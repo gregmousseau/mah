@@ -35,6 +35,7 @@ qa:
     findingsMode: 'report',
     ticketDispatchEnabled: false,
     currentPrPaths: [],
+    falsePositiveIds: [],
   })
   assert.equal(loadConfig(legacyPath).qa.verdictMode, 'legacy')
   assert.throws(() => loadConfig(invalidPath), /verdictMode/)
@@ -81,6 +82,20 @@ priorities: { speed: 1, quality: 2, cost: 3 }
 findings: { findingsMode: ticket, ticketDispatchEnabled: true }
 `)
   assert.throws(() => loadConfig(path), /ticketTeamId/)
+
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+findings:
+  scopeGate: enforced
+  findingsMode: report
+  ticketDispatchEnabled: true
+  falsePositiveIds: [QA-FP-1]
+`)
+  const reportOnly = loadConfig(path)
+  assert.equal(reportOnly.findings?.findingsMode, 'report')
+  assert.equal(reportOnly.findings?.ticketTeamId, undefined)
+  assert.deepEqual(reportOnly.findings?.falsePositiveIds, ['QA-FP-1'])
 })
 
 test('direct config entry points honor the verdict mode environment override', () => {

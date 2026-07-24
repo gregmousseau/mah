@@ -118,31 +118,36 @@ const STATE_UPDATE_MUTATION = `
   }
 `
 
-interface TeamStatesCache { [teamId: string]: Map<string, string> }
+interface WorkflowState {
+  id: string
+  type: string
+}
+
+interface TeamStatesCache { [teamId: string]: Map<string, WorkflowState> }
 const teamStatesCache: TeamStatesCache = {}
 
-async function resolveStateId(teamId: string, stateName: string): Promise<string> {
+async function resolveState(teamId: string, stateName: string): Promise<WorkflowState> {
   if (!teamStatesCache[teamId]) {
     const data = await gql<{ team: { states: { nodes: Array<{ id: string; name: string; type: string }> } } }>(
       TEAM_STATES_QUERY,
       { teamId },
     )
-    const map = new Map<string, string>()
+    const map = new Map<string, WorkflowState>()
     for (const node of data.team.states.nodes) {
-      map.set(node.name.toLowerCase(), node.id)
+      map.set(node.name.toLowerCase(), { id: node.id, type: node.type })
     }
     teamStatesCache[teamId] = map
   }
-  const stateId = teamStatesCache[teamId].get(stateName.toLowerCase())
-  if (!stateId) {
+  const state = teamStatesCache[teamId].get(stateName.toLowerCase())
+  if (!state) {
     const known = Array.from(teamStatesCache[teamId].keys()).join(', ')
     throw new Error(`Linear state "${stateName}" not found for team ${teamId}. Known states: ${known}`)
   }
-  return stateId
+  return state
 }
 
 export async function setStatus(id: string, stateName: string, teamId: string): Promise<void> {
-  const stateId = await resolveStateId(teamId, stateName)
+  const stateId = (await resolveState(teamId, stateName)).id
   const data = await gql<{ issueUpdate: { success: boolean } }>(STATE_UPDATE_MUTATION, { id, stateId })
   if (!data.issueUpdate.success) {
     throw new Error(`Linear issueUpdate returned success=false for ${id}`)
@@ -182,15 +187,27 @@ export async function createTodoIssue(
   title: string,
   description: string,
 ): Promise<LinearTicket> {
-  const stateId = await resolveStateId(teamId, 'Todo')
+  const todoState = await resolveState(teamId, 'Todo')
+  if (todoState.type.toLowerCase() !== 'unstarted') {
+    throw new Error(
+      `Linear state "Todo" is not an unstarted state for team ${teamId}; refusing to create future work.`,
+    )
+  }
   const data = await gql<{
     issueCreate: { success: boolean; issue: LinearTicket | null }
-  }>(ISSUE_CREATE_MUTATION, { input: { teamId, stateId, title, description } })
+  }>(ISSUE_CREATE_MUTATION, {
+    input: { teamId, stateId: todoState.id, title, description },
+  })
   if (!data.issueCreate.success || !data.issueCreate.issue) {
     throw new Error('Linear issueCreate returned success=false or no issue')
   }
-  if (data.issueCreate.issue.state.name.toLowerCase() !== 'todo') {
-    throw new Error(`Created issue did not land in Todo: ${data.issueCreate.issue.identifier}`)
+  if (
+    data.issueCreate.issue.state.name.toLowerCase() !== 'todo'
+    || data.issueCreate.issue.state.type.toLowerCase() !== 'unstarted'
+  ) {
+    throw new Error(
+      `Created issue did not land in unstarted Todo: ${data.issueCreate.issue.identifier}`,
+    )
   }
   return data.issueCreate.issue
 }

@@ -109,6 +109,7 @@ export function failedGraderResult(
 export function buildConsolidatedRepairBrief(
   results: GraderResult[],
   failures: DeliveryFailure[] = [],
+  options: { includeInformational?: boolean } = {},
 ): string {
   const lines = ['# Consolidated Repair Brief', '']
   const seen = new Set<string>()
@@ -117,7 +118,7 @@ export function buildConsolidatedRepairBrief(
   for (const result of results) {
     let graderFindingCount = 0
     for (const finding of result.findings) {
-      if (!isMaterialFinding(finding)) continue
+      if (!options.includeInformational && !isMaterialFinding(finding)) continue
       const key = [finding.severity, finding.file ?? '', finding.line ?? '', finding.description]
         .join('|')
         .toLowerCase()
@@ -167,9 +168,10 @@ export function restoreRepairFeedback(
   rawGraderOutput: string,
   results: GraderResult[] | undefined,
   failures: DeliveryFailure[] = [],
+  options: { includeInformational?: boolean } = {},
 ): string {
   if (!results) return rawGraderOutput
-  return buildConsolidatedRepairBrief(results, failures)
+  return buildConsolidatedRepairBrief(results, failures, options)
 }
 
 export function canResumeQAWithPinnedCandidate(
@@ -260,6 +262,10 @@ export function changedPathsForCandidate(
 ): string[] {
   const requestedRepo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
   try {
+    const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: requestedRepo,
+      encoding: 'utf8',
+    }).trim()
     execFileSync('git', ['rev-parse', '--verify', `${baselineSha}^{commit}`], {
       cwd: requestedRepo,
       stdio: 'ignore',
@@ -277,7 +283,18 @@ export function changedPathsForCandidate(
       ['diff', '--name-only', '--find-renames', baselineSha, candidateSha, '--'],
       { cwd: requestedRepo, encoding: 'utf8' },
     )
-    const paths = [...new Set(output.split('\n').map((path) => path.trim()).filter(Boolean))]
+    const rootPaths = output.split('\n').map((path) => path.trim()).filter(Boolean)
+    const packagePrefix = relative(repoRoot, requestedRepo)
+      .replaceAll('\\', '/')
+      .replace(/\/+$/, '')
+    const packageAliases = !packagePrefix
+      || packagePrefix === '.'
+      || packagePrefix.startsWith('../')
+      ? []
+      : rootPaths
+        .filter((path) => path.startsWith(`${packagePrefix}/`))
+        .map((path) => path.slice(packagePrefix.length + 1))
+    const paths = [...new Set([...rootPaths, ...packageAliases])]
     if (paths.length === 0) throw new Error('cumulative candidate diff contains no changed paths')
     return paths
   } catch (error) {

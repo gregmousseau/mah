@@ -375,7 +375,7 @@ async function runChainSprint(
           findings: qaReport.defects.map((defect) => ({
             id: defect.id,
             severity: chainFindingSeverity(defect.severity),
-            category: 'ux',
+            category: defect.category ?? 'ux',
             description: defect.description,
             scopeRelationship: defect.scopeRelationship,
             releaseImpact: defect.releaseImpact,
@@ -512,8 +512,14 @@ async function runChainSprint(
       defects: materialGraderFindings(repairResults).map((finding) => ({
         id: finding.id,
         severity: chainDefectSeverity(finding.severity),
+        category: finding.category,
         description: finding.description,
         fixed: false,
+        scopeRelationship: finding.scopeRelationship,
+        releaseImpact: finding.releaseImpact,
+        evidenceConfidence: finding.evidenceConfidence,
+        investigationQuestion: finding.investigationQuestion,
+        exitCriterion: finding.exitCriterion,
       })),
       graderResults,
       deliveryFailures,
@@ -535,7 +541,14 @@ async function runChainSprint(
     }
 
     lastDevOutput = devResult.output
-    lastQAOutput = buildConsolidatedRepairBrief(repairResults, deliveryFailures)
+    lastQAOutput = buildConsolidatedRepairBrief(
+      repairResults,
+      deliveryFailures,
+      {
+        includeInformational:
+          findingsReport?.scopeGate === 'enforced' && findingsReport.reviewComplete,
+      },
+    )
   }
   } catch (err) {
     chainCrashError = err as Error

@@ -14,8 +14,13 @@
 //       off during sprint, tests, replay, and canary.
 //   I5. Classification is deterministic: same inputs → same packet ids.
 
-import { createHash } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import {
+  mkdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname } from 'node:path'
 import type { GraderFinding, GraderResult } from '../types.js'
 import { classifyFinding } from './classify.js'
@@ -69,7 +74,7 @@ export function registerFindings(
   configPartial?: Partial<RegistrarConfig>,
 ): RegistrarReport {
   const config = mergeConfig(configPartial)
-  const now = deterministicNow(input)
+  const now = reportTimestamp()
 
   if (config.findingsMode === 'off') {
     return emptyReport(input.candidateSha, now, { ...config, findingsMode: 'off' })
@@ -139,7 +144,7 @@ export function safeRegisterFindings(
     const config = fallbackConfig(configPartial)
     const report = emptyReport(
       safeCandidateSha(input),
-      deterministicNow(input),
+      reportTimestamp(),
       config,
     )
     report.errors.push(sanitizeEvidence(`Registrar aborted: ${errorMessage(err)}`))
@@ -159,7 +164,18 @@ export function registerFromGraderResults(
 
 export function writeRegistrarReport(report: RegistrarReport, outPath: string): void {
   mkdirSync(dirname(outPath), { recursive: true })
-  writeFileSync(outPath, JSON.stringify(sanitizeForPersistence(report), null, 2))
+  const tempPath = `${outPath}.${process.pid}.${randomUUID()}.tmp`
+  try {
+    writeFileSync(
+      tempPath,
+      JSON.stringify(sanitizeForPersistence(report), null, 2),
+      { flag: 'wx' },
+    )
+    renameSync(tempPath, outPath)
+  } catch (error) {
+    rmSync(tempPath, { force: true })
+    throw error
+  }
 }
 
 // A caller in enforced mode uses this to decide whether the registrar
@@ -243,7 +259,7 @@ function buildPacket(
   }
 
   const packet: FindingPacket = {
-    packetId: packetId(input.candidateSha, finding),
+    packetId: findingPacketId(input.candidateSha, finding),
     candidateSha,
     classification: classified.classification,
     severity: finding.severity,
@@ -281,7 +297,7 @@ function buildFallbackPacket(
   // repair loop by pinning it to harness-defect. That surfaces it in
   // enforced mode without silently dropping a possibly-real blocker.
   return {
-    packetId: packetId(input.candidateSha, finding),
+    packetId: findingPacketId(input.candidateSha, finding),
     candidateSha: sanitizeIdentifier(input.candidateSha),
     classification: 'harness-defect',
     severity: finding.severity ?? 'major',
@@ -306,7 +322,7 @@ function buildFallbackPacket(
   }
 }
 
-function packetId(candidateSha: string, finding: GraderFinding): string {
+export function findingPacketId(candidateSha: string, finding: GraderFinding): string {
   const key = [
     candidateSha,
     finding.id ?? '',
@@ -395,10 +411,6 @@ function safeFindingId(finding: GraderFinding): string {
   }
 }
 
-// Timestamp is derived from the candidate SHA plus a coarse day bucket
-// so replays and canary probes are deterministic. Callers that need a
-// real wall-clock timestamp can override generatedAt after the fact.
-function deterministicNow(input: RegistrarInput): string {
-  const seed = createHash('sha256').update(safeCandidateSha(input)).digest('hex')
-  return `awc249-${seed.slice(0, 12)}`
+function reportTimestamp(): string {
+  return new Date().toISOString()
 }

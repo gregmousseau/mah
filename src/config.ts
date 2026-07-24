@@ -12,6 +12,7 @@ const DEFAULTS: Partial<ProjectConfig> = {
     findingsMode: 'report',
     ticketDispatchEnabled: false,
     currentPrPaths: [],
+    falsePositiveIds: [],
   },
   human: {
     notificationChannel: '',
@@ -147,6 +148,8 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
         ?? DEFAULTS.findings!.ticketDispatchEnabled,
       currentPrPaths: (findings.currentPrPaths as string[])
         ?? DEFAULTS.findings!.currentPrPaths,
+      falsePositiveIds: (findings.falsePositiveIds as string[])
+        ?? DEFAULTS.findings!.falsePositiveIds,
       ...(findings.ticketTeamId !== undefined
         ? { ticketTeamId: findings.ticketTeamId as string }
         : {}),
@@ -244,7 +247,23 @@ function validate(config: ProjectConfig): void {
       throw new Error('findings.currentPrPaths entries must be non-empty repository-relative paths without traversal')
     }
   }
-  if (config.findings.ticketDispatchEnabled && !config.findings.ticketTeamId?.trim()) {
+  if (!Array.isArray(config.findings.falsePositiveIds)) {
+    throw new Error('findings.falsePositiveIds must be an array')
+  }
+  if (config.findings.falsePositiveIds.some((id) => typeof id !== 'string' || id.trim() === '')) {
+    throw new Error('findings.falsePositiveIds entries must be non-empty strings')
+  }
+  if (
+    config.findings.ticketTeamId !== undefined
+    && (typeof config.findings.ticketTeamId !== 'string' || !config.findings.ticketTeamId.trim())
+  ) {
+    throw new Error('findings.ticketTeamId must be a non-empty string when configured')
+  }
+  if (
+    config.findings.findingsMode === 'ticket'
+    && config.findings.ticketDispatchEnabled
+    && !config.findings.ticketTeamId
+  ) {
     throw new Error('findings.ticketTeamId is required when ticket dispatch is enabled')
   }
 }
