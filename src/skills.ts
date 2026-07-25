@@ -4,6 +4,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { resolve, join, basename, extname, dirname } from 'node:path'
 import yaml from 'js-yaml'
 import type { Skill, SkillSource, SkillType } from './types.js'
@@ -15,6 +16,32 @@ const VALID_TYPES: SkillType[] = ['capability', 'behavioral', 'workflow']
 const MANIFEST_FILE = 'source-manifest.json'
 
 // ─── Load Skills ───
+
+function expandHome(path: string): string {
+  if (path === '~') return homedir()
+  if (path.startsWith('~/')) return join(homedir(), path.slice(2))
+  return path
+}
+
+function hasSkillCatalog(root: string): boolean {
+  return SKILL_DIRS.some(dir => existsSync(resolve(root, '.mah', dir)))
+}
+
+export function resolveSkillRoot(
+  mahRoot: string,
+  projectRoots?: string | string[],
+): string {
+  const candidates = Array.isArray(projectRoots)
+    ? projectRoots
+    : projectRoots
+      ? [projectRoots]
+      : []
+  for (const projectRoot of candidates) {
+    const resolvedProjectRoot = resolve(expandHome(projectRoot))
+    if (hasSkillCatalog(resolvedProjectRoot)) return resolvedProjectRoot
+  }
+  return resolve(mahRoot)
+}
 
 export function loadSkills(mahRoot: string): Map<string, Skill> {
   const skills = new Map<string, Skill>()
@@ -122,14 +149,16 @@ export interface ResolvedSkill {
 export function resolveSkillsForPrompt(
   skillNames: string[],
   allSkills: Map<string, Skill>,
-  mahRoot: string
+  mahRoot: string,
+  options: { missing?: 'warn' | 'error' } = {},
 ): ResolvedSkill[] {
   const resolved: ResolvedSkill[] = []
+  const missing: string[] = []
 
   for (const name of skillNames) {
     const skill = allSkills.get(name)
     if (!skill) {
-      console.error(`Warning: skill "${name}" not found, skipping`)
+      missing.push(name)
       continue
     }
 
@@ -176,6 +205,12 @@ export function resolveSkillsForPrompt(
       type: skill.type,
       promptBlock: blocks.join('\n'),
     })
+  }
+
+  if (missing.length > 0) {
+    const message = `Configured skill${missing.length === 1 ? '' : 's'} not found in ${resolve(mahRoot, '.mah')}: ${missing.join(', ')}`
+    if (options.missing === 'error') throw new Error(message)
+    console.error(`Warning: ${message}; skipping`)
   }
 
   return resolved

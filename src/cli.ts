@@ -8,13 +8,32 @@ import { resolve, join } from 'node:path'
 import yaml from 'js-yaml'
 import chalk from 'chalk'
 import { loadConfig, loadNamedAgents } from './config.js'
-import { loadSkills, listSkills, importSkill, createSkillFromContent, resolveSkillsForPrompt } from './skills.js'
+import {
+  loadSkills,
+  listSkills,
+  importSkill,
+  createSkillFromContent,
+  resolveSkillRoot,
+  resolveSkillsForPrompt,
+} from './skills.js'
 import { planSprint, formatProposal } from './planner.js'
 import { loadArtifacts, formatArtifactList } from './artifacts.js'
 import { runChain, formatChainResult } from './chain.js'
 import type { SprintContract, SprintMetrics, BuildEvent, SkillType } from './types.js'
 
 const program = new Command()
+
+function configuredSkillRoot(
+  mahRoot: string,
+  config: ReturnType<typeof loadConfig>,
+): string {
+  return resolveSkillRoot(
+    mahRoot,
+    [config.agents.generator.cwd, config.project.repo].filter(
+      (root): root is string => Boolean(root),
+    ),
+  )
+}
 
 program
   .name('mah')
@@ -655,7 +674,8 @@ program
   .option('--dry-run', 'Show plan without executing')
   .action(async (task: string, opts: { auto?: boolean; dryRun?: boolean }) => {
     const mahRoot = process.cwd()
-    const allSkills = loadSkills(mahRoot)
+    const config = loadConfig()
+    const allSkills = loadSkills(configuredSkillRoot(mahRoot, config))
     const namedAgents = loadNamedAgents()
 
     // Plan the chain
@@ -674,7 +694,6 @@ program
         // Delegate to regular run
         const { runSprint, printSprintSummary } = await import('./pipeline.js')
         const { EventLogger } = await import('./events.js')
-        const config = loadConfig()
         const eventsDir = resolve(process.cwd(), '.mah/events')
         const events = new EventLogger(eventsDir)
         const { contract, metrics } = await runSprint(task, config, events)
@@ -689,7 +708,6 @@ program
     }
 
     // Execute the chain
-    const config = loadConfig()
     const { EventLogger } = await import('./events.js')
     const eventsDir = resolve(process.cwd(), '.mah/events')
     const events = new EventLogger(eventsDir)
@@ -752,7 +770,8 @@ program
   .argument('<task>', 'Task description to plan')
   .action((task: string) => {
     const mahRoot = process.cwd()
-    const allSkills = loadSkills(mahRoot)
+    const config = loadConfig()
+    const allSkills = loadSkills(configuredSkillRoot(mahRoot, config))
     const namedAgents = loadNamedAgents()
 
     const proposal = planSprint(task, allSkills, namedAgents)
@@ -777,7 +796,8 @@ skillCmd
   .option('--tag <tag>', 'Filter by tag')
   .action((opts: { type?: string; tag?: string }) => {
     const mahRoot = process.cwd()
-    const skills = listSkills(mahRoot)
+    const config = loadConfig()
+    const skills = listSkills(configuredSkillRoot(mahRoot, config))
 
     let filtered = skills
     if (opts.type) {
@@ -816,7 +836,9 @@ skillCmd
   .argument('<name>', 'Skill name')
   .action((name: string) => {
     const mahRoot = process.cwd()
-    const allSkills = loadSkills(mahRoot)
+    const config = loadConfig()
+    const skillRoot = configuredSkillRoot(mahRoot, config)
+    const allSkills = loadSkills(skillRoot)
     const skill = allSkills.get(name)
 
     if (!skill) {
@@ -824,7 +846,7 @@ skillCmd
       process.exit(1)
     }
 
-    const resolved = resolveSkillsForPrompt([name], allSkills, mahRoot)
+    const resolved = resolveSkillsForPrompt([name], allSkills, skillRoot)
     if (resolved.length === 0) {
       console.error(chalk.red(`Could not resolve skill "${name}".`))
       process.exit(1)
