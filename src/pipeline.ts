@@ -10,7 +10,7 @@ import {
   contractToQAPrompt,
   contractToDevFixPrompt,
 } from './contract.js'
-import { loadSkills, resolveSkillsForPrompt } from './skills.js'
+import { loadSkills, resolveSkillRoot, resolveSkillsForPrompt } from './skills.js'
 import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } from './artifacts.js'
 import { loadNamedAgents, resolveVerdictMode } from './config.js'
 import { getAgentName } from './lib/agentRegistry.js'
@@ -225,7 +225,13 @@ export async function runSprint(
 
   // Load skills
   const mahRoot = process.cwd()
-  const allSkills = loadSkills(mahRoot)
+  const skillRoot = resolveSkillRoot(
+    mahRoot,
+    [config.agents.generator.cwd, config.project.repo].filter(
+      (root): root is string => Boolean(root),
+    ),
+  )
+  const allSkills = loadSkills(skillRoot)
   const namedAgents = loadNamedAgents()
 
   // Resolve skills for generator and evaluator
@@ -235,8 +241,18 @@ export async function runSprint(
   const evaluatorSkillNames = contract.agentAssignments?.find(a => a.role === 'evaluator')?.skills
     ?? []
 
-  const generatorSkills = resolveSkillsForPrompt(generatorSkillNames, allSkills, mahRoot)
-  const evaluatorSkills = resolveSkillsForPrompt(evaluatorSkillNames, allSkills, mahRoot)
+  const generatorSkills = resolveSkillsForPrompt(
+    generatorSkillNames,
+    allSkills,
+    skillRoot,
+    { missing: 'error' },
+  )
+  const evaluatorSkills = resolveSkillsForPrompt(
+    evaluatorSkillNames,
+    allSkills,
+    skillRoot,
+    { missing: 'error' },
+  )
 
   if (generatorSkills.length > 0) {
     events.log('moe', 'milestone', 'contract', `Generator skills: ${generatorSkills.map(s => s.name).join(', ')}`)
@@ -727,13 +743,29 @@ export async function runExistingContract(
 
   // Load skills
   const mahRoot2 = process.cwd()
-  const allSkills2 = loadSkills(mahRoot2)
+  const skillRoot2 = resolveSkillRoot(
+    mahRoot2,
+    [config.agents.generator.cwd, config.project.repo].filter(
+      (root): root is string => Boolean(root),
+    ),
+  )
+  const allSkills2 = loadSkills(skillRoot2)
   const namedAgents2 = loadNamedAgents()
 
   const genSkillNames2 = contract.agentAssignments?.find(a => a.role === 'generator')?.skills ?? []
   const evalSkillNames2 = contract.agentAssignments?.find(a => a.role === 'evaluator')?.skills ?? []
-  const genSkills2 = resolveSkillsForPrompt(genSkillNames2, allSkills2, mahRoot2)
-  const evalSkills2 = resolveSkillsForPrompt(evalSkillNames2, allSkills2, mahRoot2)
+  const genSkills2 = resolveSkillsForPrompt(
+    genSkillNames2,
+    allSkills2,
+    skillRoot2,
+    { missing: 'error' },
+  )
+  const evalSkills2 = resolveSkillsForPrompt(
+    evalSkillNames2,
+    allSkills2,
+    skillRoot2,
+    { missing: 'error' },
+  )
 
   if (genSkills2.length > 0) {
     events.log('moe', 'milestone', 'contract', `Generator skills: ${genSkills2.map(s => s.name).join(', ')}`)

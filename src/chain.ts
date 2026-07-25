@@ -17,7 +17,7 @@ import {
 import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
 import { buildCodeReviewPrompt, parseCodeReviewResult } from './graders/code-review.js'
 import { createSprintMetrics, saveMetrics } from './metrics.js'
-import { loadSkills, resolveSkillsForPrompt } from './skills.js'
+import { loadSkills, resolveSkillRoot, resolveSkillsForPrompt } from './skills.js'
 import { loadNamedAgents, resolveVerdictMode } from './config.js'
 import { budgetForContract, bumpTier, parseDevEscalation } from './lib/qaTier.js'
 import {
@@ -88,9 +88,15 @@ export async function runChain(
   const sprintDir = resolve(process.cwd(), config.sprints.directory)
   const metricsDir = resolve(process.cwd(), config.metrics.output)
   const mahRoot = process.cwd()
+  const skillRoot = resolveSkillRoot(
+    mahRoot,
+    [config.agents.generator.cwd, config.project.repo].filter(
+      (root): root is string => Boolean(root),
+    ),
+  )
 
   // Load skills once for the whole chain
-  const allSkills = loadSkills(mahRoot)
+  const allSkills = loadSkills(skillRoot)
 
   events.log('moe', 'milestone', 'contract',
     `Starting chain: ${proposal.sprints.length} sprints`)
@@ -133,7 +139,12 @@ export async function runChain(
     // Resolve skills for this sprint's agents
     const genAssignment = proposed.agents.find(a => a.role === 'generator' || a.role === 'researcher')
     const skillNames = genAssignment?.skills ?? []
-    const resolvedSkills = resolveSkillsForPrompt(skillNames, allSkills, mahRoot)
+    const resolvedSkills = resolveSkillsForPrompt(
+      skillNames,
+      allSkills,
+      skillRoot,
+      { missing: 'error' },
+    )
 
     if (resolvedSkills.length > 0) {
       events.log('moe', 'milestone', 'contract',
