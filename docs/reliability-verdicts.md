@@ -17,6 +17,29 @@ Normal linked worktrees are supported: `.git` may be either a directory or a git
 `.env.mah.local` may live in the project worktree or the MAH invocation directory;
 no symlink to a primary worktree environment is required.
 
+Before any provider probe or agent launch, MAH resolves the configured product target,
+requires a clean Git worktree, and records its canonical root, exact HEAD, dependency-lock
+fingerprint, generator provider, and generator model in the sprint contract. The same identity
+is checked again immediately before every Dev launch, including repair rounds. The canonical
+worktree root replaces any stale repository path in the Dev prompt and is passed to provider
+preflight and execution. Enabled grader provider/model selections are resolved, persisted, and
+preflighted before Dev; runtime evaluator overrides replace stale selections on resumed contracts.
+
+Per-run agent selection can be supplied as runtime state instead of editing the product branch:
+
+```bash
+MAH_GENERATOR_CWD=/absolute/path/to/persistent-worktree \
+MAH_GENERATOR_TYPE=codex \
+MAH_GENERATOR_MODEL=gpt-5.6-sol \
+MAH_EVALUATOR_TYPE=codex \
+MAH_EVALUATOR_MODEL=gpt-5.6-sol \
+npm run mah -- run "task"
+```
+
+An override that is present but blank fails closed. Unsupported providers and unavailable
+provider/model combinations fail during preflight before an agent runs. Project-level generator
+and evaluator provider/model configuration must also be explicit; MAH does not invent one.
+
 ## Canary
 
 1. Run unit/replay tests, `npm run build`, and `npm run canary:reliability`.

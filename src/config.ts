@@ -1,7 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import yaml from 'js-yaml'
-import { getAgentModel } from './lib/agentRegistry.js'
 import type { ProjectConfig, VerdictMode } from './types.js'
 
 const DEFAULTS: Partial<ProjectConfig> = {
@@ -45,7 +44,7 @@ export function resolveVerdictMode(
 export interface NamedAgentConfig {
   role: 'generator' | 'evaluator' | 'researcher'
   specialty?: string
-  model: string
+  model?: string
   type?: string
   cwd?: string
   workspace?: string
@@ -75,8 +74,8 @@ export function loadNamedAgents(configPath?: string): Map<string, NamedAgentConf
     agents.set(id, {
       role: v.role as NamedAgentConfig['role'],
       specialty: v.specialty as string | undefined,
-      model: (v.model as string) ?? 'gpt-5.6-sol',
-      type: (v.type as string) ?? 'codex',
+      model: optionalNonEmptyString(v.model, `agents.${id}.model`),
+      type: optionalNonEmptyString(v.type, `agents.${id}.type`),
       cwd: v.cwd as string | undefined,
       workspace: v.workspace as string | undefined,
       testUrl: v.testUrl as string | undefined,
@@ -88,7 +87,10 @@ export function loadNamedAgents(configPath?: string): Map<string, NamedAgentConf
   return agents
 }
 
-export function loadConfig(configPath?: string): ProjectConfig {
+export function loadConfig(
+  configPath?: string,
+  runtimeEnv: NodeJS.ProcessEnv = process.env,
+): ProjectConfig {
   const path = configPath ?? findConfig()
   if (!path) {
     throw new Error('No mah.yaml found. Run `mah init` to create one.')
@@ -101,9 +103,70 @@ export function loadConfig(configPath?: string): ProjectConfig {
     throw new Error(`Invalid config file: ${path}`)
   }
 
-  const config = applyDefaults(parsed)
+  const config = applyRuntimeAgentOverrides(applyDefaults(parsed), runtimeEnv)
   validate(config)
   return config
+}
+
+export function applyRuntimeAgentOverrides(
+  config: ProjectConfig,
+  runtimeEnv: NodeJS.ProcessEnv = process.env,
+): ProjectConfig {
+  const generator = { ...config.agents.generator }
+  const evaluator = { ...config.agents.evaluator }
+
+  const generatorType = runtimeOverride(runtimeEnv, 'MAH_GENERATOR_TYPE')
+  const generatorModel = runtimeOverride(runtimeEnv, 'MAH_GENERATOR_MODEL')
+  const generatorCwd = runtimeOverride(runtimeEnv, 'MAH_GENERATOR_CWD')
+  const evaluatorType = runtimeOverride(runtimeEnv, 'MAH_EVALUATOR_TYPE')
+  const evaluatorModel = runtimeOverride(runtimeEnv, 'MAH_EVALUATOR_MODEL')
+  const generatorOverrides: NonNullable<NonNullable<ProjectConfig['runtime']>['agentOverrides']>['generator'] = {}
+  const evaluatorOverrides: NonNullable<NonNullable<ProjectConfig['runtime']>['agentOverrides']>['evaluator'] = {}
+
+  if (generatorType) {
+    generator.type = generatorType as ProjectConfig['agents']['generator']['type']
+    generatorOverrides.type = generator.type
+  }
+  if (generatorModel) {
+    generator.model = generatorModel
+    generatorOverrides.model = generatorModel
+  }
+  if (generatorCwd) {
+    generator.cwd = generatorCwd
+    generatorOverrides.cwd = generatorCwd
+  }
+  if (evaluatorType) {
+    evaluator.type = evaluatorType as ProjectConfig['agents']['evaluator']['type']
+  }
+  if (evaluatorModel) {
+    evaluator.model = evaluatorModel
+  }
+  if (evaluatorType || evaluatorModel) {
+    // A resumed contract may contain an older provider/model pair. Any runtime
+    // evaluator selection pins the complete resolved pair over that stale data.
+    evaluatorOverrides.type = evaluator.type
+    evaluatorOverrides.model = evaluator.model
+  }
+
+  const hasGeneratorOverrides = Object.keys(generatorOverrides).length > 0
+  const hasEvaluatorOverrides = Object.keys(evaluatorOverrides).length > 0
+
+  return {
+    ...config,
+    agents: { generator, evaluator },
+    ...(hasGeneratorOverrides || hasEvaluatorOverrides
+      ? {
+          runtime: {
+            ...config.runtime,
+            agentOverrides: {
+              ...config.runtime?.agentOverrides,
+              ...(hasGeneratorOverrides ? { generator: generatorOverrides } : {}),
+              ...(hasEvaluatorOverrides ? { evaluator: evaluatorOverrides } : {}),
+            },
+          },
+        }
+      : {}),
+  }
 }
 
 function findConfig(): string | null {
@@ -137,8 +200,8 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
       cost: (priorities.cost as 1 | 2 | 3) ?? DEFAULTS.priorities!.cost,
     },
     agents: {
-      generator: normalizeAgent(agents.generator),
-      evaluator: normalizeAgent(agents.evaluator),
+      generator: normalizeAgent(agents.generator, 'generator'),
+      evaluator: normalizeAgent(agents.evaluator, 'evaluator'),
     },
     qa: {
       defaultTier: (qa.defaultTier as 'smoke' | 'targeted' | 'full') ?? DEFAULTS.qa!.defaultTier,
@@ -183,23 +246,20 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
   }
 }
 
-function normalizeAgent(raw: unknown): ProjectConfig['agents']['generator'] {
+function normalizeAgent(
+  raw: unknown,
+  role: 'generator' | 'evaluator',
+): ProjectConfig['agents']['generator'] {
   if (!raw || typeof raw !== 'object') {
-    return { type: 'codex', model: 'gpt-5.6-sol' }
+    throw new Error(`agents.${role} must be configured explicitly`)
   }
   const agent = raw as Record<string, unknown>
   const agentId = agent.agentId as string | undefined
-  const explicitModel = agent.model as string | undefined
-  const type = (agent.type as string as ProjectConfig['agents']['generator']['type']) ?? 'codex'
-  const registryModel = (
-    type === 'openclaw' || type === 'claude-cli'
-  ) && agentId
-    ? getAgentModel(agentId)
-    : undefined
-  // Resolution order: explicit yaml model → registry default for agentId → provider default.
-  const model = explicitModel
-    ?? registryModel
-    ?? (type === 'codex' ? 'gpt-5.6-sol' : 'sonnet')
+  const type = requireNonEmptyString(
+    agent.type,
+    `agents.${role}.type`,
+  ) as ProjectConfig['agents']['generator']['type']
+  const model = requireNonEmptyString(agent.model, `agents.${role}.model`)
   return {
     type,
     model,
@@ -208,6 +268,23 @@ function normalizeAgent(raw: unknown): ProjectConfig['agents']['generator'] {
     testUrl: agent.testUrl as string | undefined,
     agentId,
   }
+}
+
+function requireNonEmptyString(value: unknown, path: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`${path} must be configured explicitly`)
+  }
+  return value.trim()
+}
+
+function optionalNonEmptyString(value: unknown, path: string): string | undefined {
+  if (value === undefined) return undefined
+  return requireNonEmptyString(value, path)
+}
+
+function runtimeOverride(runtimeEnv: NodeJS.ProcessEnv, name: string): string | undefined {
+  if (!(name in runtimeEnv)) return undefined
+  return requireNonEmptyString(runtimeEnv[name], name)
 }
 
 function validate(config: ProjectConfig): void {
@@ -227,6 +304,9 @@ function validate(config: ProjectConfig): void {
       throw new Error(
         `Unsupported agent type "${agent.type}" for ${role}. Supported: ${SUPPORTED_AGENT_TYPES.join(', ')}`
       )
+    }
+    if (!agent.model.trim()) {
+      throw new Error(`agents.${role}.model must be configured explicitly`)
     }
   }
 

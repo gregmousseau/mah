@@ -39,6 +39,13 @@ export interface DeliveryIdentity {
   dependencyFingerprint: string | null
 }
 
+export interface ExecutionPreflight extends DeliveryIdentity {
+  repoRoot: string
+  generatorProvider: AgentConfig['type']
+  generatorModel: string
+  checkedAt: string
+}
+
 export interface GraderFinding {
   id: string
   severity: 'critical' | 'major' | 'minor' | 'info'
@@ -101,6 +108,12 @@ export interface ProjectConfig {
   }
   sprints: {
     directory: string
+  }
+  runtime?: {
+    agentOverrides?: {
+      generator?: Partial<Pick<AgentConfig, 'type' | 'model' | 'cwd'>>
+      evaluator?: Partial<Pick<AgentConfig, 'type' | 'model'>>
+    }
   }
 }
 
@@ -166,6 +179,9 @@ export interface SprintContract {
   deliveryFailures?: DeliveryFailure[]
   activeCandidateIdentity?: DeliveryIdentity
   activeCandidateRound?: number
+  // Canonical target and configured generator captured before any provider
+  // probe or agent execution for this invocation.
+  executionPreflight?: ExecutionPreflight
   // Exact HEAD captured before the first dev action. Finding scope is
   // the cumulative diff from this baseline to each pinned candidate.
   scopeBaselineSha?: string

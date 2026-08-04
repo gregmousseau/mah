@@ -309,11 +309,10 @@ function selectAgent(
     if (config.role === 'generator') return { id, config }
   }
 
-  // Absolute fallback
-  return {
-    id: 'dev',
-    config: { role: 'generator', model: 'sonnet' },
-  }
+  throw new Error(
+    `No configured generator agent can handle category "${category}". ` +
+    'Add a named generator agent to mah.yaml.',
+  )
 }
 
 // ─── Skill Selection ───
