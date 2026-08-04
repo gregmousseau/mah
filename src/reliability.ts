@@ -6,11 +6,13 @@ import { homedir } from 'node:os'
 import type {
   DeliveryFailure,
   DeliveryIdentity,
+  ExecutionPreflight,
   Grader,
   GraderFinding,
   GraderResult,
   VerdictMode,
   AgentResult,
+  AgentConfig,
 } from './types.js'
 
 export interface DeliveryVerdict {
@@ -209,6 +211,7 @@ export function inspectDeliveryPreflight(
 ): {
   identity: DeliveryIdentity
   envFile: string | null
+  repoRoot: string
 } {
   const requestedRepo = resolve(repoPath.startsWith('~/') ? joinHome(repoPath) : repoPath)
   const invocationPath = resolve(options.invocationPath ?? process.cwd())
@@ -252,7 +255,41 @@ export function inspectDeliveryPreflight(
     resolve(invocationPath, '.env.mah.local'),
   ]
   const envFile = envCandidates.find((candidate) => existsSync(candidate)) ?? null
-  return { identity: { candidateSha, dependencyFingerprint }, envFile }
+  return { identity: { candidateSha, dependencyFingerprint }, envFile, repoRoot: repo }
+}
+
+export function inspectExecutionPreflight(
+  repoPath: string,
+  generator: Pick<AgentConfig, 'type' | 'model'>,
+  options: { ignoredStatePaths?: string[]; invocationPath?: string } = {},
+): ExecutionPreflight {
+  if (!generator.type?.trim()) {
+    throw new Error('Preflight: generator provider is not configured.')
+  }
+  if (!generator.model?.trim()) {
+    throw new Error('Preflight: generator model is not configured.')
+  }
+  const target = inspectDeliveryPreflight(repoPath, options)
+  return {
+    repoRoot: target.repoRoot,
+    candidateSha: target.identity.candidateSha,
+    dependencyFingerprint: target.identity.dependencyFingerprint,
+    generatorProvider: generator.type,
+    generatorModel: generator.model,
+    checkedAt: new Date().toISOString(),
+  }
+}
+
+export function assertDeliveryIdentity(
+  repoPath: string,
+  expected: DeliveryIdentity,
+  options: { ignoredStatePaths?: string[]; invocationPath?: string } = {},
+  stage = 'pre-agent-execution',
+): void {
+  const failure = verifyDeliveryIdentity(repoPath, expected, options, stage)
+  if (failure) {
+    throw new Error(`Candidate identity preflight failed: ${failure.message}`)
+  }
 }
 
 export function changedPathsForCandidate(

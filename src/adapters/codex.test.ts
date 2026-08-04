@@ -38,9 +38,9 @@ done
 cat >/dev/null
 case "\${MAH_TEST_CODEX_BEHAVIOR:-active}" in
   active)
-    for _ in 1 2 3 4 5 6; do
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
       printf 'active-tick\\n'
-      sleep 0.03
+      sleep 0.04
     done
     printf 'active completion' > "$output"
     ;;
@@ -83,8 +83,8 @@ esac
       const result = await adapter.execute('test', {
         model: 'test-model',
         cwd: root,
-        idleTimeoutMs: 50,
-        absoluteTimeoutMs: 500,
+        idleTimeoutMs: 150,
+        absoluteTimeoutMs: 1500,
         rawActivityPath,
       })
       assert.equal(result.success, true)

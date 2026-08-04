@@ -15,6 +15,7 @@ import {
   identityMismatch,
   hasCompleteRequiredGraderResults,
   inspectDeliveryPreflight,
+  inspectExecutionPreflight,
   materialGraderFindings,
   restoreRepairFeedback,
   verifyDeliveryIdentity,
@@ -184,9 +185,41 @@ test('normal linked worktree gitfiles and local env files pass preflight', () =>
 
   assert.ok(statIsFile(join(worktree, '.git')))
   const checked = inspectDeliveryPreflight(worktree)
+  assert.equal(checked.repoRoot, worktree)
   assert.match(checked.identity.candidateSha, /^[a-f0-9]{40}$/)
   assert.match(checked.identity.dependencyFingerprint ?? '', /^package-lock\.json:sha256:/)
   assert.equal(checked.envFile, join(worktree, '.env.mah.local'))
+})
+
+test('execution preflight records canonical target and configured generator identity', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-296-execution-preflight-'))
+  execFileSync('git', ['init', '-q'], { cwd: root })
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root })
+  execFileSync('git', ['config', 'user.name', 'MAH Test'], { cwd: root })
+  writeFileSync(join(root, 'tracked.txt'), 'clean\n')
+  execFileSync('git', ['add', '.'], { cwd: root })
+  execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root })
+
+  const checked = inspectExecutionPreflight(root, {
+    type: 'codex',
+    model: 'gpt-5.6-sol',
+  })
+  assert.equal(checked.repoRoot, root)
+  assert.match(checked.candidateSha, /^[a-f0-9]{40}$/)
+  assert.equal(checked.generatorProvider, 'codex')
+  assert.equal(checked.generatorModel, 'gpt-5.6-sol')
+  assert.match(checked.checkedAt, /^\d{4}-\d{2}-\d{2}T/)
+})
+
+test('execution preflight rejects a missing provider or model before inspection', () => {
+  assert.throws(
+    () => inspectExecutionPreflight('/does/not/matter', { type: '' as 'codex', model: 'configured' }),
+    /provider is not configured/i,
+  )
+  assert.throws(
+    () => inspectExecutionPreflight('/does/not/matter', { type: 'codex', model: '' }),
+    /model is not configured/i,
+  )
 })
 
 test('preflight resolves a monorepo package directory to its Git worktree root', () => {

@@ -32,10 +32,12 @@ import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } fro
 import { EventLogger } from './events.js'
 import {
   buildConsolidatedRepairBrief,
+  assertDeliveryIdentity,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
   failedGraderResult,
   inspectDeliveryPreflight,
+  inspectExecutionPreflight,
   materialGraderFindings,
   verifyDeliveryIdentity,
 } from './reliability.js'
@@ -43,6 +45,7 @@ import {
   repairScopedGraderResults,
 } from './registrar/routing.js'
 import { processScopeAwareFindingRound } from './registrar/round.js'
+import { preflightEnabledGraders, resolveEnabledGraders } from './grader-config.js'
 import type {
   ProjectConfig,
   SprintContract,
@@ -57,6 +60,7 @@ import type {
   AgentAssignment,
   DeliveryFailure,
   AgentResult,
+  DeliveryIdentity,
 } from './types.js'
 import type { ProposedSprint, SprintProposal } from './planner.js'
 import type { ResolvedSkill } from './skills.js'
@@ -268,23 +272,46 @@ async function runChainSprint(
     phases: [],
   }
 
-  events.log('moe', 'spawn', 'dev', `Sprint ${contract.name} starting`)
+  events.log('moe', 'milestone', 'contract', `Sprint ${contract.name} starting`)
 
   let chainCrashError: Error | null = null
   let lastChainPhase = 'pre-dev'
   try {
-  await preflightAdapter(generatorAdapter, config.agents.generator)
-  if (config.findings?.findingsMode !== 'off' && !contract.scopeBaselineSha) {
-    contract.scopeBaselineSha = inspectDeliveryPreflight(
-      config.agents.generator.cwd ?? contract.devBrief.repo,
-      { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
-    ).identity.candidateSha
-    writeFileSync(join(sprintFullDir, 'contract.json'), JSON.stringify(contract, null, 2))
+  const requestedExecutionTarget = config.agents.generator.cwd ?? contract.devBrief.repo
+  const executionPreflightOptions = {
+    ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)],
   }
+  const executionPreflight = inspectExecutionPreflight(
+    requestedExecutionTarget,
+    config.agents.generator,
+    executionPreflightOptions,
+  )
+  const executionTarget = executionPreflight.repoRoot
+  const executionGenerator = { ...config.agents.generator, cwd: executionTarget }
+  const graders = resolveEnabledGraders(contract, config, executionTarget)
+  contract.executionPreflight = executionPreflight
+  contract.devBrief.repo = executionTarget
+  contract.graders = graders
+  if (config.findings?.findingsMode !== 'off' && !contract.scopeBaselineSha) {
+    contract.scopeBaselineSha = executionPreflight.candidateSha
+  }
+  writeFileSync(join(sprintFullDir, 'contract.json'), JSON.stringify(contract, null, 2))
+  events.log('moe', 'milestone', 'preflight',
+    `Target pinned: ${executionPreflight.repoRoot}@${executionPreflight.candidateSha}`)
+  await preflightAdapter(generatorAdapter, executionGenerator)
+  await preflightEnabledGraders(graders)
+  let expectedDevIdentity: DeliveryIdentity = executionPreflight
   for (let round = 1; round <= config.qa.maxIterations; round++) {
     lastChainPhase = `dev R${round}`
     // Dev phase
     contract.status = 'dev'
+
+    assertDeliveryIdentity(
+      executionTarget,
+      expectedDevIdentity,
+      executionPreflightOptions,
+      `chain-dev-r${round}-pre-execution`,
+    )
     events.log('moe', 'spawn', 'dev', `Dev R${round}`)
 
     let devPrompt = round === 1
@@ -298,7 +325,7 @@ async function runChainSprint(
 
     const devResult = await generatorAdapter.execute(devPrompt, devExecuteOptions(config, {
       model: config.agents.generator.model,
-      cwd: config.agents.generator.cwd,
+      cwd: executionTarget,
       label: `chain-dev-${contract.id}-r${round}`,
       rawActivityPath: join(sprintFullDir, 'raw', `dev-r${round}.log`),
     }))
@@ -324,7 +351,7 @@ async function runChainSprint(
     events.log('dev', 'output', 'dev', `R${round} complete (${devDuration})`)
     const recoverableCheckpoint = persistRecoverableCheckpoint({
       sprintPath: sprintFullDir,
-      repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+      repoPath: executionTarget,
       ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)],
       round,
       result: devResult,
@@ -353,12 +380,14 @@ async function runChainSprint(
     }
 
     // QA phase
+    const observedCandidateIdentity = inspectDeliveryPreflight(
+      executionTarget,
+      executionPreflightOptions,
+    ).identity
+    expectedDevIdentity = observedCandidateIdentity
     const candidateIdentity = config.qa.verdictMode === 'legacy'
       ? undefined
-      : inspectDeliveryPreflight(
-          config.agents.generator.cwd ?? contract.devBrief.repo,
-          { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
-        ).identity
+      : observedCandidateIdentity
     if (candidateIdentity) {
       contract.activeCandidateIdentity = candidateIdentity
       contract.activeCandidateRound = round
@@ -366,13 +395,6 @@ async function runChainSprint(
     }
     lastChainPhase = `qa R${round}`
     contract.status = 'qa'
-    const graders = contract.graders?.filter((grader) => grader.enabled) ?? [{
-      id: 'ux-quinn',
-      type: 'ux' as const,
-      name: 'Quinn (UX)',
-      enabled: true,
-      agent: config.agents.evaluator,
-    }]
     const graderResults: GraderResult[] = []
     const uxGrader = graders.find((grader) => grader.type === 'ux')
     let qaResult: AgentResult | undefined
@@ -381,10 +403,9 @@ async function runChainSprint(
       const qaPrompt = contractToQAPrompt(contract, devResult.output, round)
       const tierBudget = budgetForContract(contract)
       const uxAdapter = createAgentAdapter(uxGrader.agent)
-      await preflightAdapter(uxAdapter, uxGrader.agent)
       qaResult = await uxAdapter.execute(qaPrompt, {
         model: uxGrader.agent.model,
-        cwd: uxGrader.agent.workspace,
+        cwd: uxGrader.agent.workspace ?? executionTarget,
         timeoutMs: tierBudget.timeoutMs,
         label: `chain-qa-${contract.id}-r${round}`,
         rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${uxGrader.id}.log`),
@@ -444,10 +465,9 @@ async function runChainSprint(
       try {
         const crPrompt = buildCodeReviewPrompt(contract, devResult.output, round)
         const graderAdapter = createAgentAdapter(grader.agent)
-        await preflightAdapter(graderAdapter, grader.agent)
         const crResult = await graderAdapter.execute(crPrompt, {
           model: grader.agent.model,
-          cwd: config.agents.generator.cwd,
+          cwd: executionTarget,
           timeoutMs: 5 * 60 * 1000,
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
@@ -498,7 +518,7 @@ async function runChainSprint(
     const deliveryFailures: DeliveryFailure[] = [...delivery.failures]
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
-        config.agents.generator.cwd ?? contract.devBrief.repo,
+        executionTarget,
         candidateIdentity,
         { ignoredStatePaths: [resolve(config.sprints.directory), resolve(config.metrics.output)] },
         `chain-qa-r${round}-final-preflight`,
@@ -517,7 +537,7 @@ async function runChainSprint(
     }
     const findingsRound = candidateIdentity
       ? await processScopeAwareFindingRound({
-        repoPath: config.agents.generator.cwd ?? contract.devBrief.repo,
+        repoPath: executionTarget,
         baselineSha: contract.scopeBaselineSha,
         candidateSha: candidateIdentity.candidateSha,
         graderResults,

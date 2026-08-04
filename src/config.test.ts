@@ -3,7 +3,13 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { loadConfig, resolveVerdictMode } from './config.js'
+import { loadConfig, loadNamedAgents, resolveVerdictMode } from './config.js'
+
+const configuredAgentsYaml = `
+agents:
+  generator: { type: codex, model: gpt-5.6-sol }
+  evaluator: { type: codex, model: gpt-5.6-sol }
+`
 
 test('verdict mode defaults fail closed and supports an explicit legacy rollback', () => {
   const root = mkdtempSync(join(tmpdir(), 'mah-248-config-'))
@@ -52,6 +58,7 @@ test('execution policy is configurable and rejects unsafe timeout shapes', () =>
   const base = `
 project: { name: Fixture, repo: . }
 priorities: { speed: 1, quality: 2, cost: 3 }
+${configuredAgentsYaml}
 `
   writeFileSync(path, `${base}
 execution:
@@ -85,6 +92,7 @@ test('findings rollout modes are independently configurable and validated', () =
   writeFileSync(path, `
 project: { name: Fixture, repo: . }
 priorities: { speed: 1, quality: 2, cost: 3 }
+${configuredAgentsYaml}
 findings:
   scopeGate: enforced
   findingsMode: off
@@ -100,6 +108,7 @@ findings:
   writeFileSync(path, `
 project: { name: Fixture, repo: . }
 priorities: { speed: 1, quality: 2, cost: 3 }
+${configuredAgentsYaml}
 findings: { scopeGate: permissive }
 `)
   assert.throws(() => loadConfig(path), /findings.scopeGate/)
@@ -108,6 +117,7 @@ findings: { scopeGate: permissive }
     writeFileSync(path, `
 project: { name: Fixture, repo: . }
 priorities: { speed: 1, quality: 2, cost: 3 }
+${configuredAgentsYaml}
 findings:
   currentPrPaths: [${JSON.stringify(invalidEntry)}]
 `)
@@ -117,6 +127,7 @@ findings:
   writeFileSync(path, `
 project: { name: Fixture, repo: . }
 priorities: { speed: 1, quality: 2, cost: 3 }
+${configuredAgentsYaml}
 findings: { findingsMode: ticket, ticketDispatchEnabled: true }
 `)
   assert.throws(() => loadConfig(path), /ticketTeamId/)
@@ -124,6 +135,7 @@ findings: { findingsMode: ticket, ticketDispatchEnabled: true }
   writeFileSync(path, `
 project: { name: Fixture, repo: . }
 priorities: { speed: 1, quality: 2, cost: 3 }
+${configuredAgentsYaml}
 findings:
   scopeGate: enforced
   findingsMode: report
@@ -142,7 +154,7 @@ test('direct config entry points honor the verdict mode environment override', (
   assert.throws(() => resolveVerdictMode('fail-closed', 'permissive'), /verdictMode/)
 })
 
-test('missing agent configuration defaults to Codex rather than Claude', () => {
+test('missing agent configuration fails instead of selecting a silent model fallback', () => {
   const root = mkdtempSync(join(tmpdir(), 'mah-262-config-'))
   const path = join(root, 'mah.yaml')
   writeFileSync(path, `
@@ -150,18 +162,10 @@ project: { name: Fixture, repo: . }
 priorities: { speed: 1, quality: 2, cost: 3 }
 qa: { defaultTier: targeted, maxIterations: 2 }
 `)
-  const config = loadConfig(path)
-  assert.deepEqual(
-    { type: config.agents.generator.type, model: config.agents.generator.model },
-    { type: 'codex', model: 'gpt-5.6-sol' },
-  )
-  assert.deepEqual(
-    { type: config.agents.evaluator.type, model: config.agents.evaluator.model },
-    { type: 'codex', model: 'gpt-5.6-sol' },
-  )
+  assert.throws(() => loadConfig(path), /agents\.generator must be configured explicitly/)
 })
 
-test('Codex defaults do not inherit Claude-only models from named-agent metadata', () => {
+test('provider and model must both be explicit even when an agent identity is configured', () => {
   const root = mkdtempSync(join(tmpdir(), 'mah-262-agent-config-'))
   const path = join(root, 'mah.yaml')
   writeFileSync(path, `
@@ -172,9 +176,75 @@ agents:
   evaluator: { agentId: qa }
 qa: { defaultTier: targeted, maxIterations: 2 }
 `)
-  const config = loadConfig(path)
-  assert.deepEqual(
-    { type: config.agents.generator.type, model: config.agents.generator.model },
-    { type: 'codex', model: 'gpt-5.6-sol' },
+  assert.throws(() => loadConfig(path), /agents\.generator\.type must be configured explicitly/)
+})
+
+test('named-agent metadata does not invent a provider or model fallback', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-296-named-agent-config-'))
+  const path = join(root, 'mah.yaml')
+  writeFileSync(path, `
+agents:
+  dev:
+    role: generator
+    specialty: backend
+`)
+  const dev = loadNamedAgents(path).get('dev')
+  assert.equal(dev?.type, undefined)
+  assert.equal(dev?.model, undefined)
+})
+
+test('runtime agent overrides select a ticket worktree and model without editing mah.yaml', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-296-runtime-override-'))
+  const path = join(root, 'mah.yaml')
+  writeFileSync(path, `
+project: { name: Fixture, repo: /configured/repo }
+priorities: { speed: 1, quality: 2, cost: 3 }
+agents:
+  generator: { type: codex, model: configured-model, cwd: /configured/repo }
+  evaluator: { type: codex, model: configured-evaluator }
+`)
+  const config = loadConfig(path, {
+    MAH_GENERATOR_TYPE: 'codex',
+    MAH_GENERATOR_MODEL: 'gpt-5.6-sol',
+    MAH_GENERATOR_CWD: '/persistent/ticket-worktree',
+    MAH_EVALUATOR_TYPE: 'codex',
+    MAH_EVALUATOR_MODEL: 'gpt-5.6-sol',
+  })
+  assert.deepEqual(config.agents.generator, {
+    type: 'codex',
+    model: 'gpt-5.6-sol',
+    cwd: '/persistent/ticket-worktree',
+    workspace: undefined,
+    testUrl: undefined,
+    agentId: undefined,
+  })
+  assert.equal(config.agents.evaluator.model, 'gpt-5.6-sol')
+  assert.deepEqual(config.runtime?.agentOverrides, {
+    generator: {
+      type: 'codex',
+      model: 'gpt-5.6-sol',
+      cwd: '/persistent/ticket-worktree',
+    },
+    evaluator: { type: 'codex', model: 'gpt-5.6-sol' },
+  })
+})
+
+test('runtime overrides reject blank values and unsupported providers', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-296-runtime-override-invalid-'))
+  const path = join(root, 'mah.yaml')
+  writeFileSync(path, `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+agents:
+  generator: { type: codex, model: configured-model }
+  evaluator: { type: codex, model: configured-evaluator }
+`)
+  assert.throws(
+    () => loadConfig(path, { MAH_GENERATOR_MODEL: '  ' }),
+    /MAH_GENERATOR_MODEL must be configured explicitly/,
+  )
+  assert.throws(
+    () => loadConfig(path, { MAH_GENERATOR_TYPE: 'invented-provider' }),
+    /Unsupported agent type.*generator/,
   )
 })
