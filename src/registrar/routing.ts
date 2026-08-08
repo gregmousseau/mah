@@ -1,4 +1,4 @@
-import type { DeliveryFailure, GraderResult } from '../types.js'
+import type { DeliveryFailure, GraderFinding, GraderResult } from '../types.js'
 import { findingPacketId, registrarBlockers } from './registrar.js'
 import type { RegistrarReport } from './types.js'
 
@@ -21,7 +21,7 @@ export function scopeAwareVerdict(
   // fail-closed rather than allowing scope classification to erase it.
   if (results.some((result) =>
     result.verdict !== 'pass'
-    && result.findings.every((finding) => finding.severity === 'info'))) {
+    && result.findings.every(isNonDefectObservation))) {
     return 'fail'
   }
   return 'pass'
@@ -57,7 +57,7 @@ export function repairScopedGraderResults(
     .map((packet) => packet.packetId))
   return results.map((result) => {
     if (result.findings.length === 0) return result
-    const materialFindings = result.findings.filter((finding) => finding.severity !== 'info')
+    const materialFindings = result.findings.filter((finding) => !isNonDefectObservation(finding))
     if (materialFindings.length === 0) {
       return { ...result, findings: [] }
     }
@@ -86,7 +86,7 @@ function isCompleteScopeReview(
 
   const expected = new Map<string, number>()
   for (const result of results) {
-    for (const finding of result.findings.filter((item) => item.severity !== 'info')) {
+    for (const finding of result.findings.filter((item) => !isNonDefectObservation(item))) {
       incrementCount(
         expected,
         findingKey(result.graderId, findingPacketId(report.candidateSha, finding)),
@@ -103,6 +103,10 @@ function isCompleteScopeReview(
   }
   if (expected.size !== actual.size) return false
   return [...expected].every(([key, count]) => actual.get(key) === count)
+}
+
+export function isNonDefectObservation(finding: GraderFinding): boolean {
+  return finding.findingKind === 'observation'
 }
 
 function findingKey(graderId: string, findingId: string): string {

@@ -1430,6 +1430,7 @@ test('PASS graders with only Info observations remain PASS under enforced scope 
     findings: [{
       id: 'CR-01',
       severity: 'info' as const,
+      findingKind: 'observation' as const,
       category: 'note',
       file: 'src/current.ts',
       description: 'Positive observation only.',
@@ -1455,6 +1456,51 @@ test('PASS graders with only Info observations remain PASS under enforced scope 
     ...graderResult,
     findings: [],
   }])
+})
+
+test('PASS graders preserve P3 defects mapped to Info for scope classification', async () => {
+  const repo = initGitFixture()
+  const baselineSha = gitSha(repo)
+  commitFile(repo, 'src/current.ts', 'candidate\n', 'candidate')
+  const candidateSha = gitSha(repo)
+  const failures: import('./types.js').DeliveryFailure[] = []
+  const graderResult = {
+    graderId: 'ux',
+    graderType: 'ux' as const,
+    graderName: 'Quinn',
+    verdict: 'pass' as const,
+    summary: 'P3 defects found.',
+    model: 'fixture',
+    durationMs: 0,
+    costEstimate: 0,
+    executionStatus: 'completed' as const,
+    findings: [{
+      id: 'P3-01',
+      severity: 'info' as const,
+      findingKind: 'defect' as const,
+      category: 'bug',
+      file: 'src/current.ts',
+      description: 'Candidate-scoped low-severity defect.',
+      scopeRelationship: 'introduced' as const,
+      releaseImpact: 'not-release-blocking' as const,
+      evidenceConfidence: 'confirmed' as const,
+    }],
+  }
+
+  const result = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha,
+    candidateSha,
+    graderResults: [graderResult],
+    failures,
+    originalVerdict: 'pass',
+    config: { scopeGate: 'enforced', findingsMode: 'report' },
+    scopeStage: 'p3-defect-scope',
+  })
+
+  assert.equal(result.verdict, 'fail')
+  assert.equal(result.report.currentBlockers[0].originFindingId, 'P3-01')
+  assert.deepEqual(repairScopedGraderResults([graderResult], result.report), [graderResult])
 })
 
 test('scope-aware sprint rounds force configured ticket dispatch into shadow output', async () => {

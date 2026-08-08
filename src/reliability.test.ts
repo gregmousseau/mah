@@ -295,7 +295,7 @@ test('persisted defect findings exclude informational observations', () => {
   const findings = materialGraderFindings([{
     ...result('code', 'pass'),
     findings: [
-      { id: 'CR-INFO', severity: 'info', category: 'note', description: 'Observation only.' },
+      { id: 'CR-INFO', severity: 'info', findingKind: 'observation', category: 'note', description: 'Observation only.' },
       { id: 'CR-MAJOR', severity: 'major', category: 'bug', description: 'Material defect.' },
     ],
   }])

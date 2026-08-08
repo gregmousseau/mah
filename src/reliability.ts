@@ -198,7 +198,7 @@ export function hasCompleteRequiredGraderResults(
 }
 
 function isMaterialFinding(finding: GraderFinding): boolean {
-  return finding.severity !== 'info'
+  return finding.findingKind !== 'observation'
 }
 
 export function materialGraderFindings(results: GraderResult[]): GraderFinding[] {
