@@ -1411,6 +1411,52 @@ test('scope-aware round replays cumulative multi-commit output through routing a
   assert.ok(existsSync(reportPath))
 })
 
+test('PASS graders with only Info observations remain PASS under enforced scope review', async () => {
+  const repo = initGitFixture()
+  const baselineSha = gitSha(repo)
+  commitFile(repo, 'src/current.ts', 'candidate\n', 'candidate')
+  const candidateSha = gitSha(repo)
+  const failures: import('./types.js').DeliveryFailure[] = []
+  const graderResult = {
+    graderId: 'code',
+    graderType: 'code-review' as const,
+    graderName: 'Code',
+    verdict: 'pass' as const,
+    summary: 'No material findings.',
+    model: 'fixture',
+    durationMs: 0,
+    costEstimate: 0,
+    executionStatus: 'completed' as const,
+    findings: [{
+      id: 'CR-01',
+      severity: 'info' as const,
+      category: 'note',
+      file: 'src/current.ts',
+      description: 'Positive observation only.',
+    }],
+  }
+
+  const result = await processScopeAwareFindingRound({
+    repoPath: repo,
+    baselineSha,
+    candidateSha,
+    graderResults: [graderResult],
+    failures,
+    originalVerdict: 'pass',
+    config: { scopeGate: 'enforced', findingsMode: 'report' },
+    scopeStage: 'info-only-scope',
+  })
+
+  assert.equal(result.verdict, 'pass')
+  assert.deepEqual(result.report.packets, [])
+  assert.deepEqual(result.report.currentBlockers, [])
+  assert.deepEqual(failures, [])
+  assert.deepEqual(repairScopedGraderResults([graderResult], result.report), [{
+    ...graderResult,
+    findings: [],
+  }])
+})
+
 test('scope-aware sprint rounds force configured ticket dispatch into shadow output', async () => {
   const repo = initGitFixture()
   const baselineSha = gitSha(repo)

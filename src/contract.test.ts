@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { contractToDevFixPrompt, generateContract } from './contract.js'
+import {
+  contractToDevFixPrompt,
+  contractToDevPrompt,
+  contractToQAPrompt,
+  generateContract,
+} from './contract.js'
 import type { ProjectConfig } from './types.js'
 
 test('default code review uses the configured evaluator provider', () => {
@@ -53,4 +58,24 @@ test('repair prompts bound oversized carried transcripts while preserving useful
   assert.match(prompt, /QA-END/)
   assert.match(prompt, /MAH truncated previous implementation/)
   assert.match(prompt, /MAH truncated QA report/)
+})
+
+test('worker handoffs prohibit recursive MAH and require parser-safe empty defect output', () => {
+  const config: ProjectConfig = {
+    project: { name: 'Fixture', repo: '.' },
+    priorities: { speed: 1, quality: 2, cost: 3 },
+    agents: {
+      generator: { type: 'codex', model: 'gpt-5.6-sol' },
+      evaluator: { type: 'codex', model: 'gpt-5.6-sol' },
+    },
+    qa: { defaultTier: 'targeted', maxIterations: 2, verdictMode: 'fail-closed' },
+    human: { notificationChannel: '', responseTimeoutMinutes: 30, onTimeout: 'pause', costThreshold: 40 },
+    metrics: { output: '.mah/metrics/' },
+    sprints: { directory: '.mah/sprints/' },
+  }
+  const contract = generateContract('Fixture task', config, 'fixture')
+  assert.match(contractToDevPrompt(contract), /already executing inside a MAH sprint/i)
+  assert.match(contractToDevPrompt(contract), /Do not launch, invoke, queue, or nest MAH/i)
+  assert.match(contractToQAPrompt(contract, 'done', 1), /If there are no defects, write exactly: None\./)
+  assert.match(contractToQAPrompt(contract, 'done', 1), /Do not describe an empty defect list with a P0–P3 severity range\./)
 })

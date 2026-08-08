@@ -19,7 +19,9 @@ export function scopeAwareVerdict(
 
   // A non-pass with no finding cannot be proven adjacent, so keep it
   // fail-closed rather than allowing scope classification to erase it.
-  if (results.some((result) => result.verdict !== 'pass' && result.findings.length === 0)) {
+  if (results.some((result) =>
+    result.verdict !== 'pass'
+    && result.findings.every((finding) => finding.severity === 'info'))) {
     return 'fail'
   }
   return 'pass'
@@ -55,7 +57,11 @@ export function repairScopedGraderResults(
     .map((packet) => packet.packetId))
   return results.map((result) => {
     if (result.findings.length === 0) return result
-    const findings = result.findings.filter((finding) =>
+    const materialFindings = result.findings.filter((finding) => finding.severity !== 'info')
+    if (materialFindings.length === 0) {
+      return { ...result, findings: [] }
+    }
+    const findings = materialFindings.filter((finding) =>
       repairKeys.has(findingKey(
         result.graderId,
         findingPacketId(report.candidateSha, finding),
@@ -80,7 +86,7 @@ function isCompleteScopeReview(
 
   const expected = new Map<string, number>()
   for (const result of results) {
-    for (const finding of result.findings) {
+    for (const finding of result.findings.filter((item) => item.severity !== 'info')) {
       incrementCount(
         expected,
         findingKey(result.graderId, findingPacketId(report.candidateSha, finding)),

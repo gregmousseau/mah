@@ -71,7 +71,7 @@ export async function processScopeAwareFindingRound(
     {
       candidateSha: input.candidateSha,
       findingInputs: input.graderResults.flatMap((result) =>
-        result.findings.map((finding) => ({
+        result.findings.filter((finding) => finding.severity !== 'info').map((finding) => ({
           finding,
           graderId: result.graderId,
         }))),
