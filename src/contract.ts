@@ -83,6 +83,10 @@ export function contractToDevPrompt(contract: SprintContract, resolvedSkills?: R
 
   return `${skillBlocks}You are a software developer working on: ${contract.task}
 
+## MAH Execution Boundary
+You are already executing inside a MAH sprint. Implement the assigned work directly.
+Do not launch, invoke, queue, or nest MAH or any MAH wrapper from this worker.
+
 ## Repository
 ${devBrief.repo}
 
@@ -179,6 +183,8 @@ Provide your QA report in this format:
 
 ## Defects Found
 [List each defect with severity: P0 (critical), P1 (blocker), P2 (major), P3 (minor)]
+If there are no defects, write exactly: None.
+Do not describe an empty defect list with a P0–P3 severity range.
 Format each defect with all scope fields:
 **P1-01:** [description]
   Finding category: [product | harness | infrastructure | credentials | environment | preflight | evaluation | tooling]
@@ -216,6 +222,10 @@ export function contractToDevFixPrompt(
 
   return `You are a software developer. Your previous implementation had QA issues.
 This is fix round ${round}.
+
+## MAH Execution Boundary
+You are already executing inside a MAH sprint. Implement the assigned repairs directly.
+Do not launch, invoke, queue, or nest MAH or any MAH wrapper from this worker.
 
 ## Original Task
 ${contract.task}

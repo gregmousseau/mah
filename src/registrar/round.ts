@@ -8,6 +8,7 @@ import {
   writeRegistrarReport,
 } from './registrar.js'
 import {
+  isNonDefectObservation,
   registrarHarnessFailures,
   scopeAwareVerdict,
 } from './routing.js'
@@ -71,7 +72,7 @@ export async function processScopeAwareFindingRound(
     {
       candidateSha: input.candidateSha,
       findingInputs: input.graderResults.flatMap((result) =>
-        result.findings.map((finding) => ({
+        result.findings.filter((finding) => !isNonDefectObservation(finding)).map((finding) => ({
           finding,
           graderId: result.graderId,
         }))),

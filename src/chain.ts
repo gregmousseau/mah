@@ -439,6 +439,7 @@ async function runChainSprint(
           findings: qaReport.defects.map((defect) => ({
             id: defect.id,
             severity: chainFindingSeverity(defect.severity),
+            findingKind: 'defect',
             category: defect.category ?? 'ux',
             description: defect.description,
             scopeRelationship: defect.scopeRelationship,

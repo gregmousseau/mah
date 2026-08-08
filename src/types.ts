@@ -49,6 +49,9 @@ export interface ExecutionPreflight extends DeliveryIdentity {
 export interface GraderFinding {
   id: string
   severity: 'critical' | 'major' | 'minor' | 'info'
+  // Severity does not decide whether a finding is a defect. In particular,
+  // QA P3 defects map to `info` but must still reach scope classification.
+  findingKind?: 'defect' | 'observation'
   category: string  // e.g., "security", "performance", "style", "bug-risk", "complexity"
   file?: string
   line?: number

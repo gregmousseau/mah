@@ -94,3 +94,45 @@ test('grader parsers preserve explicit scope, release, and uncertainty provenanc
   assert.equal(qa.defects[0].releaseImpact, 'not-release-blocking')
   assert.equal(qa.defects[0].evidenceConfidence, 'confirmed')
 })
+
+test('negated severity prose cannot synthesize QA defects from an explicit PASS', () => {
+  for (const noDefects of [
+    'No confirmed P0–P3 product defects were found.',
+    'None. No P0–P3 defects identified.',
+    'P0–P3: None found.',
+    '**P0—P3:** None found.',
+    '- P0-P3: No defects.',
+  ]) {
+    const qa = parseQAReport(`## QA Report
+## Verdict: PASS
+
+## Summary
+The candidate satisfies the contract.
+
+## Defects Found
+${noDefects}
+
+## Recommendation
+PASS
+`)
+    assert.equal(qa.verdict, 'pass')
+    assert.deepEqual(qa.defects, [])
+  }
+})
+
+test('anchored markdown QA defect lines retain supported formats', () => {
+  const qa = parseQAReport(`## Verdict: FAIL
+## Defects Found
+**P1-01:** First defect
+- P2: Second defect
+P3 — Third defect
+`)
+  assert.deepEqual(
+    qa.defects.map(({ id, severity, description }) => ({ id, severity, description })),
+    [
+      { id: 'P1-01', severity: 'p1', description: 'First defect' },
+      { id: 'P2-01', severity: 'p2', description: 'Second defect' },
+      { id: 'P3-01', severity: 'p3', description: 'Third defect' },
+    ],
+  )
+})

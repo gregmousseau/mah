@@ -502,6 +502,7 @@ export async function runSprint(
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
+            findingKind: 'defect',
             category: d.category ?? 'ux',
             description: d.description,
             scopeRelationship: d.scopeRelationship,
@@ -1209,6 +1210,7 @@ export async function runExistingContract(
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
+            findingKind: 'defect',
             category: d.category ?? 'ux',
             description: d.description,
             scopeRelationship: d.scopeRelationship,

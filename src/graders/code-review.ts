@@ -258,6 +258,7 @@ function parseFindings(output: string): GraderFinding[] {
     const finding: GraderFinding = {
       id: `CR-${seqNum.padStart(2, '0')}`,
       severity: currentSeverity,
+      findingKind: currentSeverity === 'info' ? 'observation' : 'defect',
       category: normalizeCategory(category),
       file,
       line: lineNum,
