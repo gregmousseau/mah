@@ -76,6 +76,8 @@ test('worker handoffs prohibit recursive MAH and require parser-safe empty defec
   const contract = generateContract('Fixture task', config, 'fixture')
   assert.match(contractToDevPrompt(contract), /already executing inside a MAH sprint/i)
   assert.match(contractToDevPrompt(contract), /Do not launch, invoke, queue, or nest MAH/i)
+  assert.match(contractToDevFixPrompt(contract, 'done', 'repair it', 2), /already executing inside a MAH sprint/i)
+  assert.match(contractToDevFixPrompt(contract, 'done', 'repair it', 2), /Do not launch, invoke, queue, or nest MAH/i)
   assert.match(contractToQAPrompt(contract, 'done', 1), /If there are no defects, write exactly: None\./)
   assert.match(contractToQAPrompt(contract, 'done', 1), /Do not describe an empty defect list with a P0–P3 severity range\./)
 })

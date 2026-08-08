@@ -223,6 +223,10 @@ export function contractToDevFixPrompt(
   return `You are a software developer. Your previous implementation had QA issues.
 This is fix round ${round}.
 
+## MAH Execution Boundary
+You are already executing inside a MAH sprint. Implement the assigned repairs directly.
+Do not launch, invoke, queue, or nest MAH or any MAH wrapper from this worker.
+
 ## Original Task
 ${contract.task}
 
