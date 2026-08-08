@@ -99,6 +99,9 @@ test('negated severity prose cannot synthesize QA defects from an explicit PASS'
   for (const noDefects of [
     'No confirmed P0–P3 product defects were found.',
     'None. No P0–P3 defects identified.',
+    'P0–P3: None found.',
+    '**P0—P3:** None found.',
+    '- P0-P3: No defects.',
   ]) {
     const qa = parseQAReport(`## QA Report
 ## Verdict: PASS
