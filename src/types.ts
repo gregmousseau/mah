@@ -53,6 +53,13 @@ export interface DeliveryEvaluationProvenance {
   graders: GraderExecutionProvenance[]
 }
 
+export interface EvaluationEvidenceRequest {
+  sprintId: string
+  graderId: string
+  evaluatorId: string
+  candidateSha: string
+}
+
 export interface DeliveryIdentity {
   candidateSha: string
   dependencyFingerprint: string | null
@@ -323,6 +330,7 @@ export interface ExecuteOptions {
   rawActivityPath?: string
   /** Test-only override for the fixed five-second SIGKILL grace period. */
   terminationGraceMs?: number
+  evaluationEvidence?: EvaluationEvidenceRequest
 }
 
 export type AgentTerminationReason =
@@ -349,6 +357,7 @@ export interface AgentResult {
   }
   tokenUsage?: { input: number; output: number }
   costEstimate?: number
+  evaluationEvidence?: GraderExecutionProvenance
 }
 
 // ─── Sprint Transcript ───

@@ -36,6 +36,7 @@ import {
   assertDeliveryIdentity,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
+  evaluationEvidenceRequest,
   failedGraderResult,
   inspectDeliveryPreflight,
   inspectExecutionPreflight,
@@ -397,6 +398,7 @@ async function runChainSprint(
     lastChainPhase = `qa R${round}`
     contract.status = 'qa'
     const graderResults: GraderResult[] = []
+    const graderExecutions: AgentResult[] = []
     const uxGrader = graders.find((grader) => grader.type === 'ux')
     let qaResult: AgentResult | undefined
     if (uxGrader) {
@@ -411,6 +413,7 @@ async function runChainSprint(
         label: `chain-qa-${contract.id}-r${round}`,
         rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${uxGrader.id}.log`),
         transcriptMaxChars: config.execution?.transcriptMaxChars,
+        evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, uxGrader.id),
       })
       transcript.phases.push({
         phase: 'qa',
@@ -462,6 +465,7 @@ async function runChainSprint(
       } catch (error) {
         graderResults.push(failedGraderResult(uxGrader, error))
       }
+      if (qaResult) graderExecutions.push(qaResult)
     }
 
     for (const grader of graders.filter((candidate) => candidate.type === 'code-review')) {
@@ -476,6 +480,7 @@ async function runChainSprint(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
         })
         graderExecution = crResult
         transcript.phases.push({
@@ -510,6 +515,7 @@ async function runChainSprint(
       } catch (error) {
         graderResults.push(failedGraderResult(grader, error, graderExecution))
       }
+      if (graderExecution) graderExecutions.push(graderExecution)
     }
     for (const grader of graders.filter(
       candidate => candidate.type !== 'ux' && candidate.type !== 'code-review',
@@ -521,7 +527,7 @@ async function runChainSprint(
     }
 
     const evaluationProvenance = candidateIdentity
-      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults)
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults, graderExecutions)
       : undefined
     const delivery = evaluateDeliveryVerdict(
       graders,

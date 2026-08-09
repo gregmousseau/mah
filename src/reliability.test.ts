@@ -7,6 +7,7 @@ import test from 'node:test'
 import type { DeliveryEvaluationProvenance, Grader, GraderResult } from './types.js'
 import {
   buildConsolidatedRepairBrief,
+  buildDeliveryEvaluationProvenance,
   buildRepairFeedback,
   canResumeQAWithPinnedCandidate,
   changedPathsForCandidate,
@@ -151,6 +152,34 @@ test('provenance remains fail-closed for missing evaluation and exact-SHA mismat
   )
   assert.equal(mismatch.verdict, 'fail')
   assert.equal(mismatch.failures[0]?.kind, 'identity')
+})
+
+test('execution-boundary reports with a wrong evaluator or candidate fail closed', () => {
+  const sha = 'a'.repeat(40)
+  const contract = { id: 'fixture-sprint', agentConfig: undefined }
+  const config = { agents: {
+    generator: { type: 'codex' as const, model: 'dev' },
+    evaluator: { type: 'codex' as const, model: 'review' },
+  } }
+  for (const evidence of [
+    { evaluatorId: 'codex:impostor', candidateSha: sha },
+    { evaluatorId: 'codex:review', candidateSha: 'b'.repeat(40) },
+  ]) {
+    const execution = {
+      success: true, output: 'report', timing: { startMs: 0, endMs: 1, durationMs: 1 },
+      evaluationEvidence: {
+        sprintId: contract.id, graderId: 'ux', ...evidence,
+        processExit: 'completed' as const, explicitVerdict: 'pass' as const,
+        finalArtifact: 'available' as const,
+      },
+    }
+    const recorded = buildDeliveryEvaluationProvenance(
+      contract, config, sha, [result('ux', 'pass')], [execution],
+    )
+    const delivery = evaluateDeliveryVerdict([graders[0]], [result('ux', 'pass')], 'fail-closed', recorded)
+    assert.equal(delivery.verdict, 'fail')
+    assert.equal(delivery.failures[0]?.kind, 'identity')
+  }
 })
 
 test('self-reference cannot erase a non-PASS verdict, failed process, identity mismatch, or other material finding', () => {

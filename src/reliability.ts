@@ -16,6 +16,7 @@ import type {
   VerdictMode,
   AgentResult,
   AgentConfig,
+  EvaluationEvidenceRequest,
 } from './types.js'
 
 export interface DeliveryVerdict {
@@ -25,11 +26,28 @@ export interface DeliveryVerdict {
   productResults: GraderResult[]
 }
 
+export function evaluationEvidenceRequest(
+  contract: Pick<SprintContract, 'id' | 'agentConfig'>,
+  config: Pick<ProjectConfig, 'agents'>,
+  candidateSha: string,
+  graderId: string,
+): EvaluationEvidenceRequest {
+  return {
+    sprintId: contract.id,
+    graderId,
+    evaluatorId: contract.agentConfig?.evaluator.agentId
+      || config.agents.evaluator.agentId
+      || `${config.agents.evaluator.type}:${config.agents.evaluator.model}`,
+    candidateSha,
+  }
+}
+
 export function buildDeliveryEvaluationProvenance(
   contract: Pick<SprintContract, 'id' | 'agentConfig'>,
   config: Pick<ProjectConfig, 'agents'>,
   candidateSha: string,
   results: GraderResult[],
+  executions: AgentResult[],
 ): DeliveryEvaluationProvenance {
   const evaluatorId = contract.agentConfig?.evaluator.agentId
     || config.agents.evaluator.agentId
@@ -38,23 +56,12 @@ export function buildDeliveryEvaluationProvenance(
     sprintId: contract.id,
     evaluatorId,
     candidateSha,
-    graders: results.map((result) => ({
-      sprintId: contract.id,
-      graderId: result.graderId,
-      evaluatorId,
-      candidateSha,
-      processExit: result.processExit ?? (
-        result.executionStatus === 'failed' || result.executionStatus === 'timed_out'
-          ? result.executionStatus
-          : 'completed'
-      ),
-      explicitVerdict: (result.executionStatus ?? 'completed') === 'completed'
-        ? result.verdict
-        : null,
-      finalArtifact: (result.finalArtifactAvailable ?? Boolean(result.summary.trim()))
-        ? 'available'
-        : 'unavailable',
-    })),
+    graders: results.map((result) => executions.find(
+      execution => execution.evaluationEvidence?.graderId === result.graderId,
+    )?.evaluationEvidence ?? {
+      sprintId: '', graderId: result.graderId, evaluatorId: '', candidateSha: '',
+      processExit: 'missing', explicitVerdict: null, finalArtifact: 'unavailable',
+    }),
   }
 }
 

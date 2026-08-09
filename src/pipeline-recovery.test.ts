@@ -550,6 +550,7 @@ Structured checks passed the exact candidate.
   Evidence confidence: confirmed
 ## Recommendation
 PASS
+MAH_EVALUATION_EVIDENCE: {"sprintId":"fixture-provenance","graderId":"ux-quinn","evaluatorId":"codex:test-model","candidateSha":"${candidateSha}","explicitVerdict":"pass"}
 REPORT
 else
   printf '# Dev Completion Report\nNo changes required.\n' > "$output"

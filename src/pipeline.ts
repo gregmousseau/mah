@@ -44,6 +44,7 @@ import {
   canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
+  evaluationEvidenceRequest,
   failedGraderResult,
   hasCompleteRequiredGraderResults,
   identityMismatch,
@@ -413,6 +414,7 @@ export async function runSprint(
     writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
 
     const graderResults: GraderResult[] = []
+    const graderExecutions: AgentResult[] = []
     // Use graders from contract if present; otherwise fall back to legacy UX-only
     const observedCandidateIdentity = inspectDeliveryPreflight(
       executionTarget,
@@ -455,6 +457,7 @@ export async function runSprint(
           label: `qa-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
         }
         const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId
@@ -542,6 +545,7 @@ export async function runSprint(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
         })
         graderExecution = crResult
 
@@ -588,11 +592,12 @@ export async function runSprint(
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
+      if (graderExecution) graderExecutions.push(graderExecution)
     }
 
     // 3c. Aggregate verdict across all graders
     const evaluationProvenance = candidateIdentity
-      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults)
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults, graderExecutions)
       : undefined
     const delivery = evaluateDeliveryVerdict(
       graders,
@@ -1124,6 +1129,7 @@ export async function runExistingContract(
     writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
 
     const graderResults: GraderResult[] = []
+    const graderExecutions: AgentResult[] = []
     const observedCandidateIdentity = inspectDeliveryPreflight(
       executionTarget,
       executionPreflightOptions,
@@ -1175,6 +1181,7 @@ export async function runExistingContract(
           label: `qa-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullPath, 'raw', `qa-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
         }
         const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId2
@@ -1258,6 +1265,7 @@ export async function runExistingContract(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullPath, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
         })
         graderExecution = crResult
 
@@ -1304,10 +1312,11 @@ export async function runExistingContract(
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
+      if (graderExecution) graderExecutions.push(graderExecution)
     }
 
     const evaluationProvenance = candidateIdentity
-      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults)
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults, graderExecutions)
       : undefined
     const delivery = evaluateDeliveryVerdict(
       graders,

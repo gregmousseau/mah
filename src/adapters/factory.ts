@@ -14,8 +14,8 @@ class ContextualAdapter implements AgentAdapter {
     return this.delegate.preflight?.(options) ?? Promise.resolve()
   }
 
-  execute(task: string, options: ExecuteOptions): Promise<AgentResult> {
-    return this.delegate.execute(task, options)
+  async execute(task: string, options: ExecuteOptions): Promise<AgentResult> {
+    return this.captureEvidence(await this.delegate.execute(withEvidenceRequest(task, options), options), options)
   }
 
   executeWithAgent(
@@ -23,8 +23,38 @@ class ContextualAdapter implements AgentAdapter {
     agentId: string,
     options: ExecuteOptions & { designTier?: 'quick' | 'polished' | 'impeccable' },
   ): Promise<AgentResult> {
-    return this.delegate.execute(buildAgentContext(agentId, task, options.designTier), options)
+    return this.execute(buildAgentContext(agentId, task, options.designTier), options)
   }
+
+  private captureEvidence(result: AgentResult, options: ExecuteOptions): AgentResult {
+    const request = options.evaluationEvidence
+    if (!request) return result
+    const marker = /(?:^|\n)MAH_EVALUATION_EVIDENCE:\s*(\{[^\n]+\})\s*$/.exec(result.output)
+    let reported: Partial<typeof request> & { explicitVerdict?: unknown } = {}
+    try { reported = marker ? JSON.parse(marker[1]!) : {} } catch { reported = {} }
+    const explicitVerdict = reported.explicitVerdict
+    return {
+      ...result,
+      evaluationEvidence: {
+        sprintId: typeof reported.sprintId === 'string' ? reported.sprintId : '',
+        graderId: typeof reported.graderId === 'string' ? reported.graderId : '',
+        evaluatorId: typeof reported.evaluatorId === 'string' ? reported.evaluatorId : '',
+        candidateSha: typeof reported.candidateSha === 'string' ? reported.candidateSha : '',
+        processExit: result.success ? 'completed' : result.termination?.reason === 'idle-timeout'
+          || result.termination?.reason === 'absolute-timeout' ? 'timed_out' : 'failed',
+        explicitVerdict: explicitVerdict === 'pass' || explicitVerdict === 'conditional' || explicitVerdict === 'fail'
+          ? explicitVerdict : null,
+        finalArtifact: result.output.trim() ? 'available' : 'unavailable',
+      },
+    }
+  }
+}
+
+function withEvidenceRequest(task: string, options: ExecuteOptions): string {
+  const evidence = options.evaluationEvidence
+  if (!evidence) return task
+  const envelope = JSON.stringify({ ...evidence, explicitVerdict: 'VERDICT' })
+  return `${task}\n\nAfter the report, emit exactly one final single-line execution envelope using the values below. Replace VERDICT with your explicit report verdict (lowercase pass, conditional, or fail):\nMAH_EVALUATION_EVIDENCE: ${envelope}`
 }
 
 export function createAgentAdapter(config: AgentConfig): ContextualAdapter {
