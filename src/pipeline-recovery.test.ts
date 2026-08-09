@@ -497,6 +497,114 @@ fi
   }
 })
 
+test('production caller persists exact-candidate provenance and separates self-reference diagnostics', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-provenance-pipeline-'))
+  const repo = join(root, 'repo')
+  const sprint = join(root, 'sprint')
+  const bin = join(root, 'bin')
+  const originalPath = process.env.PATH
+  const heartbeatPath = join(process.cwd(), '.mah', 'heartbeat.json')
+  const notificationPath = join(process.cwd(), '.mah', 'notifications', 'latest.json')
+  const heartbeatSnapshot = existsSync(heartbeatPath) ? readFileSync(heartbeatPath) : null
+  const notificationSnapshot = existsSync(notificationPath) ? readFileSync(notificationPath) : null
+  mkdirSync(repo)
+  mkdirSync(sprint)
+  mkdirSync(bin)
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: repo })
+    execFileSync('git', ['config', 'user.email', 'mah-test@example.invalid'], { cwd: repo })
+    execFileSync('git', ['config', 'user.name', 'MAH Test'], { cwd: repo })
+    writeFileSync(join(repo, 'candidate.txt'), 'candidate\n')
+    execFileSync('git', ['add', 'candidate.txt'], { cwd: repo })
+    execFileSync('git', ['commit', '-m', 'candidate'], { cwd: repo })
+    const candidateSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: repo,
+      encoding: 'utf8',
+    }).trim()
+    const codex = join(bin, 'codex')
+    writeFileSync(codex, `#!/usr/bin/env bash
+set -eu
+output=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    output="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+input="$(cat)"
+if [[ "$input" == *"MAH_PROVIDER_OK"* ]]; then
+  printf MAH_PROVIDER_OK > "$output"
+elif [[ "$input" == *"You are Quinn, a QA engineer"* ]]; then
+  cat > "$output" <<'REPORT'
+# QA Report
+## Verdict: PASS
+## Summary
+Structured checks passed the exact candidate.
+## Defects Found
+**P1-01:** MAH did not run, so no evaluation was performed.
+  Finding category: product
+  Scope relationship: introduced
+  Release impact: required-for-release-safety
+  Evidence confidence: confirmed
+## Recommendation
+PASS
+REPORT
+else
+  printf '# Dev Completion Report\nNo changes required.\n' > "$output"
+fi
+`)
+    chmodSync(codex, 0o755)
+    process.env.PATH = `${bin}:${originalPath ?? ''}`
+    const config = fixtureConfig(root, repo)
+    config.findings = {
+      scopeGate: 'advisory',
+      findingsMode: 'off',
+      ticketDispatchEnabled: false,
+      currentPrPaths: [],
+    }
+    const contract = generateContract('Fixture task', config, 'fixture-provenance')
+    contract.graders = [contract.graders.find(grader => grader.type === 'ux')!]
+
+    const result = await runExistingContract(
+      contract,
+      config,
+      new EventLogger(join(root, 'events')),
+      sprint,
+    )
+
+    assert.equal(result.contract.status, 'passed')
+    const persisted = JSON.parse(
+      readFileSync(join(sprint, 'contract.json'), 'utf8'),
+    ) as typeof result.contract
+    const iteration = persisted.iterations[0]!
+    assert.deepEqual(iteration.evaluationProvenance, {
+      sprintId: contract.id,
+      evaluatorId: 'codex:test-model',
+      candidateSha,
+      graders: [{
+        sprintId: contract.id,
+        graderId: contract.graders[0]!.id,
+        evaluatorId: 'codex:test-model',
+        candidateSha,
+        processExit: 'completed',
+        explicitVerdict: 'pass',
+        finalArtifact: 'available',
+      }],
+    })
+    assert.equal(iteration.harnessDiagnostics?.[0]?.stage, 'evaluator-self-reference')
+    assert.deepEqual(iteration.deliveryFailures, [])
+    assert.deepEqual(iteration.defects, [])
+    assert.equal(iteration.graderResults?.[0]?.findings.length, 1)
+  } finally {
+    process.env.PATH = originalPath
+    restoreFile(heartbeatPath, heartbeatSnapshot)
+    restoreFile(notificationPath, notificationSnapshot)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 function fixtureConfig(root: string, repo: string): ProjectConfig {
   return {
     project: { name: 'Fixture', repo },

@@ -11,6 +11,8 @@ import type {
   Grader,
   GraderFinding,
   GraderResult,
+  ProjectConfig,
+  SprintContract,
   VerdictMode,
   AgentResult,
   AgentConfig,
@@ -20,6 +22,40 @@ export interface DeliveryVerdict {
   verdict: GraderResult['verdict']
   failures: DeliveryFailure[]
   harnessDiagnostics?: DeliveryFailure[]
+  productResults: GraderResult[]
+}
+
+export function buildDeliveryEvaluationProvenance(
+  contract: Pick<SprintContract, 'id' | 'agentConfig'>,
+  config: Pick<ProjectConfig, 'agents'>,
+  candidateSha: string,
+  results: GraderResult[],
+): DeliveryEvaluationProvenance {
+  const evaluatorId = contract.agentConfig?.evaluator.agentId
+    || config.agents.evaluator.agentId
+    || `${config.agents.evaluator.type}:${config.agents.evaluator.model}`
+  return {
+    sprintId: contract.id,
+    evaluatorId,
+    candidateSha,
+    graders: results.map((result) => ({
+      sprintId: contract.id,
+      graderId: result.graderId,
+      evaluatorId,
+      candidateSha,
+      processExit: result.processExit ?? (
+        result.executionStatus === 'failed' || result.executionStatus === 'timed_out'
+          ? result.executionStatus
+          : 'completed'
+      ),
+      explicitVerdict: (result.executionStatus ?? 'completed') === 'completed'
+        ? result.verdict
+        : null,
+      finalArtifact: (result.finalArtifactAvailable ?? Boolean(result.summary.trim()))
+        ? 'available'
+        : 'unavailable',
+    })),
+  }
 }
 
 export function evaluateDeliveryVerdict(
@@ -29,7 +65,7 @@ export function evaluateDeliveryVerdict(
   provenance?: DeliveryEvaluationProvenance,
 ): DeliveryVerdict {
   if (mode === 'legacy') {
-    return { verdict: aggregateLegacy(results), failures: [] }
+    return { verdict: aggregateLegacy(results), failures: [], productResults: results }
   }
 
   const required = configuredGraders.filter((grader) => grader.enabled)
@@ -123,7 +159,9 @@ export function evaluateDeliveryVerdict(
     }
   }
 
-  if (failures.length > 0) return { verdict: 'fail', failures, harnessDiagnostics }
+  if (failures.length > 0) {
+    return { verdict: 'fail', failures, harnessDiagnostics, productResults: results }
+  }
   const productResults = results.map((result) => ({
     ...result,
     findings: result.findings.filter((finding) => {
@@ -146,15 +184,15 @@ export function evaluateDeliveryVerdict(
     }),
   }))
   if (productResults.some((result) => result.findings.some(isMaterialFinding))) {
-    return { verdict: 'fail', failures: [], harnessDiagnostics }
+    return { verdict: 'fail', failures: [], harnessDiagnostics, productResults }
   }
   if (productResults.some((result) => result.verdict === 'fail')) {
-    return { verdict: 'fail', failures: [], harnessDiagnostics }
+    return { verdict: 'fail', failures: [], harnessDiagnostics, productResults }
   }
   if (productResults.some((result) => result.verdict === 'conditional')) {
-    return { verdict: 'fail', failures: [], harnessDiagnostics }
+    return { verdict: 'fail', failures: [], harnessDiagnostics, productResults }
   }
-  return { verdict: 'pass', failures: [], harnessDiagnostics }
+  return { verdict: 'pass', failures: [], harnessDiagnostics, productResults }
 }
 
 function isContradictorySelfReference(description: string): boolean {
@@ -192,6 +230,8 @@ export function failedGraderResult(
     durationMs: attempted?.timing.durationMs ?? 0,
     costEstimate: attempted?.costEstimate ?? 0,
     executionStatus: timedOut ? 'timed_out' : 'failed',
+    processExit: timedOut ? 'timed_out' : attempted ? 'failed' : 'missing',
+    finalArtifactAvailable: Boolean(attempted?.output.trim()),
   }
 }
 

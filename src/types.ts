@@ -23,6 +23,8 @@ export interface GraderResult {
   durationMs: number
   costEstimate: number
   executionStatus?: 'completed' | 'missing' | 'failed' | 'timed_out'
+  processExit?: 'completed' | 'failed' | 'timed_out' | 'missing'
+  finalArtifactAvailable?: boolean
 }
 
 export type VerdictMode = 'fail-closed' | 'legacy'
@@ -217,6 +219,8 @@ export interface SprintIteration {
   defects: Defect[]
   graderResults?: GraderResult[]  // results from all graders this round
   deliveryFailures?: DeliveryFailure[]
+  evaluationProvenance?: DeliveryEvaluationProvenance
+  harnessDiagnostics?: DeliveryFailure[]
   candidateIdentity?: DeliveryIdentity
   findingsReport?: import('./registrar/types.js').RegistrarReport
 }

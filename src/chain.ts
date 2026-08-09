@@ -32,6 +32,7 @@ import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } fro
 import { EventLogger } from './events.js'
 import {
   buildConsolidatedRepairBrief,
+  buildDeliveryEvaluationProvenance,
   assertDeliveryIdentity,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
@@ -454,6 +455,8 @@ async function runChainSprint(
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
+          processExit: 'completed',
+          finalArtifactAvailable: Boolean(qaResult.output.trim()),
         })
       }
       } catch (error) {
@@ -501,6 +504,8 @@ async function runChainSprint(
           crResult.costEstimate ?? 0,
         )
         parsedReview.provider = crResult.provider
+        parsedReview.processExit = 'completed'
+        parsedReview.finalArtifactAvailable = Boolean(crResult.output.trim())
         graderResults.push(parsedReview)
       } catch (error) {
         graderResults.push(failedGraderResult(grader, error, graderExecution))
@@ -515,7 +520,15 @@ async function runChainSprint(
       ))
     }
 
-    const delivery = evaluateDeliveryVerdict(graders, graderResults, config.qa.verdictMode)
+    const evaluationProvenance = candidateIdentity
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults)
+      : undefined
+    const delivery = evaluateDeliveryVerdict(
+      graders,
+      graderResults,
+      config.qa.verdictMode,
+      evaluationProvenance,
+    )
     const deliveryFailures: DeliveryFailure[] = [...delivery.failures]
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
@@ -541,7 +554,7 @@ async function runChainSprint(
         repoPath: executionTarget,
         baselineSha: contract.scopeBaselineSha,
         candidateSha: candidateIdentity.candidateSha,
-        graderResults,
+        graderResults: delivery.productResults,
         failures: deliveryFailures,
         originalVerdict: effectiveVerdict,
         config: findingsConfig,
@@ -551,7 +564,7 @@ async function runChainSprint(
       : undefined
     const findingsReport = findingsRound?.report
     if (findingsRound) effectiveVerdict = findingsRound.verdict
-    const repairResults = repairScopedGraderResults(graderResults, findingsReport)
+    const repairResults = repairScopedGraderResults(delivery.productResults, findingsReport)
     const qaDuration = qaResult ? formatDuration(qaResult.timing.durationMs) : 'no UX grader'
     events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)
 
@@ -592,6 +605,8 @@ async function runChainSprint(
       })),
       graderResults,
       deliveryFailures,
+      evaluationProvenance,
+      harnessDiagnostics: delivery.harnessDiagnostics,
       candidateIdentity,
       findingsReport,
     }

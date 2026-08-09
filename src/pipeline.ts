@@ -39,6 +39,7 @@ import { processScopeAwareFindingRound } from './registrar/round.js'
 import { preflightEnabledGraders, resolveEnabledGraders } from './grader-config.js'
 import {
   buildConsolidatedRepairBrief,
+  buildDeliveryEvaluationProvenance,
   assertDeliveryIdentity,
   canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
@@ -517,6 +518,8 @@ export async function runSprint(
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
+          processExit: 'completed',
+          finalArtifactAvailable: Boolean(qaResult.output.trim()),
         }
         graderResults.push(uxGraderResult)
 
@@ -575,6 +578,8 @@ export async function runSprint(
           crResult.costEstimate ?? 0
         )
         crGraderResult.provider = crResult.provider
+        crGraderResult.processExit = 'completed'
+        crGraderResult.finalArtifactAvailable = Boolean(crResult.output.trim())
         graderResults.push(crGraderResult)
         }
       } catch (error) {
@@ -586,10 +591,14 @@ export async function runSprint(
     }
 
     // 3c. Aggregate verdict across all graders
+    const evaluationProvenance = candidateIdentity
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults)
+      : undefined
     const delivery = evaluateDeliveryVerdict(
       graders,
       graderResults,
       config.qa.verdictMode,
+      evaluationProvenance,
     )
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
@@ -618,7 +627,7 @@ export async function runSprint(
         repoPath: executionTarget,
         baselineSha: contract.scopeBaselineSha,
         candidateSha: candidateIdentity.candidateSha,
-        graderResults,
+        graderResults: delivery.productResults,
         failures: delivery.failures,
         originalVerdict: aggregateVerdict,
         config: findingsConfig,
@@ -629,7 +638,7 @@ export async function runSprint(
     const findingsReport = findingsRound?.report
     if (findingsRound) aggregateVerdict = findingsRound.verdict
     const qaDefects = materialGraderFindings(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
     ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
@@ -651,6 +660,8 @@ export async function runSprint(
       defects: qaDefects,
       graderResults,
       deliveryFailures: delivery.failures,
+      evaluationProvenance,
+      harnessDiagnostics: delivery.harnessDiagnostics,
       candidateIdentity,
       findingsReport,
     }
@@ -1225,6 +1236,8 @@ export async function runExistingContract(
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
+          processExit: 'completed',
+          finalArtifactAvailable: Boolean(qaResult.output.trim()),
         }
         graderResults.push(uxGraderResult)
 
@@ -1281,6 +1294,8 @@ export async function runExistingContract(
           crResult.costEstimate ?? 0
         )
         crGraderResult.provider = crResult.provider
+        crGraderResult.processExit = 'completed'
+        crGraderResult.finalArtifactAvailable = Boolean(crResult.output.trim())
         graderResults.push(crGraderResult)
         }
       } catch (error) {
@@ -1291,10 +1306,14 @@ export async function runExistingContract(
       }
     }
 
+    const evaluationProvenance = candidateIdentity
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults)
+      : undefined
     const delivery = evaluateDeliveryVerdict(
       graders,
       graderResults,
       config.qa.verdictMode,
+      evaluationProvenance,
     )
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
@@ -1322,7 +1341,7 @@ export async function runExistingContract(
         repoPath: executionTarget,
         baselineSha: contract.scopeBaselineSha,
         candidateSha: candidateIdentity.candidateSha,
-        graderResults,
+        graderResults: delivery.productResults,
         failures: delivery.failures,
         originalVerdict: aggregateVerdict,
         config: findingsConfig,
@@ -1333,7 +1352,7 @@ export async function runExistingContract(
     const findingsReport = findingsRound?.report
     if (findingsRound) aggregateVerdict = findingsRound.verdict
     const qaDefects = materialGraderFindings(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
     ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
@@ -1354,6 +1373,8 @@ export async function runExistingContract(
       defects: qaDefects,
       graderResults,
       deliveryFailures: delivery.failures,
+      evaluationProvenance,
+      harnessDiagnostics: delivery.harnessDiagnostics,
       candidateIdentity,
       findingsReport,
     }
