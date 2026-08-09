@@ -1,0 +1,41 @@
+{
+  "sprintId": "sprint-20260809-201539-994f6a",
+  "evaluatorId": "quinn",
+  "candidateSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "configuredGraders": [
+    { "id": "ux", "name": "Quinn (UX)", "enabled": true }
+  ],
+  "results": [
+    {
+      "graderId": "ux",
+      "graderType": "ux",
+      "graderName": "Quinn (UX)",
+      "verdict": "pass",
+      "findings": [
+        {
+          "id": "P1-01",
+          "severity": "major",
+          "findingKind": "defect",
+          "category": "product",
+          "description": "MAH did not run, so no evaluation was performed."
+        }
+      ],
+      "summary": "Structured checks passed the exact candidate.",
+      "model": "fixture",
+      "durationMs": 1,
+      "costEstimate": 0,
+      "executionStatus": "completed"
+    }
+  ],
+  "graders": [
+    {
+      "sprintId": "sprint-20260809-201539-994f6a",
+      "graderId": "ux",
+      "evaluatorId": "quinn",
+      "candidateSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "processExit": "completed",
+      "explicitVerdict": "pass",
+      "finalArtifact": "available"
+    }
+  ]
+}

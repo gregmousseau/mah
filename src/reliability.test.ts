@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
-import type { Grader, GraderResult } from './types.js'
+import type { DeliveryEvaluationProvenance, Grader, GraderResult } from './types.js'
 import {
   buildConsolidatedRepairBrief,
   buildRepairFeedback,
@@ -95,6 +95,88 @@ test('a PASS verdict cannot override a material grader finding', () => {
     [result('ux', 'pass'), contradictory],
     'fail-closed',
   ).verdict, 'fail')
+})
+
+test('recorded outer evaluator self-reference is retained as a harness diagnostic', () => {
+  const sha = 'a'.repeat(40)
+  const selfReference = {
+    ...result('ux', 'pass'),
+    findings: [{
+      id: 'P1-01',
+      severity: 'major' as const,
+      findingKind: 'defect' as const,
+      category: 'product',
+      description: 'MAH did not run, so no evaluation was performed.',
+    }],
+  }
+  const delivery = evaluateDeliveryVerdict(
+    [graders[0]],
+    [selfReference],
+    'fail-closed',
+    provenance(sha, [{ graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha,
+      processExit: 'completed', explicitVerdict: 'pass', finalArtifact: 'available' }]),
+  )
+  assert.equal(delivery.verdict, 'pass')
+  assert.deepEqual(delivery.failures, [])
+  assert.equal(delivery.harnessDiagnostics?.[0]?.stage, 'evaluator-self-reference')
+})
+
+test('unavailable final prose does not replace complete structured evaluation evidence', () => {
+  const sha = 'a'.repeat(40)
+  const delivery = evaluateDeliveryVerdict(
+    [graders[0]],
+    [result('ux', 'pass')],
+    'fail-closed',
+    provenance(sha, [{ graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha,
+      processExit: 'completed', explicitVerdict: 'pass', finalArtifact: 'unavailable' }]),
+  )
+  assert.equal(delivery.verdict, 'pass')
+  assert.equal(delivery.harnessDiagnostics?.[0]?.stage, 'grader-final-artifact')
+})
+
+test('provenance remains fail-closed for missing evaluation and exact-SHA mismatch', () => {
+  const sha = 'a'.repeat(40)
+  const missing = evaluateDeliveryVerdict(
+    [graders[0]], [result('ux', 'pass')], 'fail-closed', provenance(sha, []),
+  )
+  assert.equal(missing.verdict, 'fail')
+  assert.match(missing.failures[0]?.message ?? '', /no recorded execution provenance/i)
+
+  const mismatch = evaluateDeliveryVerdict(
+    [graders[0]],
+    [result('ux', 'pass')],
+    'fail-closed',
+    provenance(sha, [{ graderId: 'ux', evaluatorId: 'quinn', candidateSha: 'b'.repeat(40),
+      processExit: 'completed', explicitVerdict: 'pass', finalArtifact: 'available' }]),
+  )
+  assert.equal(mismatch.verdict, 'fail')
+  assert.equal(mismatch.failures[0]?.kind, 'identity')
+})
+
+test('self-reference cannot erase a non-PASS verdict, failed process, identity mismatch, or other material finding', () => {
+  const sha = 'a'.repeat(40)
+  const meta = { id: 'P1-01', severity: 'major' as const, category: 'product',
+    description: 'MAH did not run, so the result is unavailable.' }
+  const product = { id: 'P1-02', severity: 'major' as const, category: 'bug',
+    description: 'The candidate drops persisted data.' }
+  const cases: Array<[
+    GraderResult,
+    Omit<DeliveryEvaluationProvenance['graders'][number], 'sprintId'>,
+  ]> = [
+    [{ ...result('ux', 'conditional'), findings: [meta] },
+      { graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha, processExit: 'completed', explicitVerdict: 'conditional', finalArtifact: 'available' }],
+    [{ ...result('ux', 'pass'), findings: [meta] },
+      { graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha, processExit: 'timed_out', explicitVerdict: 'pass', finalArtifact: 'available' }],
+    [{ ...result('ux', 'pass'), findings: [meta] },
+      { graderId: 'ux', evaluatorId: 'other', candidateSha: sha, processExit: 'completed', explicitVerdict: 'pass', finalArtifact: 'available' }],
+    [{ ...result('ux', 'pass'), findings: [meta, product] },
+      { graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha, processExit: 'completed', explicitVerdict: 'pass', finalArtifact: 'available' }],
+  ]
+  for (const [graded, execution] of cases) {
+    assert.equal(evaluateDeliveryVerdict(
+      [graders[0]], [graded], 'fail-closed', provenance(sha, [execution]),
+    ).verdict, 'fail')
+  }
 })
 
 test('legacy rollback retains the previous permissive aggregation', () => {
@@ -392,4 +474,16 @@ function readFixture(name: string): {
       'utf8',
     ),
   )
+}
+
+function provenance(
+  candidateSha: string,
+  executions: Array<Omit<DeliveryEvaluationProvenance['graders'][number], 'sprintId'>>,
+): DeliveryEvaluationProvenance {
+  return {
+    sprintId: 'fixture-sprint',
+    evaluatorId: 'quinn',
+    candidateSha,
+    graders: executions.map((execution) => ({ sprintId: 'fixture-sprint', ...execution })),
+  }
 }

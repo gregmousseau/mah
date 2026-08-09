@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import test from 'node:test'
-import type { Grader, GraderResult } from './types.js'
+import type { DeliveryEvaluationProvenance, Grader, GraderResult } from './types.js'
 import {
   buildConsolidatedRepairBrief,
   evaluateDeliveryVerdict,
@@ -45,6 +45,26 @@ test('delivery round integrates mixed graders, repair evidence, and exact-SHA bl
   execFileSync('git', ['commit', '-m', 'candidate two'], { cwd: repo })
   const after = inspectDeliveryPreflight(repo).identity
   assert.equal(identityMismatch(before, after)?.kind, 'identity')
+})
+
+test('golden sprint-20260809-201539-994f6a keeps evaluator meta-prose out of the product verdict', () => {
+  const fixture = JSON.parse(readFileSync(resolve(
+    process.cwd(),
+    'src/__fixtures__/reliability/awc-313-self-reference.json',
+  ), 'utf8')) as DeliveryEvaluationProvenance & {
+    configuredGraders: Pick<Grader, 'id' | 'name' | 'enabled'>[]
+    results: GraderResult[]
+  }
+  const delivery = evaluateDeliveryVerdict(
+    fixture.configuredGraders,
+    fixture.results,
+    'fail-closed',
+    fixture,
+  )
+  assert.equal(fixture.sprintId, 'sprint-20260809-201539-994f6a')
+  assert.equal(delivery.verdict, 'pass')
+  assert.deepEqual(delivery.failures, [])
+  assert.equal(delivery.harnessDiagnostics?.[0]?.stage, 'evaluator-self-reference')
 })
 
 function makeResult(

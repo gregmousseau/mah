@@ -34,6 +34,23 @@ export interface DeliveryFailure {
   graderId?: string
 }
 
+export interface GraderExecutionProvenance {
+  sprintId: string
+  graderId: string
+  evaluatorId: string
+  candidateSha: string
+  processExit: 'completed' | 'failed' | 'timed_out' | 'missing'
+  explicitVerdict: GraderResult['verdict'] | null
+  finalArtifact: 'available' | 'unavailable'
+}
+
+export interface DeliveryEvaluationProvenance {
+  sprintId: string
+  evaluatorId: string
+  candidateSha: string
+  graders: GraderExecutionProvenance[]
+}
+
 export interface DeliveryIdentity {
   candidateSha: string
   dependencyFingerprint: string | null
