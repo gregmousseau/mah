@@ -6,31 +6,80 @@ import { homedir } from 'node:os'
 import type {
   DeliveryFailure,
   DeliveryIdentity,
+  DeliveryEvaluationProvenance,
   ExecutionPreflight,
   Grader,
   GraderFinding,
   GraderResult,
+  ProjectConfig,
+  SprintContract,
   VerdictMode,
   AgentResult,
   AgentConfig,
+  EvaluationEvidenceRequest,
 } from './types.js'
 
 export interface DeliveryVerdict {
   verdict: GraderResult['verdict']
   failures: DeliveryFailure[]
+  harnessDiagnostics?: DeliveryFailure[]
+  productResults: GraderResult[]
+}
+
+export function evaluationEvidenceRequest(
+  contract: Pick<SprintContract, 'id' | 'agentConfig'>,
+  candidateSha: string,
+  graderId: string,
+  evaluatorId: string,
+): EvaluationEvidenceRequest {
+  return {
+    sprintId: contract.id,
+    graderId,
+    evaluatorId,
+    candidateSha,
+  }
+}
+
+export function directEvaluatorId(agent: AgentConfig): string {
+  return `${agent.type}:${agent.model}`
+}
+
+export function buildDeliveryEvaluationProvenance(
+  contract: Pick<SprintContract, 'id' | 'agentConfig'>,
+  config: Pick<ProjectConfig, 'agents'>,
+  candidateSha: string,
+  results: GraderResult[],
+  executions: AgentResult[],
+): DeliveryEvaluationProvenance {
+  const evaluatorId = contract.agentConfig?.evaluator.agentId
+    || config.agents.evaluator.agentId
+    || `${config.agents.evaluator.type}:${config.agents.evaluator.model}`
+  return {
+    sprintId: contract.id,
+    evaluatorId,
+    candidateSha,
+    graders: results.map((result) => executions.find(
+      execution => execution.evaluationEvidence?.graderId === result.graderId,
+    )?.evaluationEvidence ?? {
+      sprintId: '', graderId: result.graderId, evaluatorId: '', candidateSha: '',
+      processExit: 'missing', explicitVerdict: null, finalArtifact: 'unavailable',
+    }),
+  }
 }
 
 export function evaluateDeliveryVerdict(
   configuredGraders: Pick<Grader, 'id' | 'name' | 'enabled'>[],
   results: GraderResult[],
   mode: VerdictMode = 'fail-closed',
+  provenance?: DeliveryEvaluationProvenance,
 ): DeliveryVerdict {
   if (mode === 'legacy') {
-    return { verdict: aggregateLegacy(results), failures: [] }
+    return { verdict: aggregateLegacy(results), failures: [], productResults: results }
   }
 
   const required = configuredGraders.filter((grader) => grader.enabled)
   const failures: DeliveryFailure[] = []
+  const harnessDiagnostics: DeliveryFailure[] = []
   if (required.length === 0) {
     failures.push({
       kind: 'harness',
@@ -51,6 +100,65 @@ export function evaluateDeliveryVerdict(
       })
       continue
     }
+    const execution = provenance?.graders.find((item) => item.graderId === grader.id)
+    if (provenance && (!execution || execution.processExit === 'missing')) {
+      failures.push({
+        kind: 'harness',
+        stage: 'grader-provenance',
+        graderId: grader.id,
+        message: `Required grader ${grader.name} has no recorded execution provenance.`,
+      })
+      continue
+    }
+    if (execution && execution.sprintId !== provenance?.sprintId) {
+      failures.push({
+        kind: 'identity',
+        stage: 'grader-provenance',
+        graderId: grader.id,
+        message: `Required grader ${grader.name} does not belong to recorded outer sprint ${provenance?.sprintId}.`,
+      })
+    }
+    const expectedEvaluatorId = execution?.expectedEvaluatorId ?? provenance?.evaluatorId
+    if (execution && execution.evaluatorId !== expectedEvaluatorId) {
+      failures.push({
+        kind: 'identity',
+        stage: 'grader-provenance',
+        graderId: grader.id,
+        message: `Required grader ${grader.name} evaluator identity does not match the recorded outer evaluator.`,
+      })
+    }
+    if (execution && execution.candidateSha !== provenance?.candidateSha) {
+      failures.push({
+        kind: 'identity',
+        stage: 'grader-provenance',
+        graderId: grader.id,
+        message: `Required grader ${grader.name} evaluated ${execution.candidateSha}, not exact candidate ${provenance?.candidateSha}.`,
+      })
+    }
+    if (execution && execution.processExit !== 'completed') {
+      failures.push({
+        kind: 'harness',
+        stage: 'grader-execution',
+        graderId: grader.id,
+        message: `Required grader ${grader.name} ended with ${execution.processExit}.`,
+      })
+    }
+    if (execution && execution.explicitVerdict !== (result.reportedVerdict ?? result.verdict)) {
+      failures.push({
+        kind: 'harness',
+        stage: 'grader-provenance',
+        graderId: grader.id,
+        message: `Required grader ${grader.name} result does not match its explicit recorded verdict.`,
+      })
+    }
+    if (execution?.finalArtifact === 'unavailable') {
+      harnessDiagnostics.push({
+        kind: 'harness',
+        stage: 'grader-final-artifact',
+        graderId: grader.id,
+        message: `Required grader ${grader.name} final prose artifact is unavailable; structured execution evidence was used.`,
+      })
+    }
     if ((result.executionStatus ?? 'completed') !== 'completed') {
       failures.push({
         kind: 'harness',
@@ -61,17 +169,45 @@ export function evaluateDeliveryVerdict(
     }
   }
 
-  if (failures.length > 0) return { verdict: 'fail', failures }
-  if (results.some((result) => result.findings.some(isMaterialFinding))) {
-    return { verdict: 'fail', failures: [] }
+  const productResults = results.map((result) => ({
+    ...result,
+    findings: result.findings.filter((finding) => {
+      if (!isEvaluatorSelfReference(finding)) return true
+      const execution = provenance?.graders.find((item) => item.graderId === result.graderId)
+      const expectedEvaluatorId = execution?.expectedEvaluatorId ?? provenance?.evaluatorId
+      const authoritativePass = execution?.sprintId === provenance?.sprintId
+        && execution?.evaluatorId === expectedEvaluatorId
+        && execution?.candidateSha === provenance?.candidateSha
+        && execution?.processExit === 'completed'
+        && execution?.explicitVerdict === 'pass'
+        && result.verdict === 'pass'
+      if (!authoritativePass) return true
+      harnessDiagnostics.push({
+        kind: 'harness',
+        stage: 'evaluator-self-reference',
+        graderId: result.graderId,
+        message: finding.description,
+      })
+      return false
+    }),
+  }))
+  if (failures.length > 0) {
+    return { verdict: 'fail', failures, harnessDiagnostics, productResults }
   }
-  if (results.some((result) => result.verdict === 'fail')) {
-    return { verdict: 'fail', failures: [] }
+  if (productResults.some((result) => result.findings.some(isMaterialFinding))) {
+    return { verdict: 'fail', failures: [], harnessDiagnostics, productResults }
   }
-  if (results.some((result) => result.verdict === 'conditional')) {
-    return { verdict: 'fail', failures: [] }
+  if (productResults.some((result) => result.verdict === 'fail')) {
+    return { verdict: 'fail', failures: [], harnessDiagnostics, productResults }
   }
-  return { verdict: 'pass', failures: [] }
+  if (productResults.some((result) => result.verdict === 'conditional')) {
+    return { verdict: 'fail', failures: [], harnessDiagnostics, productResults }
+  }
+  return { verdict: 'pass', failures: [], harnessDiagnostics, productResults }
+}
+
+function isEvaluatorSelfReference(finding: GraderFinding): boolean {
+  return finding.category.trim().toLowerCase() === 'evaluation-self-reference'
 }
 
 function aggregateLegacy(results: GraderResult[]): GraderResult['verdict'] {
@@ -105,6 +241,8 @@ export function failedGraderResult(
     durationMs: attempted?.timing.durationMs ?? 0,
     costEstimate: attempted?.costEstimate ?? 0,
     executionStatus: timedOut ? 'timed_out' : 'failed',
+    processExit: timedOut ? 'timed_out' : attempted ? 'failed' : 'missing',
+    finalArtifactAvailable: Boolean(attempted?.output.trim()),
   }
 }
 

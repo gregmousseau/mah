@@ -39,10 +39,13 @@ import { processScopeAwareFindingRound } from './registrar/round.js'
 import { preflightEnabledGraders, resolveEnabledGraders } from './grader-config.js'
 import {
   buildConsolidatedRepairBrief,
+  buildDeliveryEvaluationProvenance,
+  directEvaluatorId,
   assertDeliveryIdentity,
   canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
+  evaluationEvidenceRequest,
   failedGraderResult,
   hasCompleteRequiredGraderResults,
   identityMismatch,
@@ -412,6 +415,7 @@ export async function runSprint(
     writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
 
     const graderResults: GraderResult[] = []
+    const graderExecutions: AgentResult[] = []
     // Use graders from contract if present; otherwise fall back to legacy UX-only
     const observedCandidateIdentity = inspectDeliveryPreflight(
       executionTarget,
@@ -447,6 +451,7 @@ export async function runSprint(
         const tierBudget = budgetForContract(contract)
         events.log('moe', 'milestone', 'qa',
           `Quinn tier=${contract.qaBrief.tier} budget=${Math.round(tierBudget.timeoutMs / 1000)}s scenarios≤${tierBudget.maxScenarios}`)
+        const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         const qaExecOptions = {
           model: grader.agent.model,
           cwd: grader.agent.workspace ?? executionTarget,
@@ -454,8 +459,13 @@ export async function runSprint(
           label: `qa-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            evaluatorAgentId ?? directEvaluatorId(grader.agent),
+          ),
         }
-        const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId
           ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId, qaExecOptions)
           : await graderAdapter.execute(qaPrompt, qaExecOptions)
@@ -499,6 +509,7 @@ export async function runSprint(
           graderType: 'ux',
           graderName: grader.name,
           verdict: uxVerdict,
+          reportedVerdict: qaReport.verdict,
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
@@ -517,6 +528,8 @@ export async function runSprint(
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
+          processExit: 'completed',
+          finalArtifactAvailable: Boolean(qaResult.output.trim()),
         }
         graderResults.push(uxGraderResult)
 
@@ -539,6 +552,12 @@ export async function runSprint(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            directEvaluatorId(grader.agent),
+          ),
         })
         graderExecution = crResult
 
@@ -575,6 +594,8 @@ export async function runSprint(
           crResult.costEstimate ?? 0
         )
         crGraderResult.provider = crResult.provider
+        crGraderResult.processExit = 'completed'
+        crGraderResult.finalArtifactAvailable = Boolean(crResult.output.trim())
         graderResults.push(crGraderResult)
         }
       } catch (error) {
@@ -583,13 +604,18 @@ export async function runSprint(
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
+      if (graderExecution) graderExecutions.push(graderExecution)
     }
 
     // 3c. Aggregate verdict across all graders
+    const evaluationProvenance = candidateIdentity
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults, graderExecutions)
+      : undefined
     const delivery = evaluateDeliveryVerdict(
       graders,
       graderResults,
       config.qa.verdictMode,
+      evaluationProvenance,
     )
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
@@ -618,7 +644,7 @@ export async function runSprint(
         repoPath: executionTarget,
         baselineSha: contract.scopeBaselineSha,
         candidateSha: candidateIdentity.candidateSha,
-        graderResults,
+        graderResults: delivery.productResults,
         failures: delivery.failures,
         originalVerdict: aggregateVerdict,
         config: findingsConfig,
@@ -629,7 +655,7 @@ export async function runSprint(
     const findingsReport = findingsRound?.report
     if (findingsRound) aggregateVerdict = findingsRound.verdict
     const qaDefects = materialGraderFindings(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
     ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
@@ -650,7 +676,10 @@ export async function runSprint(
       qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
       defects: qaDefects,
       graderResults,
+      productResults: delivery.productResults,
       deliveryFailures: delivery.failures,
+      evaluationProvenance,
+      harnessDiagnostics: delivery.harnessDiagnostics,
       candidateIdentity,
       findingsReport,
     }
@@ -687,7 +716,7 @@ export async function runSprint(
 
     lastDevOutput = devResult.output
     lastQAOutput = buildConsolidatedRepairBrief(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
       delivery.failures,
       {
         includeInformational:
@@ -883,10 +912,19 @@ export async function runExistingContract(
             // All required graders were aggregated before the crash; advance to repair.
             resumeFromRound = lastPhase.round + 1
             resumeFromPhase = 'dev'
-            const persistedRepairResults = lastIteration?.graderResults
+            const persistedProductResults = lastIteration?.productResults
+              ?? (lastIteration?.graderResults
+                ? evaluateDeliveryVerdict(
+                  configuredGraders,
+                  lastIteration.graderResults,
+                  config.qa.verdictMode,
+                  lastIteration.evaluationProvenance,
+                ).productResults
+                : undefined)
+            const persistedRepairResults = persistedProductResults
               ? repairScopedGraderResults(
-                lastIteration.graderResults,
-                lastIteration.findingsReport,
+                persistedProductResults,
+                lastIteration?.findingsReport,
               )
               : undefined
             lastQAOutput = restoreRepairFeedback(
@@ -1113,6 +1151,7 @@ export async function runExistingContract(
     writeHeartbeat(currentPhase, currentRound, sprintStartTime, contract.id, contract.name)
 
     const graderResults: GraderResult[] = []
+    const graderExecutions: AgentResult[] = []
     const observedCandidateIdentity = inspectDeliveryPreflight(
       executionTarget,
       executionPreflightOptions,
@@ -1157,6 +1196,7 @@ export async function runExistingContract(
         const tierBudget2 = budgetForContract(contract)
         events.log('moe', 'milestone', 'qa',
           `Quinn tier=${contract.qaBrief.tier} budget=${Math.round(tierBudget2.timeoutMs / 1000)}s scenarios≤${tierBudget2.maxScenarios}`)
+        const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         const qaExecOptions2 = {
           model: grader.agent.model,
           cwd: grader.agent.workspace ?? executionTarget,
@@ -1164,8 +1204,13 @@ export async function runExistingContract(
           label: `qa-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullPath, 'raw', `qa-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            evaluatorAgentId2 ?? directEvaluatorId(grader.agent),
+          ),
         }
-        const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId2
           ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId2, qaExecOptions2)
           : await graderAdapter.execute(qaPrompt, qaExecOptions2)
@@ -1207,6 +1252,7 @@ export async function runExistingContract(
           graderType: 'ux',
           graderName: grader.name,
           verdict: uxVerdict,
+          reportedVerdict: qaReport.verdict,
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
@@ -1225,6 +1271,8 @@ export async function runExistingContract(
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
+          processExit: 'completed',
+          finalArtifactAvailable: Boolean(qaResult.output.trim()),
         }
         graderResults.push(uxGraderResult)
 
@@ -1245,6 +1293,12 @@ export async function runExistingContract(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullPath, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            directEvaluatorId(grader.agent),
+          ),
         })
         graderExecution = crResult
 
@@ -1281,6 +1335,8 @@ export async function runExistingContract(
           crResult.costEstimate ?? 0
         )
         crGraderResult.provider = crResult.provider
+        crGraderResult.processExit = 'completed'
+        crGraderResult.finalArtifactAvailable = Boolean(crResult.output.trim())
         graderResults.push(crGraderResult)
         }
       } catch (error) {
@@ -1289,12 +1345,17 @@ export async function runExistingContract(
         events.log('moe', 'error', 'qa',
           `${grader.name} failed closed: ${error instanceof Error ? error.message : String(error)}`)
       }
+      if (graderExecution) graderExecutions.push(graderExecution)
     }
 
+    const evaluationProvenance = candidateIdentity
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults, graderExecutions)
+      : undefined
     const delivery = evaluateDeliveryVerdict(
       graders,
       graderResults,
       config.qa.verdictMode,
+      evaluationProvenance,
     )
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
@@ -1322,7 +1383,7 @@ export async function runExistingContract(
         repoPath: executionTarget,
         baselineSha: contract.scopeBaselineSha,
         candidateSha: candidateIdentity.candidateSha,
-        graderResults,
+        graderResults: delivery.productResults,
         failures: delivery.failures,
         originalVerdict: aggregateVerdict,
         config: findingsConfig,
@@ -1333,7 +1394,7 @@ export async function runExistingContract(
     const findingsReport = findingsRound?.report
     if (findingsRound) aggregateVerdict = findingsRound.verdict
     const qaDefects = materialGraderFindings(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
     ).map(f => ({
       id: f.id,
       severity: reverseSeverityMap(f.severity),
@@ -1353,7 +1414,10 @@ export async function runExistingContract(
       qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
       defects: qaDefects,
       graderResults,
+      productResults: delivery.productResults,
       deliveryFailures: delivery.failures,
+      evaluationProvenance,
+      harnessDiagnostics: delivery.harnessDiagnostics,
       candidateIdentity,
       findingsReport,
     }
@@ -1388,7 +1452,7 @@ export async function runExistingContract(
 
     lastDevOutput = devResult.output
     lastQAOutput = buildConsolidatedRepairBrief(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
       delivery.failures,
       {
         includeInformational:

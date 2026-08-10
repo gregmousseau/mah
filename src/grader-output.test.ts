@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  buildCodeReviewPrompt,
   hasExplicitCodeReviewVerdict,
   parseCodeReviewResult,
 } from './graders/code-review.js'
+import type { SprintContract } from './types.js'
 import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
 import { generateMockCodeReviewReport, generateMockOutput } from './adapters/openclaw.js'
+import { finalReportArtifactAvailable } from './adapters/factory.js'
 
 test('required grader verdict output is explicit and cannot be inferred as completed', () => {
   const incomplete = `## Code Review Report
@@ -36,12 +39,30 @@ test('required grader verdict output is explicit and cannot be inferred as compl
   assert.equal(hasExplicitQAVerdict('Everything appears to pass.'), false)
 })
 
+test('the execution evidence envelope is not itself a final report artifact', () => {
+  const envelope = 'MAH_EVALUATION_EVIDENCE: {"explicitVerdict":"pass"}'
+  assert.equal(finalReportArtifactAvailable(envelope), false)
+  assert.equal(finalReportArtifactAvailable(`**Verdict:** PASS\n${envelope}`), true)
+})
+
 test('mock code review output includes a completed explicit verdict', () => {
   const output = generateMockCodeReviewReport()
   const parsed = parseCodeReviewResult(output, 'code', 'Code', 'mock', 1, 0)
   assert.equal(hasExplicitCodeReviewVerdict(output), true)
   assert.equal(parsed.verdict, 'pass')
   assert.equal(parsed.executionStatus, 'completed')
+})
+
+test('code review prompt reserves evaluator self-reference for outer execution failures', () => {
+  const prompt = buildCodeReviewPrompt({
+    name: 'Fixture',
+    task: 'Verify evaluator provenance.',
+    devBrief: { repo: '/fixture/repo' },
+  } as SprintContract, 'Implemented the requested change.', 1)
+
+  assert.match(prompt, /evaluation-self-reference \| tooling/)
+  assert.match(prompt, /only when claiming that this\nouter MAH evaluator execution itself did not occur/)
+  assert.match(prompt, /Never use it for a product\noperation, cleanup, resume action, migration, or test that MAH failed to run/)
 })
 
 test('chain QA mock labels produce an explicit QA verdict', () => {

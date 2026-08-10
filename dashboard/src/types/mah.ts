@@ -81,6 +81,7 @@ export interface Iteration {
   qa: QARound;
   defects: Defect[];
   graderResults?: GraderResult[];
+  productResults?: GraderResult[];
 }
 
 export interface AgentRoutingConfig {

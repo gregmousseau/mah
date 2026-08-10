@@ -16,6 +16,7 @@ export interface GraderResult {
   graderType: string
   graderName: string
   verdict: 'pass' | 'conditional' | 'fail'
+  reportedVerdict?: 'pass' | 'conditional' | 'fail'
   findings: GraderFinding[]
   summary: string
   model: string
@@ -23,6 +24,8 @@ export interface GraderResult {
   durationMs: number
   costEstimate: number
   executionStatus?: 'completed' | 'missing' | 'failed' | 'timed_out'
+  processExit?: 'completed' | 'failed' | 'timed_out' | 'missing'
+  finalArtifactAvailable?: boolean
 }
 
 export type VerdictMode = 'fail-closed' | 'legacy'
@@ -32,6 +35,31 @@ export interface DeliveryFailure {
   stage: string
   message: string
   graderId?: string
+}
+
+export interface GraderExecutionProvenance {
+  sprintId: string
+  graderId: string
+  evaluatorId: string
+  expectedEvaluatorId?: string
+  candidateSha: string
+  processExit: 'completed' | 'failed' | 'timed_out' | 'missing'
+  explicitVerdict: GraderResult['verdict'] | null
+  finalArtifact: 'available' | 'unavailable'
+}
+
+export interface DeliveryEvaluationProvenance {
+  sprintId: string
+  evaluatorId: string
+  candidateSha: string
+  graders: GraderExecutionProvenance[]
+}
+
+export interface EvaluationEvidenceRequest {
+  sprintId: string
+  graderId: string
+  evaluatorId: string
+  candidateSha: string
 }
 
 export interface DeliveryIdentity {
@@ -199,7 +227,10 @@ export interface SprintIteration {
   qa?: PhaseResult
   defects: Defect[]
   graderResults?: GraderResult[]  // results from all graders this round
+  productResults?: GraderResult[] // grader results after harness-only findings are removed
   deliveryFailures?: DeliveryFailure[]
+  evaluationProvenance?: DeliveryEvaluationProvenance
+  harnessDiagnostics?: DeliveryFailure[]
   candidateIdentity?: DeliveryIdentity
   findingsReport?: import('./registrar/types.js').RegistrarReport
 }
@@ -302,6 +333,7 @@ export interface ExecuteOptions {
   rawActivityPath?: string
   /** Test-only override for the fixed five-second SIGKILL grace period. */
   terminationGraceMs?: number
+  evaluationEvidence?: EvaluationEvidenceRequest
 }
 
 export type AgentTerminationReason =
@@ -328,6 +360,7 @@ export interface AgentResult {
   }
   tokenUsage?: { input: number; output: number }
   costEstimate?: number
+  evaluationEvidence?: GraderExecutionProvenance
 }
 
 // ─── Sprint Transcript ───

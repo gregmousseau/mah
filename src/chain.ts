@@ -32,9 +32,12 @@ import { extractArtifacts, saveArtifacts, resolveInputs, buildInputContext } fro
 import { EventLogger } from './events.js'
 import {
   buildConsolidatedRepairBrief,
+  buildDeliveryEvaluationProvenance,
+  directEvaluatorId,
   assertDeliveryIdentity,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
+  evaluationEvidenceRequest,
   failedGraderResult,
   inspectDeliveryPreflight,
   inspectExecutionPreflight,
@@ -396,6 +399,7 @@ async function runChainSprint(
     lastChainPhase = `qa R${round}`
     contract.status = 'qa'
     const graderResults: GraderResult[] = []
+    const graderExecutions: AgentResult[] = []
     const uxGrader = graders.find((grader) => grader.type === 'ux')
     let qaResult: AgentResult | undefined
     if (uxGrader) {
@@ -410,6 +414,12 @@ async function runChainSprint(
         label: `chain-qa-${contract.id}-r${round}`,
         rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${uxGrader.id}.log`),
         transcriptMaxChars: config.execution?.transcriptMaxChars,
+        evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+          contract,
+          candidateIdentity.candidateSha,
+          uxGrader.id,
+          directEvaluatorId(uxGrader.agent),
+        ),
       })
       transcript.phases.push({
         phase: 'qa',
@@ -436,6 +446,7 @@ async function runChainSprint(
           graderType: 'ux',
           graderName: uxGrader.name,
           verdict: qaReport.verdict,
+          reportedVerdict: qaReport.verdict,
           findings: qaReport.defects.map((defect) => ({
             id: defect.id,
             severity: chainFindingSeverity(defect.severity),
@@ -454,11 +465,14 @@ async function runChainSprint(
           durationMs: qaResult.timing.durationMs,
           costEstimate: qaResult.costEstimate ?? 0,
           executionStatus: hasExplicitQAVerdict(qaResult.output) ? 'completed' : 'missing',
+          processExit: 'completed',
+          finalArtifactAvailable: Boolean(qaResult.output.trim()),
         })
       }
       } catch (error) {
         graderResults.push(failedGraderResult(uxGrader, error))
       }
+      if (qaResult) graderExecutions.push(qaResult)
     }
 
     for (const grader of graders.filter((candidate) => candidate.type === 'code-review')) {
@@ -473,6 +487,12 @@ async function runChainSprint(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            directEvaluatorId(grader.agent),
+          ),
         })
         graderExecution = crResult
         transcript.phases.push({
@@ -501,10 +521,13 @@ async function runChainSprint(
           crResult.costEstimate ?? 0,
         )
         parsedReview.provider = crResult.provider
+        parsedReview.processExit = 'completed'
+        parsedReview.finalArtifactAvailable = Boolean(crResult.output.trim())
         graderResults.push(parsedReview)
       } catch (error) {
         graderResults.push(failedGraderResult(grader, error, graderExecution))
       }
+      if (graderExecution) graderExecutions.push(graderExecution)
     }
     for (const grader of graders.filter(
       candidate => candidate.type !== 'ux' && candidate.type !== 'code-review',
@@ -515,7 +538,15 @@ async function runChainSprint(
       ))
     }
 
-    const delivery = evaluateDeliveryVerdict(graders, graderResults, config.qa.verdictMode)
+    const evaluationProvenance = candidateIdentity
+      ? buildDeliveryEvaluationProvenance(contract, config, candidateIdentity.candidateSha, graderResults, graderExecutions)
+      : undefined
+    const delivery = evaluateDeliveryVerdict(
+      graders,
+      graderResults,
+      config.qa.verdictMode,
+      evaluationProvenance,
+    )
     const deliveryFailures: DeliveryFailure[] = [...delivery.failures]
     if (candidateIdentity) {
       const failure = verifyDeliveryIdentity(
@@ -541,7 +572,7 @@ async function runChainSprint(
         repoPath: executionTarget,
         baselineSha: contract.scopeBaselineSha,
         candidateSha: candidateIdentity.candidateSha,
-        graderResults,
+        graderResults: delivery.productResults,
         failures: deliveryFailures,
         originalVerdict: effectiveVerdict,
         config: findingsConfig,
@@ -551,7 +582,7 @@ async function runChainSprint(
       : undefined
     const findingsReport = findingsRound?.report
     if (findingsRound) effectiveVerdict = findingsRound.verdict
-    const repairResults = repairScopedGraderResults(graderResults, findingsReport)
+    const repairResults = repairScopedGraderResults(delivery.productResults, findingsReport)
     const qaDuration = qaResult ? formatDuration(qaResult.timing.durationMs) : 'no UX grader'
     events.log('quinn', 'output', 'qa', `R${round} verdict: ${effectiveVerdict} (${qaDuration})`)
 
@@ -591,7 +622,10 @@ async function runChainSprint(
         exitCriterion: finding.exitCriterion,
       })),
       graderResults,
+      productResults: delivery.productResults,
       deliveryFailures,
+      evaluationProvenance,
+      harnessDiagnostics: delivery.harnessDiagnostics,
       candidateIdentity,
       findingsReport,
     }

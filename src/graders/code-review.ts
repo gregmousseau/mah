@@ -98,6 +98,13 @@ Respond ONLY with a code review report in this exact format:
 
 [If none, write: - None]
 
+Use one of these finding categories: product | harness | infrastructure |
+credentials | environment | preflight | evaluation |
+evaluation-self-reference | tooling.
+Use the exact category evaluation-self-reference only when claiming that this
+outer MAH evaluator execution itself did not occur. Never use it for a product
+operation, cleanup, resume action, migration, or test that MAH failed to run.
+
 ## Verdict Rules
 - Any Critical finding → **FAIL**
 - Any Major finding (no Critical) → **CONDITIONAL**
