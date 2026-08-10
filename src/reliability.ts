@@ -169,9 +169,6 @@ export function evaluateDeliveryVerdict(
     }
   }
 
-  if (failures.length > 0) {
-    return { verdict: 'fail', failures, harnessDiagnostics, productResults: results }
-  }
   const productResults = results.map((result) => ({
     ...result,
     findings: result.findings.filter((finding) => {
@@ -194,6 +191,9 @@ export function evaluateDeliveryVerdict(
       return false
     }),
   }))
+  if (failures.length > 0) {
+    return { verdict: 'fail', failures, harnessDiagnostics, productResults }
+  }
   if (productResults.some((result) => result.findings.some(isMaterialFinding))) {
     return { verdict: 'fail', failures: [], harnessDiagnostics, productResults }
   }

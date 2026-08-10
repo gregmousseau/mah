@@ -226,6 +226,7 @@ export interface SprintIteration {
   qa?: PhaseResult
   defects: Defect[]
   graderResults?: GraderResult[]  // results from all graders this round
+  productResults?: GraderResult[] // grader results after harness-only findings are removed
   deliveryFailures?: DeliveryFailure[]
   evaluationProvenance?: DeliveryEvaluationProvenance
   harnessDiagnostics?: DeliveryFailure[]

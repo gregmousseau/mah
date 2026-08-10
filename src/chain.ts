@@ -621,6 +621,7 @@ async function runChainSprint(
         exitCriterion: finding.exitCriterion,
       })),
       graderResults,
+      productResults: delivery.productResults,
       deliveryFailures,
       evaluationProvenance,
       harnessDiagnostics: delivery.harnessDiagnostics,

@@ -675,6 +675,7 @@ export async function runSprint(
       qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
       defects: qaDefects,
       graderResults,
+      productResults: delivery.productResults,
       deliveryFailures: delivery.failures,
       evaluationProvenance,
       harnessDiagnostics: delivery.harnessDiagnostics,
@@ -714,7 +715,7 @@ export async function runSprint(
 
     lastDevOutput = devResult.output
     lastQAOutput = buildConsolidatedRepairBrief(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
       delivery.failures,
       {
         includeInformational:
@@ -910,10 +911,19 @@ export async function runExistingContract(
             // All required graders were aggregated before the crash; advance to repair.
             resumeFromRound = lastPhase.round + 1
             resumeFromPhase = 'dev'
-            const persistedRepairResults = lastIteration?.graderResults
+            const persistedProductResults = lastIteration?.productResults
+              ?? (lastIteration?.graderResults
+                ? evaluateDeliveryVerdict(
+                  configuredGraders,
+                  lastIteration.graderResults,
+                  config.qa.verdictMode,
+                  lastIteration.evaluationProvenance,
+                ).productResults
+                : undefined)
+            const persistedRepairResults = persistedProductResults
               ? repairScopedGraderResults(
-                lastIteration.graderResults,
-                lastIteration.findingsReport,
+                persistedProductResults,
+                lastIteration?.findingsReport,
               )
               : undefined
             lastQAOutput = restoreRepairFeedback(
@@ -1402,6 +1412,7 @@ export async function runExistingContract(
       qa: qaResult ? agentResultToPhaseResult(qaResult, uxResult?.model ?? config.agents.evaluator.model) : undefined,
       defects: qaDefects,
       graderResults,
+      productResults: delivery.productResults,
       deliveryFailures: delivery.failures,
       evaluationProvenance,
       harnessDiagnostics: delivery.harnessDiagnostics,
@@ -1439,7 +1450,7 @@ export async function runExistingContract(
 
     lastDevOutput = devResult.output
     lastQAOutput = buildConsolidatedRepairBrief(
-      repairScopedGraderResults(graderResults, findingsReport),
+      repairScopedGraderResults(delivery.productResults, findingsReport),
       delivery.failures,
       {
         includeInformational:

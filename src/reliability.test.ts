@@ -122,6 +122,34 @@ test('recorded outer evaluator self-reference is retained as a harness diagnosti
   assert.equal(delivery.harnessDiagnostics?.[0]?.stage, 'evaluator-self-reference')
 })
 
+test('unrelated grader failure does not leak an authoritative self-reference into product results', () => {
+  const sha = 'a'.repeat(40)
+  const selfReference = {
+    ...result('ux', 'pass'),
+    findings: [{
+      id: 'P2-01',
+      severity: 'major' as const,
+      category: 'evaluation-self-reference',
+      description: 'MAH did not run, so no evaluation was performed.',
+    }],
+  }
+  const delivery = evaluateDeliveryVerdict(
+    graders,
+    [selfReference, { ...result('code', 'pass'), executionStatus: 'timed_out' }],
+    'fail-closed',
+    provenance(sha, [
+      { graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha,
+        processExit: 'completed', explicitVerdict: 'pass', finalArtifact: 'available' },
+      { graderId: 'code', evaluatorId: 'quinn', candidateSha: sha,
+        processExit: 'timed_out', explicitVerdict: 'pass', finalArtifact: 'available' },
+    ]),
+  )
+  assert.equal(delivery.verdict, 'fail')
+  assert.equal(delivery.productResults[0]?.findings.length, 0)
+  assert.equal(delivery.harnessDiagnostics?.[0]?.stage, 'evaluator-self-reference')
+  assert.ok(delivery.failures.some((failure) => failure.graderId === 'code'))
+})
+
 test('unavailable final prose does not replace complete structured evaluation evidence', () => {
   const sha = 'a'.repeat(40)
   const delivery = evaluateDeliveryVerdict(

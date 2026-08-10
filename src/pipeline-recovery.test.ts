@@ -599,6 +599,7 @@ fi
     assert.deepEqual(iteration.deliveryFailures, [])
     assert.deepEqual(iteration.defects, [])
     assert.equal(iteration.graderResults?.[0]?.findings.length, 1)
+    assert.equal(iteration.productResults?.[0]?.findings.length, 0)
   } finally {
     process.env.PATH = originalPath
     restoreFile(heartbeatPath, heartbeatSnapshot)
