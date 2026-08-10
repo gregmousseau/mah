@@ -611,7 +611,7 @@ export default function SprintDetailPage() {
 
   // Collect all grader results from the latest iteration
   const latestIteration = contract.iterations[contract.iterations.length - 1];
-  const latestGraderResults: GraderResult[] = latestIteration?.graderResults ?? [];
+  const latestGraderResults: GraderResult[] = latestIteration?.productResults ?? latestIteration?.graderResults ?? [];
 
   const isActive = contract.status === "dev" || contract.status === "qa" || contract.status === "running";
 

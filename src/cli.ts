@@ -363,7 +363,7 @@ function formatLinearComment(
     : '**Defects remaining:** none'
 
   const lastIter = contract.iterations[contract.iterations.length - 1]
-  const graderLines = (lastIter?.graderResults ?? []).map(g => {
+  const graderLines = (lastIter?.productResults ?? lastIter?.graderResults ?? []).map(g => {
     const v = g.verdict === 'pass' ? '✅' : g.verdict === 'conditional' ? '🟡' : '❌'
     return `- ${v} **${g.graderName}** — ${g.verdict}${g.findings.length > 0 ? ` (${g.findings.length} findings)` : ''}`
   }).join('\n')
