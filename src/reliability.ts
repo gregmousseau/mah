@@ -143,7 +143,7 @@ export function evaluateDeliveryVerdict(
         message: `Required grader ${grader.name} ended with ${execution.processExit}.`,
       })
     }
-    if (execution && execution.explicitVerdict !== result.verdict) {
+    if (execution && execution.explicitVerdict !== (result.reportedVerdict ?? result.verdict)) {
       failures.push({
         kind: 'harness',
         stage: 'grader-provenance',

@@ -16,6 +16,7 @@ export interface GraderResult {
   graderType: string
   graderName: string
   verdict: 'pass' | 'conditional' | 'fail'
+  reportedVerdict?: 'pass' | 'conditional' | 'fail'
   findings: GraderFinding[]
   summary: string
   model: string

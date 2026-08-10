@@ -509,6 +509,7 @@ export async function runSprint(
           graderType: 'ux',
           graderName: grader.name,
           verdict: uxVerdict,
+          reportedVerdict: qaReport.verdict,
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),
@@ -1251,6 +1252,7 @@ export async function runExistingContract(
           graderType: 'ux',
           graderName: grader.name,
           verdict: uxVerdict,
+          reportedVerdict: qaReport.verdict,
           findings: qaReport.defects.map((d) => ({
             id: d.id,
             severity: severityMap(d.severity),

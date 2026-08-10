@@ -98,6 +98,32 @@ test('a PASS verdict cannot override a material grader finding', () => {
   ).verdict, 'fail')
 })
 
+test('severity promotion does not fabricate a provenance mismatch', () => {
+  const sha = 'a'.repeat(40)
+  const promoted = {
+    ...result('ux', 'fail'),
+    reportedVerdict: 'conditional' as const,
+    findings: [{
+      id: 'P1-01',
+      severity: 'critical' as const,
+      category: 'ux',
+      description: 'A blocking UX defect.',
+    }],
+  }
+  const delivery = evaluateDeliveryVerdict(
+    [graders[0]],
+    [promoted],
+    'fail-closed',
+    provenance(sha, [{
+      graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha,
+      processExit: 'completed', explicitVerdict: 'conditional', finalArtifact: 'available',
+    }]),
+  )
+  assert.equal(delivery.verdict, 'fail')
+  assert.deepEqual(delivery.failures, [])
+  assert.equal(delivery.productResults[0]?.findings[0]?.id, 'P1-01')
+})
+
 test('recorded outer evaluator self-reference is retained as a harness diagnostic', () => {
   const sha = 'a'.repeat(40)
   const selfReference = {

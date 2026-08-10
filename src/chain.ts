@@ -446,6 +446,7 @@ async function runChainSprint(
           graderType: 'ux',
           graderName: uxGrader.name,
           verdict: qaReport.verdict,
+          reportedVerdict: qaReport.verdict,
           findings: qaReport.defects.map((defect) => ({
             id: defect.id,
             severity: chainFindingSeverity(defect.severity),
