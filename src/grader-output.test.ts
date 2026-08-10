@@ -6,6 +6,7 @@ import {
 } from './graders/code-review.js'
 import { hasExplicitQAVerdict, parseQAReport } from './parser.js'
 import { generateMockCodeReviewReport, generateMockOutput } from './adapters/openclaw.js'
+import { finalReportArtifactAvailable } from './adapters/factory.js'
 
 test('required grader verdict output is explicit and cannot be inferred as completed', () => {
   const incomplete = `## Code Review Report
@@ -34,6 +35,12 @@ test('required grader verdict output is explicit and cannot be inferred as compl
   assert.equal(hasExplicitQAVerdict('## Verdict: PASS / CONDITIONAL PASS / FAIL'), false)
   assert.equal(hasExplicitQAVerdict('**Verdict:** FAILED'), false)
   assert.equal(hasExplicitQAVerdict('Everything appears to pass.'), false)
+})
+
+test('the execution evidence envelope is not itself a final report artifact', () => {
+  const envelope = 'MAH_EVALUATION_EVIDENCE: {"explicitVerdict":"pass"}'
+  assert.equal(finalReportArtifactAvailable(envelope), false)
+  assert.equal(finalReportArtifactAvailable(`**Verdict:** PASS\n${envelope}`), true)
 })
 
 test('mock code review output includes a completed explicit verdict', () => {

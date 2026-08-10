@@ -30,6 +30,7 @@ class ContextualAdapter implements AgentAdapter {
     const request = options.evaluationEvidence
     if (!request) return result
     const marker = /(?:^|\n)MAH_EVALUATION_EVIDENCE:\s*(\{[^\n]+\})\s*$/.exec(result.output)
+    const reportAvailable = finalReportArtifactAvailable(result.output)
     let reported: Partial<typeof request> & { explicitVerdict?: unknown } = {}
     try { reported = marker ? JSON.parse(marker[1]!) : {} } catch { reported = {} }
     const explicitVerdict = reported.explicitVerdict
@@ -39,15 +40,21 @@ class ContextualAdapter implements AgentAdapter {
         sprintId: typeof reported.sprintId === 'string' ? reported.sprintId : '',
         graderId: typeof reported.graderId === 'string' ? reported.graderId : '',
         evaluatorId: typeof reported.evaluatorId === 'string' ? reported.evaluatorId : '',
+        expectedEvaluatorId: request.evaluatorId,
         candidateSha: typeof reported.candidateSha === 'string' ? reported.candidateSha : '',
         processExit: result.success ? 'completed' : result.termination?.reason === 'idle-timeout'
           || result.termination?.reason === 'absolute-timeout' ? 'timed_out' : 'failed',
         explicitVerdict: explicitVerdict === 'pass' || explicitVerdict === 'conditional' || explicitVerdict === 'fail'
           ? explicitVerdict : null,
-        finalArtifact: result.output.trim() ? 'available' : 'unavailable',
+        finalArtifact: reportAvailable ? 'available' : 'unavailable',
       },
     }
   }
+}
+
+export function finalReportArtifactAvailable(output: string): boolean {
+  const marker = /(?:^|\n)MAH_EVALUATION_EVIDENCE:\s*\{[^\n]+\}\s*$/.exec(output)
+  return Boolean((marker ? output.slice(0, marker.index) : output).trim())
 }
 
 function withEvidenceRequest(task: string, options: ExecuteOptions): string {

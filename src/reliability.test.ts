@@ -106,7 +106,7 @@ test('recorded outer evaluator self-reference is retained as a harness diagnosti
       id: 'P1-01',
       severity: 'major' as const,
       findingKind: 'defect' as const,
-      category: 'product',
+      category: 'evaluation-self-reference',
       description: 'MAH did not run, so no evaluation was performed.',
     }],
   }
@@ -133,6 +133,29 @@ test('unavailable final prose does not replace complete structured evaluation ev
   )
   assert.equal(delivery.verdict, 'pass')
   assert.equal(delivery.harnessDiagnostics?.[0]?.stage, 'grader-final-artifact')
+})
+
+test('negative MAH product wording remains material without the self-reference enum', () => {
+  const sha = 'a'.repeat(40)
+  const productFinding = {
+    ...result('ux', 'pass'),
+    findings: [{
+      id: 'P1-01',
+      severity: 'major' as const,
+      findingKind: 'defect' as const,
+      category: 'product',
+      description: 'MAH did not run the cleanup on resume.',
+    }],
+  }
+  const delivery = evaluateDeliveryVerdict(
+    [graders[0]],
+    [productFinding],
+    'fail-closed',
+    provenance(sha, [{ graderId: 'ux', evaluatorId: 'quinn', candidateSha: sha,
+      processExit: 'completed', explicitVerdict: 'pass', finalArtifact: 'available' }]),
+  )
+  assert.equal(delivery.verdict, 'fail')
+  assert.deepEqual(delivery.harnessDiagnostics, [])
 })
 
 test('provenance remains fail-closed for missing evaluation and exact-SHA mismatch', () => {
@@ -184,7 +207,7 @@ test('execution-boundary reports with a wrong evaluator or candidate fail closed
 
 test('self-reference cannot erase a non-PASS verdict, failed process, identity mismatch, or other material finding', () => {
   const sha = 'a'.repeat(40)
-  const meta = { id: 'P1-01', severity: 'major' as const, category: 'product',
+  const meta = { id: 'P1-01', severity: 'major' as const, category: 'evaluation-self-reference',
     description: 'MAH did not run, so the result is unavailable.' }
   const product = { id: 'P1-02', severity: 'major' as const, category: 'bug',
     description: 'The candidate drops persisted data.' }
@@ -206,6 +229,25 @@ test('self-reference cannot erase a non-PASS verdict, failed process, identity m
       [graders[0]], [graded], 'fail-closed', provenance(sha, [execution]),
     ).verdict, 'fail')
   }
+})
+
+test('per-execution expected evaluator identity overrides the stale global evaluator', () => {
+  const sha = 'a'.repeat(40)
+  const delivery = evaluateDeliveryVerdict(
+    [graders[0]],
+    [result('ux', 'pass')],
+    'fail-closed',
+    provenance(sha, [{
+      graderId: 'ux',
+      evaluatorId: 'codex:resolved-reviewer',
+      expectedEvaluatorId: 'codex:resolved-reviewer',
+      candidateSha: sha,
+      processExit: 'completed',
+      explicitVerdict: 'pass',
+      finalArtifact: 'available',
+    }]),
+  )
+  assert.equal(delivery.verdict, 'pass')
 })
 
 test('legacy rollback retains the previous permissive aggregation', () => {

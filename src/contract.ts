@@ -187,7 +187,7 @@ If there are no defects, write exactly: None.
 Do not describe an empty defect list with a P0–P3 severity range.
 Format each defect with all scope fields:
 **P1-01:** [description]
-  Finding category: [product | harness | infrastructure | credentials | environment | preflight | evaluation | tooling]
+  Finding category: [product | harness | infrastructure | credentials | environment | preflight | evaluation | evaluation-self-reference | tooling]
   Scope relationship: [introduced | worsened | activated | pre-existing | unknown]
   Release impact: [required-for-release-safety | not-release-blocking | unknown]
   Evidence confidence: [confirmed | plausible | insufficient]
@@ -197,6 +197,9 @@ Format each defect with all scope fields:
 Severity determines urgency. Scope relationship and release impact determine
 whether the defect belongs in this sprint. Do not call a pre-existing issue
 introduced merely because it is severe or appears in a touched file.
+Use the exact category evaluation-self-reference only when claiming that this
+outer MAH evaluator execution itself did not occur. Never use it for a product
+operation, cleanup, resume action, migration, or test that MAH failed to run.
 
 ## Recommendation
 [PASS/FAIL with brief reasoning]

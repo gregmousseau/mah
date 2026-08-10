@@ -28,18 +28,20 @@ export interface DeliveryVerdict {
 
 export function evaluationEvidenceRequest(
   contract: Pick<SprintContract, 'id' | 'agentConfig'>,
-  config: Pick<ProjectConfig, 'agents'>,
   candidateSha: string,
   graderId: string,
+  evaluatorId: string,
 ): EvaluationEvidenceRequest {
   return {
     sprintId: contract.id,
     graderId,
-    evaluatorId: contract.agentConfig?.evaluator.agentId
-      || config.agents.evaluator.agentId
-      || `${config.agents.evaluator.type}:${config.agents.evaluator.model}`,
+    evaluatorId,
     candidateSha,
   }
+}
+
+export function directEvaluatorId(agent: AgentConfig): string {
+  return `${agent.type}:${agent.model}`
 }
 
 export function buildDeliveryEvaluationProvenance(
@@ -116,7 +118,8 @@ export function evaluateDeliveryVerdict(
         message: `Required grader ${grader.name} does not belong to recorded outer sprint ${provenance?.sprintId}.`,
       })
     }
-    if (execution && execution.evaluatorId !== provenance?.evaluatorId) {
+    const expectedEvaluatorId = execution?.expectedEvaluatorId ?? provenance?.evaluatorId
+    if (execution && execution.evaluatorId !== expectedEvaluatorId) {
       failures.push({
         kind: 'identity',
         stage: 'grader-provenance',
@@ -172,10 +175,11 @@ export function evaluateDeliveryVerdict(
   const productResults = results.map((result) => ({
     ...result,
     findings: result.findings.filter((finding) => {
-      if (!isContradictorySelfReference(finding.description)) return true
+      if (!isEvaluatorSelfReference(finding)) return true
       const execution = provenance?.graders.find((item) => item.graderId === result.graderId)
+      const expectedEvaluatorId = execution?.expectedEvaluatorId ?? provenance?.evaluatorId
       const authoritativePass = execution?.sprintId === provenance?.sprintId
-        && execution?.evaluatorId === provenance?.evaluatorId
+        && execution?.evaluatorId === expectedEvaluatorId
         && execution?.candidateSha === provenance?.candidateSha
         && execution?.processExit === 'completed'
         && execution?.explicitVerdict === 'pass'
@@ -202,8 +206,8 @@ export function evaluateDeliveryVerdict(
   return { verdict: 'pass', failures: [], harnessDiagnostics, productResults }
 }
 
-function isContradictorySelfReference(description: string): boolean {
-  return /\bMAH\b.{0,80}\b(?:did not|didn't|was not|wasn't|never)\s+(?:run|executed|invoked|started)\b/is.test(description)
+function isEvaluatorSelfReference(finding: GraderFinding): boolean {
+  return finding.category.trim().toLowerCase() === 'evaluation-self-reference'
 }
 
 function aggregateLegacy(results: GraderResult[]): GraderResult['verdict'] {

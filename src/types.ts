@@ -40,6 +40,7 @@ export interface GraderExecutionProvenance {
   sprintId: string
   graderId: string
   evaluatorId: string
+  expectedEvaluatorId?: string
   candidateSha: string
   processExit: 'completed' | 'failed' | 'timed_out' | 'missing'
   explicitVerdict: GraderResult['verdict'] | null

@@ -33,6 +33,7 @@ import { EventLogger } from './events.js'
 import {
   buildConsolidatedRepairBrief,
   buildDeliveryEvaluationProvenance,
+  directEvaluatorId,
   assertDeliveryIdentity,
   classifyDeliveryError,
   evaluateDeliveryVerdict,
@@ -413,7 +414,12 @@ async function runChainSprint(
         label: `chain-qa-${contract.id}-r${round}`,
         rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${uxGrader.id}.log`),
         transcriptMaxChars: config.execution?.transcriptMaxChars,
-        evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, uxGrader.id),
+        evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+          contract,
+          candidateIdentity.candidateSha,
+          uxGrader.id,
+          directEvaluatorId(uxGrader.agent),
+        ),
       })
       transcript.phases.push({
         phase: 'qa',
@@ -480,7 +486,12 @@ async function runChainSprint(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
-          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            directEvaluatorId(grader.agent),
+          ),
         })
         graderExecution = crResult
         transcript.phases.push({

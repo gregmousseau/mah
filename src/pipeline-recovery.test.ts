@@ -544,7 +544,7 @@ elif [[ "$input" == *"You are Quinn, a QA engineer"* ]]; then
 Structured checks passed the exact candidate.
 ## Defects Found
 **P1-01:** MAH did not run, so no evaluation was performed.
-  Finding category: product
+  Finding category: evaluation-self-reference
   Scope relationship: introduced
   Release impact: required-for-release-safety
   Evidence confidence: confirmed
@@ -588,6 +588,7 @@ fi
         sprintId: contract.id,
         graderId: contract.graders[0]!.id,
         evaluatorId: 'codex:test-model',
+        expectedEvaluatorId: 'codex:test-model',
         candidateSha,
         processExit: 'completed',
         explicitVerdict: 'pass',

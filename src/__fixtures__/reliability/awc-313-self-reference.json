@@ -16,7 +16,7 @@
           "id": "P1-01",
           "severity": "major",
           "findingKind": "defect",
-          "category": "product",
+          "category": "evaluation-self-reference",
           "description": "MAH did not run, so no evaluation was performed."
         }
       ],

@@ -40,6 +40,7 @@ import { preflightEnabledGraders, resolveEnabledGraders } from './grader-config.
 import {
   buildConsolidatedRepairBrief,
   buildDeliveryEvaluationProvenance,
+  directEvaluatorId,
   assertDeliveryIdentity,
   canResumeQAWithPinnedCandidate,
   classifyDeliveryError,
@@ -450,6 +451,7 @@ export async function runSprint(
         const tierBudget = budgetForContract(contract)
         events.log('moe', 'milestone', 'qa',
           `Quinn tier=${contract.qaBrief.tier} budget=${Math.round(tierBudget.timeoutMs / 1000)}s scenarios≤${tierBudget.maxScenarios}`)
+        const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         const qaExecOptions = {
           model: grader.agent.model,
           cwd: grader.agent.workspace ?? executionTarget,
@@ -457,9 +459,13 @@ export async function runSprint(
           label: `qa-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `qa-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
-          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            evaluatorAgentId ?? directEvaluatorId(grader.agent),
+          ),
         }
-        const evaluatorAgentId = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId
           ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId, qaExecOptions)
           : await graderAdapter.execute(qaPrompt, qaExecOptions)
@@ -545,7 +551,12 @@ export async function runSprint(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullDir, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
-          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            directEvaluatorId(grader.agent),
+          ),
         })
         graderExecution = crResult
 
@@ -1174,6 +1185,7 @@ export async function runExistingContract(
         const tierBudget2 = budgetForContract(contract)
         events.log('moe', 'milestone', 'qa',
           `Quinn tier=${contract.qaBrief.tier} budget=${Math.round(tierBudget2.timeoutMs / 1000)}s scenarios≤${tierBudget2.maxScenarios}`)
+        const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         const qaExecOptions2 = {
           model: grader.agent.model,
           cwd: grader.agent.workspace ?? executionTarget,
@@ -1181,9 +1193,13 @@ export async function runExistingContract(
           label: `qa-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullPath, 'raw', `qa-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
-          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            evaluatorAgentId2 ?? directEvaluatorId(grader.agent),
+          ),
         }
-        const evaluatorAgentId2 = contract.agentConfig?.evaluator.agentId
         qaResult = evaluatorAgentId2
           ? await graderAdapter.executeWithAgent!(qaPrompt, evaluatorAgentId2, qaExecOptions2)
           : await graderAdapter.execute(qaPrompt, qaExecOptions2)
@@ -1265,7 +1281,12 @@ export async function runExistingContract(
           label: `cr-${contract.id}-r${round}`,
           rawActivityPath: join(sprintFullPath, 'raw', `code-review-r${round}-${grader.id}.log`),
           transcriptMaxChars: config.execution?.transcriptMaxChars,
-          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(contract, config, candidateIdentity.candidateSha, grader.id),
+          evaluationEvidence: candidateIdentity && evaluationEvidenceRequest(
+            contract,
+            candidateIdentity.candidateSha,
+            grader.id,
+            directEvaluatorId(grader.agent),
+          ),
         })
         graderExecution = crResult
 
