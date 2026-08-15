@@ -14,10 +14,11 @@ agents:
     model: sonnet
     cwd: ~/pro/web/apps/gta-labs
   evaluator:
-    type: openclaw
-    model: sonnet
+    type: codex
+    model: gpt-5.6-terra
+    reasoningEffort: high
+    fastMode: false
     readOnly: true
-    workspace: ~/.openclaw/workspace-qa
     testUrl: http://localhost:3001
   strictEvaluator:
     type: claude-cli

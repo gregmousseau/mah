@@ -81,6 +81,8 @@ test('review routing scales deterministic graders to task risk and user visibili
     'Rotate API credentials',
     'Validate access tokens',
     'Replace the API key',
+    'Fix the OAuth redirect flow',
+    'Repair password reset validation',
   ]) {
     assert.equal(generateContract(task, config, task).reviewProfile?.risk, 'strict')
   }

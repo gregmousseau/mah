@@ -90,6 +90,12 @@ review:
   assert.throws(() => loadConfig(path), /maxMaterialFindings/)
 })
 
+test('the checked-in evaluator uses a provider that can prove read-only execution', () => {
+  const config = loadConfig(join(process.cwd(), 'mah.yaml'))
+  assert.equal(config.agents.evaluator.type, 'codex')
+  assert.equal(config.agents.evaluator.readOnly, true)
+})
+
 test('execution policy is configurable and rejects unsafe timeout shapes', () => {
   const root = mkdtempSync(join(tmpdir(), 'mah-execution-config-'))
   const path = join(root, 'mah.yaml')
