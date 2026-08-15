@@ -25,11 +25,25 @@ function resolvedCwd(options: ExecuteOptions): string {
   return raw.startsWith('~') ? raw.replace('~', process.env.HOME ?? '') : raw
 }
 
+function preflightCacheKey(model: string, options: ExecuteOptions): string {
+  // Preflight invokes Codex with a read-only sandbox, but the requested
+  // reasoning effort and service tier are part of the effective command.
+  // Cache only an identical invocation so an unsupported reviewer-specific
+  // combination fails before Dev rather than during evaluation.
+  const reasoning = options.reasoningEffort ?? 'default'
+  const speed = options.fastMode === true
+    ? 'fast'
+    : options.fastMode === false
+      ? 'standard'
+      : 'default'
+  return `${model}:${resolvedCwd(options)}:reasoning=${reasoning}:speed=${speed}:sandbox=read-only`
+}
+
 export class CodexAdapter implements AgentAdapter {
   async preflight(options: ExecuteOptions): Promise<void> {
     const model = options.model?.trim()
     if (!model) throw new Error('Codex provider requires an explicit model')
-    const key = `${model}:${resolvedCwd(options)}`
+    const key = preflightCacheKey(model, options)
     if (verifiedModels.has(key)) return
     const result = await this.run('Reply with exactly: MAH_PROVIDER_OK', options, true)
     if (!result.success || !result.output.includes('MAH_PROVIDER_OK')) {

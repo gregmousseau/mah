@@ -28,7 +28,7 @@ test('Codex adapter uses activity-reset idle timeout, absolute ceiling, and boun
     writeFileSync(executable, `#!/usr/bin/env bash
 set -eu
 output=""
-printf '%s\n' "$@" > "\${MAH_TEST_CODEX_ARGS:-/dev/null}"
+printf '%s\n' "$@" >> "\${MAH_TEST_CODEX_ARGS:-/dev/null}"
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "--output-last-message" ]]; then
     output="$2"
@@ -45,6 +45,9 @@ case "\${MAH_TEST_CODEX_BEHAVIOR:-active}" in
       sleep 0.04
     done
     printf 'active completion' > "$output"
+    ;;
+  preflight)
+    printf 'MAH_PROVIDER_OK' > "$output"
     ;;
   idle)
     sleep 2
@@ -97,6 +100,32 @@ esac
       assert.match(args, /model_reasoning_effort="high"/)
       assert.match(args, /--disable\nfast_mode/)
       assert.match(args, /--ephemeral/)
+      assert.match(args, /--sandbox\nread-only/)
+      delete process.env.MAH_TEST_CODEX_ARGS
+    })
+
+    await t.test('preflight cache includes effective reasoning, speed, and sandbox settings', async () => {
+      process.env.MAH_TEST_CODEX_BEHAVIOR = 'preflight'
+      const argsPath = join(root, 'preflight-args.log')
+      process.env.MAH_TEST_CODEX_ARGS = argsPath
+      const options = {
+        model: 'preflight-model',
+        cwd: root,
+        reasoningEffort: 'high' as const,
+        fastMode: false,
+      }
+
+      await adapter.preflight(options)
+      await adapter.preflight(options)
+      await adapter.preflight({ ...options, reasoningEffort: 'low' })
+      await adapter.preflight({ ...options, reasoningEffort: 'low', fastMode: true })
+
+      const args = readFileSync(argsPath, 'utf8')
+      assert.equal(args.match(/^exec$/gm)?.length, 3)
+      assert.match(args, /model_reasoning_effort="high"/)
+      assert.match(args, /model_reasoning_effort="low"/)
+      assert.match(args, /--disable\nfast_mode/)
+      assert.match(args, /--enable\nfast_mode/)
       assert.match(args, /--sandbox\nread-only/)
       delete process.env.MAH_TEST_CODEX_ARGS
     })
