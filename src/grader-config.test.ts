@@ -93,6 +93,38 @@ test('runtime evaluator overrides never replace the independent strict reviewer'
   assert.equal(grader?.agent.readOnly, true)
 })
 
+test('runtime overrides cannot collapse strict review onto one provider', () => {
+  const config = fixtureConfig()
+  config.runtime = {
+    agentOverrides: {
+      evaluator: { type: 'claude-cli', model: 'claude-sonnet-4-6' },
+    },
+  }
+  const contract = {
+    graders: [
+      {
+        id: 'code-review',
+        type: 'code-review',
+        name: 'Code Reviewer',
+        enabled: true,
+        agent: { type: 'codex', model: 'gpt-5.6-terra' },
+      },
+      {
+        id: 'independent-risk-review',
+        type: 'code-review',
+        name: 'Independent Risk Reviewer',
+        enabled: true,
+        agent: { type: 'claude-cli', model: 'claude-sonnet-4-6' },
+      },
+    ],
+  } as SprintContract
+
+  assert.throws(
+    () => resolveEnabledGraders(contract, config, '/canonical/worktree'),
+    /different providers/,
+  )
+})
+
 test('grader preflight rejects gateway providers that cannot prove read-only execution', async () => {
   for (const type of ['openclaw', 'kilo'] as const) {
     await assert.rejects(

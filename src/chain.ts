@@ -141,7 +141,7 @@ export async function runChain(
     contract.agentAssignments = proposed.agents
     contract.inputs = inputs.length > 0 ? inputs : undefined
     contract.humanCheckpoint = proposed.humanCheckpoint
-    contract.qaBrief.tier = proposed.qaTier
+    contract.qaBrief.tier = bumpTier(contract.qaBrief.tier, proposed.qaTier)
 
     // Resolve skills for this sprint's agents
     const genAssignment = proposed.agents.find(a => a.role === 'generator' || a.role === 'researcher')

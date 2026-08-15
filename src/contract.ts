@@ -91,6 +91,14 @@ export function generateContract(
       'Strict-risk work requires agents.strictEvaluator; independent review cannot be skipped.',
     )
   }
+  if (
+    reviewProfile.risk === 'strict' &&
+    config.agents.strictEvaluator?.type === config.agents.evaluator.type
+  ) {
+    throw new Error(
+      'Strict-risk work requires the ordinary and independent evaluators to use different providers.',
+    )
+  }
   if (reviewProfile.risk === 'strict') {
     defaultGraders.push({
       id: 'independent-risk-review',

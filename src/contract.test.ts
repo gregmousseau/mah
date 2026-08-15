@@ -107,6 +107,16 @@ test('strict-risk routing fails closed without an independent evaluator', () => 
     () => generateContract('Change authentication permissions', config, 'strict-missing'),
     /requires agents\.strictEvaluator/,
   )
+
+  config.agents.strictEvaluator = {
+    type: 'codex',
+    model: 'gpt-5.6-sol',
+    readOnly: true,
+  }
+  assert.throws(
+    () => generateContract('Change authentication permissions', config, 'strict-same-provider'),
+    /different providers/,
+  )
 })
 
 test('worker prompts enforce bounded scope and concrete blockers', () => {

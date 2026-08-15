@@ -15,7 +15,7 @@ export function resolveEnabledGraders(
   }]
   const runtimeEvaluator = config.runtime?.agentOverrides?.evaluator
 
-  return rawGraders.map((grader) => {
+  const graders = rawGraders.map((grader) => {
     const configuredAgent = grader.agent ?? config.agents.evaluator
     const evaluatorOverride = grader.id === 'independent-risk-review'
       ? undefined
@@ -30,6 +30,14 @@ export function resolveEnabledGraders(
     if (grader.type === 'code-review' || !agent.workspace) agent.cwd = executionTarget
     return { ...grader, agent }
   })
+  const ordinary = graders.find((grader) => grader.id === 'code-review')
+  const independent = graders.find((grader) => grader.id === 'independent-risk-review')
+  if (ordinary && independent && ordinary.agent.type === independent.agent.type) {
+    throw new Error(
+      'Strict-risk work requires the ordinary and independent evaluators to use different providers.',
+    )
+  }
+  return graders
 }
 
 export async function preflightEnabledGraders(graders: Grader[]): Promise<void> {
