@@ -479,7 +479,7 @@ fi
       ticketDispatchEnabled: false,
       currentPrPaths: [],
     }
-    const contract = generateContract('Fixture task', config, 'fixture-repair-identity')
+    const contract = generateContract('Fixture UI task', config, 'fixture-repair-identity')
     contract.graders = [contract.graders[0]!]
     const result = await runExistingContract(
       contract,
@@ -565,7 +565,7 @@ fi
       ticketDispatchEnabled: false,
       currentPrPaths: [],
     }
-    const contract = generateContract('Fixture task', config, 'fixture-provenance')
+    const contract = generateContract('Fixture UI task', config, 'fixture-provenance')
     contract.graders = [contract.graders.find(grader => grader.type === 'ux')!]
 
     const result = await runExistingContract(

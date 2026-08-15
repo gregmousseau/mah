@@ -8,14 +8,25 @@ class ContextualAdapter implements AgentAdapter {
   constructor(
     private readonly delegate: AgentAdapter,
     readonly provider: AgentConfig['type'],
+    private readonly defaults: Pick<AgentConfig, 'reasoningEffort' | 'fastMode' | 'readOnly'>,
   ) {}
 
+  private withDefaults(options: ExecuteOptions): ExecuteOptions {
+    return {
+      ...options,
+      reasoningEffort: options.reasoningEffort ?? this.defaults.reasoningEffort,
+      fastMode: options.fastMode ?? this.defaults.fastMode,
+      readOnly: options.readOnly ?? this.defaults.readOnly,
+    }
+  }
+
   preflight(options: ExecuteOptions): Promise<void> {
-    return this.delegate.preflight?.(options) ?? Promise.resolve()
+    return this.delegate.preflight?.(this.withDefaults(options)) ?? Promise.resolve()
   }
 
   async execute(task: string, options: ExecuteOptions): Promise<AgentResult> {
-    return this.captureEvidence(await this.delegate.execute(withEvidenceRequest(task, options), options), options)
+    const effective = this.withDefaults(options)
+    return this.captureEvidence(await this.delegate.execute(withEvidenceRequest(task, effective), effective), effective)
   }
 
   executeWithAgent(
@@ -65,10 +76,15 @@ function withEvidenceRequest(task: string, options: ExecuteOptions): string {
 }
 
 export function createAgentAdapter(config: AgentConfig): ContextualAdapter {
-  if (config.type === 'codex') return new ContextualAdapter(new CodexAdapter(), 'codex')
-  if (config.type === 'kilo') return new ContextualAdapter(new KiloAdapter(), 'kilo')
-  if (config.type === 'openclaw') return new ContextualAdapter(new OpenClawGatewayAdapter(), 'openclaw')
-  if (config.type === 'claude-cli') return new ContextualAdapter(new OpenClawAdapter(), 'claude-cli')
+  const defaults = {
+    reasoningEffort: config.reasoningEffort,
+    fastMode: config.fastMode,
+    readOnly: config.readOnly,
+  }
+  if (config.type === 'codex') return new ContextualAdapter(new CodexAdapter(), 'codex', defaults)
+  if (config.type === 'kilo') return new ContextualAdapter(new KiloAdapter(), 'kilo', defaults)
+  if (config.type === 'openclaw') return new ContextualAdapter(new OpenClawGatewayAdapter(), 'openclaw', defaults)
+  if (config.type === 'claude-cli') return new ContextualAdapter(new OpenClawAdapter(), 'claude-cli', defaults)
   throw new Error(`No execution adapter is configured for provider "${config.type}"`)
 }
 

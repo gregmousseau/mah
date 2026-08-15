@@ -27,6 +27,71 @@ test('default code review uses the configured evaluator provider', () => {
   assert.equal(reviewer?.agent.model, 'subscription-default')
 })
 
+test('review routing scales deterministic graders to task risk and user visibility', () => {
+  const config: ProjectConfig = {
+    project: { name: 'Fixture', repo: '.' },
+    priorities: { speed: 1, quality: 2, cost: 3 },
+    agents: {
+      generator: { type: 'codex', model: 'gpt-5.6-terra' },
+      evaluator: { type: 'codex', model: 'gpt-5.6-terra', readOnly: true },
+      strictEvaluator: { type: 'claude-cli', model: 'claude-sonnet-4-6', readOnly: true },
+    },
+    qa: { defaultTier: 'targeted', maxIterations: 3, verdictMode: 'fail-closed' },
+    review: { defaultRisk: 'adaptive', browserQa: 'user-visible', maxMaterialFindings: 3 },
+    human: { notificationChannel: '', responseTimeoutMinutes: 30, onTimeout: 'pause', costThreshold: 40 },
+    metrics: { output: '.mah/metrics/' },
+    sprints: { directory: '.mah/sprints/' },
+  }
+
+  const routine = generateContract('Update an internal parser', config, 'routine')
+  assert.equal(routine.reviewProfile?.risk, 'routine')
+  assert.deepEqual(routine.graders.map(grader => grader.id), ['code-review'])
+
+  const visible = generateContract('Update the intake form UI', config, 'visible')
+  assert.equal(visible.reviewProfile?.browserQa, true)
+  assert.deepEqual(visible.graders.map(grader => grader.id), ['ux-quinn', 'code-review'])
+
+  const strict = generateContract('Fix authentication permission enforcement', config, 'strict')
+  assert.equal(strict.reviewProfile?.risk, 'strict')
+  assert.deepEqual(strict.graders.map(grader => grader.id), [
+    'code-review',
+    'independent-risk-review',
+  ])
+
+  const strictVisible = generateContract('Fix the authentication form UI', config, 'strict-visible')
+  assert.equal(strictVisible.qaBrief.tier, 'full')
+  assert.deepEqual(strictVisible.graders.map(grader => grader.id), [
+    'ux-quinn',
+    'code-review',
+    'independent-risk-review',
+  ])
+})
+
+test('worker prompts enforce bounded scope and concrete blockers', () => {
+  const config: ProjectConfig = {
+    project: { name: 'Fixture', repo: '.' },
+    priorities: { speed: 1, quality: 2, cost: 3 },
+    agents: {
+      generator: { type: 'codex', model: 'gpt-5.6-terra' },
+      evaluator: { type: 'codex', model: 'gpt-5.6-terra', readOnly: true },
+    },
+    qa: { defaultTier: 'targeted', maxIterations: 3, verdictMode: 'fail-closed' },
+    review: { defaultRisk: 'adaptive', browserQa: 'user-visible', maxMaterialFindings: 3 },
+    human: { notificationChannel: '', responseTimeoutMinutes: 30, onTimeout: 'pause', costThreshold: 40 },
+    metrics: { output: '.mah/metrics/' },
+    sprints: { directory: '.mah/sprints/' },
+  }
+  const contract = generateContract('Update the intake form UI', config, 'fixture')
+  const devPrompt = contractToDevPrompt(contract)
+  const qaPrompt = contractToQAPrompt(contract, 'done', 1)
+
+  assert.match(devPrompt, /Do not add pagination, caching, retries, abstractions/)
+  assert.match(devPrompt, /hypothetical concerns as non-blocking notes/i)
+  assert.match(qaPrompt, /at most 3 material findings/i)
+  assert.match(qaPrompt, /concrete execution path or reproduction/i)
+  assert.match(qaPrompt, /Follow-up.*Observation/s)
+})
+
 test('repair prompts bound oversized carried transcripts while preserving useful edges', () => {
   const config: ProjectConfig = {
     project: { name: 'Fixture', repo: '.' },

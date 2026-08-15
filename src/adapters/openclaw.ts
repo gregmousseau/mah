@@ -152,7 +152,9 @@ export class OpenClawAdapter implements AgentAdapter {
     const args = [
       '--print',
       '--model', model,
-      '--permission-mode', 'bypassPermissions',
+      '--no-session-persistence',
+      ...(options.reasoningEffort ? ['--effort', options.reasoningEffort] : []),
+      '--permission-mode', options.readOnly ? 'plan' : 'bypassPermissions',
     ]
 
     const spawnEnv = { ...process.env }

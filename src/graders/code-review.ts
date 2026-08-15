@@ -7,6 +7,7 @@ export function buildCodeReviewPrompt(
   devOutput: string,
   round: number
 ): string {
+  const maxFindings = contract.reviewProfile?.maxMaterialFindings ?? 3
   return `You are a senior software engineer performing a structured code review.
 
 ## Sprint: ${contract.name}
@@ -26,20 +27,24 @@ ${devOutput}
 
 Read the files mentioned in the developer's report and review the actual code changes. Do not just review the description — inspect the code itself.
 
-Review for:
-1. **Bug risks and logic errors** — off-by-one, null dereferences, wrong assumptions
-2. **Security vulnerabilities** — XSS, SQL/command injection, auth bypass, secrets in code
-3. **Performance issues** — N+1 queries, unnecessary re-renders, large synchronous operations, missing memoization
-4. **Code style and consistency** — naming, formatting, patterns inconsistent with the codebase
-5. **Missing error handling** — unhandled promise rejections, missing try/catch, unchecked nulls
-6. **Unnecessary complexity** — overengineered solutions, dead code, redundant abstractions
-7. **Test coverage gaps** — critical paths with no tests, edge cases not covered
+Review only for:
+1. **Incorrect requested behavior** — acceptance criteria are not met
+2. **Reachable regressions** — an existing production path demonstrably breaks
+3. **Security or data-loss risk** — concrete exploit, authorization failure, or integrity path
+4. **Failing required tests** — required deterministic verification fails or is missing for a critical path
+
+Do not request pagination, caching, retries, abstractions, compatibility layers,
+generalized scale handling, style cleanup, or speculative edge cases unless the
+task requires them, the repository already requires them, or a test/observed
+production condition demonstrates the need. Report credible out-of-scope work
+as Info, not as a blocking finding. Limit the entire report to the ${maxFindings}
+highest-value material findings.
 
 ## Severity Guide
 - **Critical** — will cause crashes, data loss, or security breaches in production
 - **Major** — likely to cause bugs or failures under normal usage
-- **Minor** — code quality issues, style problems, or minor inefficiencies
-- **Info** — observations, suggestions, or positive notes
+- **Minor** — reachable but non-blocking issue in requested behavior
+- **Info** — follow-up or observation; never returns the PR to implementation
 
 ## Required Output Format
 
@@ -106,9 +111,10 @@ outer MAH evaluator execution itself did not occur. Never use it for a product
 operation, cleanup, resume action, migration, or test that MAH failed to run.
 
 ## Verdict Rules
-- Any Critical finding → **FAIL**
-- Any Major finding (no Critical) → **CONDITIONAL**
-- Only Minor/Info findings → **PASS**
+- A Critical blocker with a concrete execution path → **FAIL**
+- A Major blocker with a concrete execution path (no Critical) → **CONDITIONAL**
+- Follow-ups and observations belong under Info and do not change a **PASS**
+- A hypothetical concern without a reproduction or reachable path cannot block
 
 Severity determines urgency. Scope relationship and release impact determine
 whether a finding belongs in the current delivery. Do not infer candidate

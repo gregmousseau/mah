@@ -19,6 +19,7 @@ test('Codex adapter uses activity-reset idle timeout, absolute ceiling, and boun
   const originalPath = process.env.PATH
   const originalBehavior = process.env.MAH_TEST_CODEX_BEHAVIOR
   const originalMarker = process.env.MAH_TEST_DESCENDANT_MARKER
+  const originalArgsPath = process.env.MAH_TEST_CODEX_ARGS
   try {
     const { mkdirSync } = await import('node:fs')
     mkdirSync(bin)
@@ -27,6 +28,7 @@ test('Codex adapter uses activity-reset idle timeout, absolute ceiling, and boun
     writeFileSync(executable, `#!/usr/bin/env bash
 set -eu
 output=""
+printf '%s\n' "$@" > "\${MAH_TEST_CODEX_ARGS:-/dev/null}"
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "--output-last-message" ]]; then
     output="$2"
@@ -76,6 +78,28 @@ esac
     chmodSync(executable, 0o755)
     process.env.PATH = `${bin}:${originalPath ?? ''}`
     const adapter = new CodexAdapter()
+
+    await t.test('execution applies model effort, standard speed, ephemeral sessions, and read-only review', async () => {
+      process.env.MAH_TEST_CODEX_BEHAVIOR = 'active'
+      const argsPath = join(root, 'args.log')
+      process.env.MAH_TEST_CODEX_ARGS = argsPath
+      const result = await adapter.execute('test', {
+        model: 'gpt-5.6-terra',
+        reasoningEffort: 'high',
+        fastMode: false,
+        readOnly: true,
+        cwd: root,
+        idleTimeoutMs: 150,
+        absoluteTimeoutMs: 1500,
+      })
+      assert.equal(result.success, true)
+      const args = readFileSync(argsPath, 'utf8')
+      assert.match(args, /model_reasoning_effort="high"/)
+      assert.match(args, /--disable\nfast_mode/)
+      assert.match(args, /--ephemeral/)
+      assert.match(args, /--sandbox\nread-only/)
+      delete process.env.MAH_TEST_CODEX_ARGS
+    })
 
     await t.test('active output can run beyond the idle duration', async () => {
       process.env.MAH_TEST_CODEX_BEHAVIOR = 'active'
@@ -159,6 +183,8 @@ esac
     else process.env.MAH_TEST_CODEX_BEHAVIOR = originalBehavior
     if (originalMarker === undefined) delete process.env.MAH_TEST_DESCENDANT_MARKER
     else process.env.MAH_TEST_DESCENDANT_MARKER = originalMarker
+    if (originalArgsPath === undefined) delete process.env.MAH_TEST_CODEX_ARGS
+    else process.env.MAH_TEST_CODEX_ARGS = originalArgsPath
     rmSync(root, { recursive: true, force: true })
   }
 })

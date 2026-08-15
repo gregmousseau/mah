@@ -1,11 +1,12 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import yaml from 'js-yaml'
-import type { ProjectConfig, VerdictMode } from './types.js'
+import type { ProjectConfig, ReasoningEffort, VerdictMode } from './types.js'
 
 const DEFAULTS: Partial<ProjectConfig> = {
   priorities: { speed: 1, quality: 2, cost: 3 },
   qa: { defaultTier: 'targeted', maxIterations: 3, verdictMode: 'fail-closed' },
+  review: { defaultRisk: 'adaptive', browserQa: 'user-visible', maxMaterialFindings: 3 },
   execution: {
     devIdleTimeoutMinutes: 12,
     devAbsoluteTimeoutMinutes: 45,
@@ -45,6 +46,9 @@ export interface NamedAgentConfig {
   role: 'generator' | 'evaluator' | 'researcher'
   specialty?: string
   model?: string
+  reasoningEffort?: ReasoningEffort
+  fastMode?: boolean
+  readOnly?: boolean
   type?: string
   cwd?: string
   workspace?: string
@@ -75,6 +79,9 @@ export function loadNamedAgents(configPath?: string): Map<string, NamedAgentConf
       role: v.role as NamedAgentConfig['role'],
       specialty: v.specialty as string | undefined,
       model: optionalNonEmptyString(v.model, `agents.${id}.model`),
+      reasoningEffort: optionalReasoningEffort(v.reasoningEffort, `agents.${id}.reasoningEffort`),
+      fastMode: optionalBoolean(v.fastMode, `agents.${id}.fastMode`),
+      readOnly: optionalBoolean(v.readOnly, `agents.${id}.readOnly`),
       type: optionalNonEmptyString(v.type, `agents.${id}.type`),
       cwd: v.cwd as string | undefined,
       workspace: v.workspace as string | undefined,
@@ -120,6 +127,8 @@ export function applyRuntimeAgentOverrides(
   const generatorCwd = runtimeOverride(runtimeEnv, 'MAH_GENERATOR_CWD')
   const evaluatorType = runtimeOverride(runtimeEnv, 'MAH_EVALUATOR_TYPE')
   const evaluatorModel = runtimeOverride(runtimeEnv, 'MAH_EVALUATOR_MODEL')
+  const generatorReasoning = runtimeOverride(runtimeEnv, 'MAH_GENERATOR_REASONING_EFFORT')
+  const evaluatorReasoning = runtimeOverride(runtimeEnv, 'MAH_EVALUATOR_REASONING_EFFORT')
   const generatorOverrides: NonNullable<NonNullable<ProjectConfig['runtime']>['agentOverrides']>['generator'] = {}
   const evaluatorOverrides: NonNullable<NonNullable<ProjectConfig['runtime']>['agentOverrides']>['evaluator'] = {}
 
@@ -135,17 +144,31 @@ export function applyRuntimeAgentOverrides(
     generator.cwd = generatorCwd
     generatorOverrides.cwd = generatorCwd
   }
+  if (generatorReasoning) {
+    generator.reasoningEffort = requireReasoningEffort(
+      generatorReasoning,
+      'MAH_GENERATOR_REASONING_EFFORT',
+    )
+    generatorOverrides.reasoningEffort = generator.reasoningEffort
+  }
   if (evaluatorType) {
     evaluator.type = evaluatorType as ProjectConfig['agents']['evaluator']['type']
   }
   if (evaluatorModel) {
     evaluator.model = evaluatorModel
   }
-  if (evaluatorType || evaluatorModel) {
+  if (evaluatorReasoning) {
+    evaluator.reasoningEffort = requireReasoningEffort(
+      evaluatorReasoning,
+      'MAH_EVALUATOR_REASONING_EFFORT',
+    )
+  }
+  if (evaluatorType || evaluatorModel || evaluatorReasoning) {
     // A resumed contract may contain an older provider/model pair. Any runtime
     // evaluator selection pins the complete resolved pair over that stale data.
     evaluatorOverrides.type = evaluator.type
     evaluatorOverrides.model = evaluator.model
+    if (evaluator.reasoningEffort) evaluatorOverrides.reasoningEffort = evaluator.reasoningEffort
   }
 
   const hasGeneratorOverrides = Object.keys(generatorOverrides).length > 0
@@ -153,7 +176,7 @@ export function applyRuntimeAgentOverrides(
 
   return {
     ...config,
-    agents: { generator, evaluator },
+    agents: { ...config.agents, generator, evaluator },
     ...(hasGeneratorOverrides || hasEvaluatorOverrides
       ? {
           runtime: {
@@ -183,6 +206,7 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
   const priorities = (raw.priorities as Record<string, number>) ?? {}
   const agents = (raw.agents as Record<string, unknown>) ?? {}
   const qa = (raw.qa as Record<string, unknown>) ?? {}
+  const review = (raw.review as Record<string, unknown>) ?? {}
   const execution = (raw.execution as Record<string, unknown>) ?? {}
   const findings = (raw.findings as Record<string, unknown>) ?? {}
   const human = (raw.human as Record<string, unknown>) ?? {}
@@ -202,11 +226,22 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
     agents: {
       generator: normalizeAgent(agents.generator, 'generator'),
       evaluator: normalizeAgent(agents.evaluator, 'evaluator'),
+      ...(agents.strictEvaluator
+        ? { strictEvaluator: normalizeAgent(agents.strictEvaluator, 'strictEvaluator') }
+        : {}),
     },
     qa: {
       defaultTier: (qa.defaultTier as 'smoke' | 'targeted' | 'full') ?? DEFAULTS.qa!.defaultTier,
       maxIterations: (qa.maxIterations as number) ?? DEFAULTS.qa!.maxIterations,
       verdictMode: resolveVerdictMode(qa.verdictMode as ProjectConfig['qa']['verdictMode']),
+    },
+    review: {
+      defaultRisk: (review.defaultRisk as NonNullable<ProjectConfig['review']>['defaultRisk'])
+        ?? DEFAULTS.review!.defaultRisk,
+      browserQa: (review.browserQa as NonNullable<ProjectConfig['review']>['browserQa'])
+        ?? DEFAULTS.review!.browserQa,
+      maxMaterialFindings: (review.maxMaterialFindings as number)
+        ?? DEFAULTS.review!.maxMaterialFindings,
     },
     execution: {
       devIdleTimeoutMinutes: (execution.devIdleTimeoutMinutes as number)
@@ -248,7 +283,7 @@ function applyDefaults(raw: Record<string, unknown>): ProjectConfig {
 
 function normalizeAgent(
   raw: unknown,
-  role: 'generator' | 'evaluator',
+  role: 'generator' | 'evaluator' | 'strictEvaluator',
 ): ProjectConfig['agents']['generator'] {
   if (!raw || typeof raw !== 'object') {
     throw new Error(`agents.${role} must be configured explicitly`)
@@ -263,6 +298,15 @@ function normalizeAgent(
   return {
     type,
     model,
+    ...(agent.reasoningEffort !== undefined
+      ? { reasoningEffort: optionalReasoningEffort(agent.reasoningEffort, `agents.${role}.reasoningEffort`) }
+      : {}),
+    ...(agent.fastMode !== undefined
+      ? { fastMode: optionalBoolean(agent.fastMode, `agents.${role}.fastMode`) }
+      : {}),
+    ...(agent.readOnly !== undefined
+      ? { readOnly: optionalBoolean(agent.readOnly, `agents.${role}.readOnly`) }
+      : {}),
     cwd: agent.cwd as string | undefined,
     workspace: agent.workspace as string | undefined,
     testUrl: agent.testUrl as string | undefined,
@@ -282,6 +326,24 @@ function optionalNonEmptyString(value: unknown, path: string): string | undefine
   return requireNonEmptyString(value, path)
 }
 
+function optionalBoolean(value: unknown, path: string): boolean | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'boolean') throw new Error(`${path} must be boolean`)
+  return value
+}
+
+function requireReasoningEffort(value: unknown, path: string): ReasoningEffort {
+  const effort = requireNonEmptyString(value, path) as ReasoningEffort
+  if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(effort)) {
+    throw new Error(`${path} must be low, medium, high, xhigh, or max`)
+  }
+  return effort
+}
+
+function optionalReasoningEffort(value: unknown, path: string): ReasoningEffort | undefined {
+  return value === undefined ? undefined : requireReasoningEffort(value, path)
+}
+
 function runtimeOverride(runtimeEnv: NodeJS.ProcessEnv, name: string): string | undefined {
   if (!(name in runtimeEnv)) return undefined
   return requireNonEmptyString(runtimeEnv[name], name)
@@ -298,8 +360,9 @@ function validate(config: ProjectConfig): void {
   }
 
   // Agent types must be supported
-  for (const role of ['generator', 'evaluator'] as const) {
+  for (const role of ['generator', 'evaluator', 'strictEvaluator'] as const) {
     const agent = config.agents[role]
+    if (!agent) continue
     if (!SUPPORTED_AGENT_TYPES.includes(agent.type)) {
       throw new Error(
         `Unsupported agent type "${agent.type}" for ${role}. Supported: ${SUPPORTED_AGENT_TYPES.join(', ')}`
@@ -316,6 +379,20 @@ function validate(config: ProjectConfig): void {
   }
   if (!['fail-closed', 'legacy'].includes(config.qa.verdictMode ?? '')) {
     throw new Error('qa.verdictMode must be "fail-closed" or "legacy"')
+  }
+  if (!config.review) throw new Error('review configuration was not resolved')
+  if (!['adaptive', 'routine', 'strict'].includes(config.review.defaultRisk)) {
+    throw new Error('review.defaultRisk must be "adaptive", "routine", or "strict"')
+  }
+  if (!['user-visible', 'always', 'never'].includes(config.review.browserQa)) {
+    throw new Error('review.browserQa must be "user-visible", "always", or "never"')
+  }
+  if (
+    !Number.isInteger(config.review.maxMaterialFindings)
+    || config.review.maxMaterialFindings < 1
+    || config.review.maxMaterialFindings > 3
+  ) {
+    throw new Error('review.maxMaterialFindings must be an integer from 1 to 3')
   }
   const execution = config.execution
   if (!execution) throw new Error('execution configuration was not resolved')

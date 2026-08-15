@@ -48,8 +48,46 @@ qa:
     devAbsoluteTimeoutMinutes: 45,
     transcriptMaxChars: 32_000,
   })
+  assert.deepEqual(loadConfig(defaultPath).review, {
+    defaultRisk: 'adaptive',
+    browserQa: 'user-visible',
+    maxMaterialFindings: 3,
+  })
   assert.equal(loadConfig(legacyPath).qa.verdictMode, 'legacy')
   assert.throws(() => loadConfig(invalidPath), /verdictMode/)
+})
+
+test('agent execution and risk-adjusted review settings are configurable and validated', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mah-review-config-'))
+  const path = join(root, 'mah.yaml')
+  const base = `
+project: { name: Fixture, repo: . }
+priorities: { speed: 1, quality: 2, cost: 3 }
+agents:
+  generator: { type: codex, model: gpt-5.6-terra, reasoningEffort: medium, fastMode: false }
+  evaluator: { type: codex, model: gpt-5.6-terra, reasoningEffort: high, fastMode: false, readOnly: true }
+  strictEvaluator: { type: claude-cli, model: claude-sonnet-4-6, reasoningEffort: high, readOnly: true }
+review:
+  defaultRisk: strict
+  browserQa: never
+  maxMaterialFindings: 2
+`
+  writeFileSync(path, base)
+  const config = loadConfig(path)
+  assert.equal(config.agents.generator.reasoningEffort, 'medium')
+  assert.equal(config.agents.generator.fastMode, false)
+  assert.equal(config.agents.evaluator.readOnly, true)
+  assert.equal(config.agents.strictEvaluator?.type, 'claude-cli')
+  assert.deepEqual(config.review, {
+    defaultRisk: 'strict',
+    browserQa: 'never',
+    maxMaterialFindings: 2,
+  })
+
+  writeFileSync(path, base.replace('reasoningEffort: medium', 'reasoningEffort: enormous'))
+  assert.throws(() => loadConfig(path), /reasoningEffort/)
+  writeFileSync(path, base.replace('maxMaterialFindings: 2', 'maxMaterialFindings: 4'))
+  assert.throws(() => loadConfig(path), /maxMaterialFindings/)
 })
 
 test('execution policy is configurable and rejects unsafe timeout shapes', () => {

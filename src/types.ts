@@ -29,6 +29,16 @@ export interface GraderResult {
 }
 
 export type VerdictMode = 'fail-closed' | 'legacy'
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+export type ReviewRisk = 'routine' | 'strict'
+
+export interface ReviewProfile {
+  risk: ReviewRisk
+  userVisible: boolean
+  browserQa: boolean
+  maxMaterialFindings: number
+  rationale: string[]
+}
 
 export interface DeliveryFailure {
   kind: 'product' | 'harness' | 'preflight' | 'identity'
@@ -109,11 +119,17 @@ export interface ProjectConfig {
   agents: {
     generator: AgentConfig
     evaluator: AgentConfig
+    strictEvaluator?: AgentConfig
   }
   qa: {
     defaultTier: 'smoke' | 'targeted' | 'full'
     maxIterations: number
     verdictMode?: VerdictMode
+  }
+  review?: {
+    defaultRisk: 'adaptive' | ReviewRisk
+    browserQa: 'user-visible' | 'always' | 'never'
+    maxMaterialFindings: number
   }
   execution?: {
     devIdleTimeoutMinutes: number
@@ -142,8 +158,8 @@ export interface ProjectConfig {
   }
   runtime?: {
     agentOverrides?: {
-      generator?: Partial<Pick<AgentConfig, 'type' | 'model' | 'cwd'>>
-      evaluator?: Partial<Pick<AgentConfig, 'type' | 'model'>>
+      generator?: Partial<Pick<AgentConfig, 'type' | 'model' | 'reasoningEffort' | 'cwd'>>
+      evaluator?: Partial<Pick<AgentConfig, 'type' | 'model' | 'reasoningEffort'>>
     }
   }
 }
@@ -151,6 +167,9 @@ export interface ProjectConfig {
 export interface AgentConfig {
   type: 'openclaw' | 'claude-cli' | 'codex' | 'kilo' | 'custom'
   model: string
+  reasoningEffort?: ReasoningEffort
+  fastMode?: boolean
+  readOnly?: boolean
   cwd?: string
   workspace?: string
   testUrl?: string
@@ -188,6 +207,7 @@ export interface SprintContract {
     evaluator: { agentId: string; agentName: string }
   }
   plannerOutput?: string  // The planner's reasoning for this sprint
+  reviewProfile?: ReviewProfile
   planId?: string         // Links sprints from the same plan
   devBrief: {
     repo: string
@@ -322,6 +342,9 @@ export interface AgentAdapter {
 
 export interface ExecuteOptions {
   model?: string
+  reasoningEffort?: ReasoningEffort
+  fastMode?: boolean
+  readOnly?: boolean
   cwd?: string
   workspace?: string
   label?: string

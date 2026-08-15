@@ -1,9 +1,54 @@
 import { randomUUID } from 'node:crypto'
-import type { SprintContract, ProjectConfig, Grader, Skill } from './types.js'
+import type { SprintContract, ProjectConfig, Grader, ReviewProfile, Skill } from './types.js'
 import type { ResolvedSkill } from './skills.js'
 import { budgetForContract } from './lib/qaTier.js'
 
 const REPAIR_CONTEXT_MAX_CHARS = 64_000
+
+const STRICT_REVIEW_SIGNALS = [
+  /\b(?:auth|authentication|authorization|permission|privacy|security)\b/i,
+  /\b(?:migration|data loss|data integrity|destructive|irreversible)\b/i,
+  /\b(?:concurren|idempoten|race condition|kill switch)\w*\b/i,
+  /\b(?:payment|billing|production|external send|client notification)\b/i,
+]
+
+const USER_VISIBLE_SIGNALS = [
+  /\b(?:ui|ux|page|route|form|modal|dialog|button|component|layout)\b/i,
+  /\b(?:browser|playwright|responsive|accessibility|visual|frontend)\b/i,
+]
+
+export function resolveReviewProfile(
+  task: string,
+  review: NonNullable<ProjectConfig['review']>,
+): ReviewProfile {
+  const strictSignal = STRICT_REVIEW_SIGNALS.find((signal) => signal.test(task))
+  const userVisibleSignal = USER_VISIBLE_SIGNALS.find((signal) => signal.test(task))
+  const risk = review.defaultRisk === 'adaptive'
+    ? strictSignal ? 'strict' : 'routine'
+    : review.defaultRisk
+  const userVisible = Boolean(userVisibleSignal)
+  const browserQa = review.browserQa === 'always'
+    || (review.browserQa === 'user-visible' && userVisible)
+
+  return {
+    risk,
+    userVisible,
+    browserQa,
+    maxMaterialFindings: review.maxMaterialFindings,
+    rationale: [
+      risk === 'strict'
+        ? strictSignal
+          ? `Strict-review signal matched: ${strictSignal.source}`
+          : 'Strict review is configured as the project default.'
+        : 'No strict-review signal matched.',
+      browserQa
+        ? userVisible
+          ? `User-visible signal matched: ${userVisibleSignal?.source ?? 'configured'}`
+          : 'Browser QA is configured for every sprint.'
+        : 'Browser QA is not required for this non-user-visible sprint.',
+    ],
+  }
+}
 
 export function generateContract(
   task: string,
@@ -16,14 +61,12 @@ export function generateContract(
     ? firstSentence.slice(0, 57) + '...'
     : firstSentence
 
+  const reviewProfile = resolveReviewProfile(task, config.review ?? {
+    defaultRisk: 'adaptive',
+    browserQa: 'user-visible',
+    maxMaterialFindings: 3,
+  })
   const defaultGraders: Grader[] = [
-    {
-      id: 'ux-quinn',
-      type: 'ux',
-      name: 'Quinn (UX)',
-      agent: config.agents.evaluator,
-      enabled: true,
-    },
     {
       id: 'code-review',
       type: 'code-review',
@@ -32,11 +75,30 @@ export function generateContract(
       enabled: true,
     },
   ]
+  if (reviewProfile.browserQa) {
+    defaultGraders.unshift({
+      id: 'ux-quinn',
+      type: 'ux',
+      name: 'Quinn (UX)',
+      agent: config.agents.evaluator,
+      enabled: true,
+    })
+  }
+  if (reviewProfile.risk === 'strict' && config.agents.strictEvaluator) {
+    defaultGraders.push({
+      id: 'independent-risk-review',
+      type: 'code-review',
+      name: 'Independent Risk Reviewer',
+      agent: config.agents.strictEvaluator,
+      enabled: true,
+    })
+  }
 
   return {
     id: sprintId,
     name,
     task,
+    reviewProfile,
     status: 'planned',
     graders: defaultGraders,
     devBrief: {
@@ -45,6 +107,9 @@ export function generateContract(
         'Maintain backward compatibility',
         'Follow existing code style and conventions',
         'Keep changes minimal and focused on the task',
+        'Implement only acceptance criteria and currently reachable production cases',
+        'Do not add pagination, caching, retries, abstractions, compatibility layers, or generalized scale handling without a requirement, repository convention, test, or observed condition',
+        'Use explicit task data bounds; when none are stated, preserve current behavior instead of inventing scale requirements',
       ],
       definitionOfDone: [
         'Feature is implemented and working',
@@ -54,7 +119,9 @@ export function generateContract(
       ],
     },
     qaBrief: {
-      tier: config.qa.defaultTier,
+      tier: reviewProfile.risk === 'strict' && reviewProfile.browserQa
+        ? 'full'
+        : config.qa.defaultTier,
       testUrl: config.agents.evaluator.testUrl ?? '',
       testFocus: [
         'Core functionality works as specified',
@@ -62,7 +129,7 @@ export function generateContract(
         'Edge cases are handled',
       ],
       passCriteria: [
-        'No P0 or P1 defects',
+        'No blocker for incorrect requested behavior, reachable regression, security/data-loss risk, or failing required test',
         'Application runs without errors',
         'Task requirements are met',
       ],
@@ -100,6 +167,12 @@ ${devBrief.definitionOfDone.map(d => `- ${d}`).join('\n')}
 Implement the following:
 
 ${contract.task}
+
+## Scope Policy
+- Implement only the acceptance criteria and currently reachable production cases.
+- Do not add pagination, caching, retries, abstractions, compatibility layers, or generalized scale handling unless the task, an existing repository convention, a failing test, or an observed condition requires it.
+- Treat hypothetical concerns as non-blocking notes. Do not implement them in this sprint.
+- Keep one write-capable owner for this worktree. Review and QA agents are read-only.
 
 When done, provide a completion report in this format:
 
@@ -143,6 +216,7 @@ export function contractToQAPrompt(
 
   const budget = budgetForContract(contract)
   const timeBudgetMin = Math.round(budget.timeoutMs / 60_000)
+  const maxFindings = contract.reviewProfile?.maxMaterialFindings ?? 3
 
   return `${skillBlocks}You are Quinn, a QA engineer. Evaluate the following development work.
 
@@ -171,6 +245,18 @@ ${devOutput}
 
 Review the developer's work against the task requirements and pass criteria.
 If you have access to a test URL or repo, verify the implementation directly.
+
+Only a concrete execution path or reproduction may block. A finding blocks only for:
+- incorrect requested behavior;
+- a reachable regression;
+- security or data-loss risk; or
+- a failing required test.
+
+Report at most ${maxFindings} material findings, choosing the highest-value ones. Classify
+each as Blocker (must fix in this sprint), Follow-up (credible but outside this sprint),
+or Observation (non-actionable). Only Blockers can fail the sprint. Omit speculative
+polish. Browser
+verification is required only when this contract includes the UX grader.
 
 Provide your QA report in this format:
 
@@ -241,10 +327,11 @@ ${boundedQAReport}
 
 ---
 
-Fix all issues identified by QA. Focus on:
-1. Resolving all P0 and P1 defects first (blockers)
-2. Addressing P2 defects if time permits
-3. Do not break anything that was previously working
+Fix only the current-PR blockers identified by the scoped QA repair brief. Focus on:
+1. Resolving each concrete blocker and its reproduction
+2. Leaving follow-ups and observations outside this sprint
+3. Avoiding unrelated polish, refactors, and speculative scale work
+4. Not breaking anything that was previously working
 
 When done, provide an updated completion report:
 

@@ -55,11 +55,19 @@ export class CodexAdapter implements AgentAdapter {
     const args = [
       'exec',
       '--model', model,
+      ...(options.reasoningEffort
+        ? ['--config', `model_reasoning_effort="${options.reasoningEffort}"`]
+        : []),
+      ...(options.fastMode === true
+        ? ['--enable', 'fast_mode', '--config', 'service_tier="fast"']
+        : options.fastMode === false
+          ? ['--disable', 'fast_mode']
+          : []),
       '--cd', cwd,
       '--ephemeral',
       '--color', 'never',
       '--output-last-message', outputPath,
-      ...(readOnly
+      ...(readOnly || options.readOnly
         ? ['--sandbox', 'read-only']
         : ['--dangerously-bypass-approvals-and-sandbox']),
       '-',

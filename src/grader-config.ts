@@ -36,6 +36,9 @@ export async function preflightEnabledGraders(graders: Grader[]): Promise<void> 
     const key = JSON.stringify({
       type: grader.agent.type,
       model: grader.agent.model,
+      reasoningEffort: grader.agent.reasoningEffort,
+      fastMode: grader.agent.fastMode,
+      readOnly: grader.agent.readOnly,
       cwd: grader.agent.cwd,
       workspace: grader.agent.workspace,
     })
