@@ -6,7 +6,7 @@ import { budgetForContract } from './lib/qaTier.js'
 const REPAIR_CONTEXT_MAX_CHARS = 64_000
 
 const STRICT_REVIEW_SIGNALS = [
-  /\b(?:auth|authentication|authorization|permission|privacy|security)\b/i,
+  /\b(?:auth\w*|log[ -]?in|session|credential\w*|secret\w*|token\w*|api[ -]?key\w*|permission|privacy|security)\b/i,
   /\b(?:migration|data loss|data integrity|destructive|irreversible)\b/i,
   /\b(?:concurren|idempoten|race condition|kill switch)\w*\b/i,
   /\b(?:payment|billing|production|external send|client notification)\b/i,

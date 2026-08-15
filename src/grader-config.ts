@@ -17,9 +17,12 @@ export function resolveEnabledGraders(
 
   return rawGraders.map((grader) => {
     const configuredAgent = grader.agent ?? config.agents.evaluator
+    const evaluatorOverride = grader.id === 'independent-risk-review'
+      ? undefined
+      : runtimeEvaluator
     const agent: AgentConfig = {
       ...configuredAgent,
-      ...(runtimeEvaluator ?? {}),
+      ...(evaluatorOverride ?? {}),
       // Review and QA workers inspect the candidate only. This invariant must
       // not depend on legacy/project configuration or a runtime override.
       readOnly: true,
@@ -35,6 +38,11 @@ export async function preflightEnabledGraders(graders: Grader[]): Promise<void> 
   for (const grader of graders) {
     if (grader.type !== 'ux' && grader.type !== 'code-review') {
       throw new Error(`Grader type "${grader.type}" has no execution adapter`)
+    }
+    if (grader.agent.type !== 'codex' && grader.agent.type !== 'claude-cli') {
+      throw new Error(
+        `Grader "${grader.id}" provider "${grader.agent.type}" cannot prove read-only execution; use codex or claude-cli`,
+      )
     }
     const key = JSON.stringify({
       type: grader.agent.type,

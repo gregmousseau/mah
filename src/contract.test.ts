@@ -75,6 +75,15 @@ test('review routing scales deterministic graders to task risk and user visibili
     'independent-risk-review',
   ])
   assert.ok(strictVisible.graders.every(grader => grader.agent.readOnly === true))
+
+  for (const task of [
+    'Fix login session handling',
+    'Rotate API credentials',
+    'Validate access tokens',
+    'Replace the API key',
+  ]) {
+    assert.equal(generateContract(task, config, task).reviewProfile?.risk, 'strict')
+  }
 })
 
 test('strict-risk routing fails closed without an independent evaluator', () => {

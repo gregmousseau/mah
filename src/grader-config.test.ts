@@ -69,6 +69,45 @@ test('grader-specific provider remains pinned when no runtime evaluator override
   assert.equal(graders[0]?.agent.readOnly, true)
 })
 
+test('runtime evaluator overrides never replace the independent strict reviewer', () => {
+  const config = fixtureConfig()
+  config.runtime = {
+    agentOverrides: {
+      evaluator: { type: 'codex', model: 'runtime-evaluator', reasoningEffort: 'medium' },
+    },
+  }
+  const contract = {
+    graders: [{
+      id: 'independent-risk-review',
+      type: 'code-review',
+      name: 'Independent Risk Reviewer',
+      enabled: true,
+      agent: { type: 'claude-cli', model: 'claude-sonnet-4-6', reasoningEffort: 'high' },
+    }],
+  } as SprintContract
+
+  const [grader] = resolveEnabledGraders(contract, config, '/canonical/worktree')
+  assert.equal(grader?.agent.type, 'claude-cli')
+  assert.equal(grader?.agent.model, 'claude-sonnet-4-6')
+  assert.equal(grader?.agent.reasoningEffort, 'high')
+  assert.equal(grader?.agent.readOnly, true)
+})
+
+test('grader preflight rejects gateway providers that cannot prove read-only execution', async () => {
+  for (const type of ['openclaw', 'kilo'] as const) {
+    await assert.rejects(
+      preflightEnabledGraders([{
+        id: `unsafe-${type}`,
+        type: 'code-review',
+        name: 'Unsafe reviewer',
+        enabled: true,
+        agent: { type, model: 'fixture', readOnly: true },
+      }]),
+      /cannot prove read-only execution/,
+    )
+  }
+})
+
 test('grader preflight fails before Dev when no grader is enabled', async () => {
   await assert.rejects(preflightEnabledGraders([]), /No enabled graders/)
 })
