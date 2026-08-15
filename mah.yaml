@@ -16,8 +16,15 @@ agents:
   evaluator:
     type: openclaw
     model: sonnet
+    readOnly: true
     workspace: ~/.openclaw/workspace-qa
     testUrl: http://localhost:3001
+  strictEvaluator:
+    type: claude-cli
+    model: claude-sonnet-4-6
+    reasoningEffort: high
+    fastMode: false
+    readOnly: true
 
   # Named agents with skills
   frankie:

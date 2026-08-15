@@ -24,6 +24,7 @@ test('runtime evaluator selection replaces stale resumed-contract provider and m
   assert.equal(graders[0]?.agent.type, 'codex')
   assert.equal(graders[0]?.agent.model, 'runtime-evaluator')
   assert.equal(graders[0]?.agent.cwd, '/canonical/worktree')
+  assert.equal(graders[0]?.agent.readOnly, true)
 })
 
 test('a model-only runtime override also pins the resolved evaluator provider', () => {
@@ -46,6 +47,7 @@ test('a model-only runtime override also pins the resolved evaluator provider', 
   const [grader] = resolveEnabledGraders(contract, config, '/canonical/worktree')
   assert.equal(grader?.agent.type, 'codex')
   assert.equal(grader?.agent.model, 'runtime-evaluator')
+  assert.equal(grader?.agent.readOnly, true)
 })
 
 test('grader-specific provider remains pinned when no runtime evaluator override exists', () => {
@@ -56,7 +58,7 @@ test('grader-specific provider remains pinned when no runtime evaluator override
       type: 'ux',
       name: 'UX Specialist',
       enabled: true,
-      agent: { type: 'claude-cli', model: 'specialist-model', workspace: '/qa' },
+      agent: { type: 'claude-cli', model: 'specialist-model', workspace: '/qa', readOnly: false },
     }],
   } as SprintContract
 
@@ -64,6 +66,7 @@ test('grader-specific provider remains pinned when no runtime evaluator override
   assert.equal(graders[0]?.agent.type, 'claude-cli')
   assert.equal(graders[0]?.agent.model, 'specialist-model')
   assert.equal(graders[0]?.agent.workspace, '/qa')
+  assert.equal(graders[0]?.agent.readOnly, true)
 })
 
 test('grader preflight fails before Dev when no grader is enabled', async () => {

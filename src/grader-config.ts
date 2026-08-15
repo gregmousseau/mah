@@ -20,6 +20,9 @@ export function resolveEnabledGraders(
     const agent: AgentConfig = {
       ...configuredAgent,
       ...(runtimeEvaluator ?? {}),
+      // Review and QA workers inspect the candidate only. This invariant must
+      // not depend on legacy/project configuration or a runtime override.
+      readOnly: true,
     }
     if (grader.type === 'code-review' || !agent.workspace) agent.cwd = executionTarget
     return { ...grader, agent }

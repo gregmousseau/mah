@@ -15,6 +15,8 @@ const STRICT_REVIEW_SIGNALS = [
 const USER_VISIBLE_SIGNALS = [
   /\b(?:ui|ux|page|route|form|modal|dialog|button|component|layout)\b/i,
   /\b(?:browser|playwright|responsive|accessibility|visual|frontend)\b/i,
+  /\b(?:dark mode|theme|toast|navigation|navbar|header|footer|sidebar|menu|dropdown|tooltip|tab|banner)\b/i,
+  /\b(?:screen|view|card|table|icon|animation|loading|empty state|error message|styling|colour|color)\b/i,
 ]
 
 export function resolveReviewProfile(
@@ -71,7 +73,7 @@ export function generateContract(
       id: 'code-review',
       type: 'code-review',
       name: 'Code Reviewer',
-      agent: { ...config.agents.evaluator },
+      agent: { ...config.agents.evaluator, readOnly: true },
       enabled: true,
     },
   ]
@@ -80,16 +82,21 @@ export function generateContract(
       id: 'ux-quinn',
       type: 'ux',
       name: 'Quinn (UX)',
-      agent: config.agents.evaluator,
+      agent: { ...config.agents.evaluator, readOnly: true },
       enabled: true,
     })
   }
-  if (reviewProfile.risk === 'strict' && config.agents.strictEvaluator) {
+  if (reviewProfile.risk === 'strict' && !config.agents.strictEvaluator) {
+    throw new Error(
+      'Strict-risk work requires agents.strictEvaluator; independent review cannot be skipped.',
+    )
+  }
+  if (reviewProfile.risk === 'strict') {
     defaultGraders.push({
       id: 'independent-risk-review',
       type: 'code-review',
       name: 'Independent Risk Reviewer',
-      agent: config.agents.strictEvaluator,
+      agent: { ...config.agents.strictEvaluator!, readOnly: true },
       enabled: true,
     })
   }

@@ -25,6 +25,7 @@ test('default code review uses the configured evaluator provider', () => {
   const reviewer = contract.graders.find(grader => grader.type === 'code-review')
   assert.equal(reviewer?.agent.type, 'kilo')
   assert.equal(reviewer?.agent.model, 'subscription-default')
+  assert.equal(reviewer?.agent.readOnly, true)
 })
 
 test('review routing scales deterministic graders to task risk and user visibility', () => {
@@ -51,6 +52,14 @@ test('review routing scales deterministic graders to task risk and user visibili
   assert.equal(visible.reviewProfile?.browserQa, true)
   assert.deepEqual(visible.graders.map(grader => grader.id), ['ux-quinn', 'code-review'])
 
+  for (const task of [
+    'Add dark mode',
+    'Show a toast after saving',
+    'Change the navigation header',
+  ]) {
+    assert.equal(generateContract(task, config, task).reviewProfile?.browserQa, true)
+  }
+
   const strict = generateContract('Fix authentication permission enforcement', config, 'strict')
   assert.equal(strict.reviewProfile?.risk, 'strict')
   assert.deepEqual(strict.graders.map(grader => grader.id), [
@@ -65,6 +74,28 @@ test('review routing scales deterministic graders to task risk and user visibili
     'code-review',
     'independent-risk-review',
   ])
+  assert.ok(strictVisible.graders.every(grader => grader.agent.readOnly === true))
+})
+
+test('strict-risk routing fails closed without an independent evaluator', () => {
+  const config: ProjectConfig = {
+    project: { name: 'Fixture', repo: '.' },
+    priorities: { speed: 1, quality: 2, cost: 3 },
+    agents: {
+      generator: { type: 'codex', model: 'gpt-5.6-terra' },
+      evaluator: { type: 'codex', model: 'gpt-5.6-terra' },
+    },
+    qa: { defaultTier: 'targeted', maxIterations: 3, verdictMode: 'fail-closed' },
+    review: { defaultRisk: 'adaptive', browserQa: 'user-visible', maxMaterialFindings: 3 },
+    human: { notificationChannel: '', responseTimeoutMinutes: 30, onTimeout: 'pause', costThreshold: 40 },
+    metrics: { output: '.mah/metrics/' },
+    sprints: { directory: '.mah/sprints/' },
+  }
+
+  assert.throws(
+    () => generateContract('Change authentication permissions', config, 'strict-missing'),
+    /requires agents\.strictEvaluator/,
+  )
 })
 
 test('worker prompts enforce bounded scope and concrete blockers', () => {

@@ -71,8 +71,18 @@ program
         project: { name, repo },
         priorities: { speed, quality, cost },
         agents: {
-          generator: { type: 'codex', model: 'gpt-5.6-sol', cwd: repo },
-          evaluator: { type: 'codex', model: 'gpt-5.6-sol' },
+          generator: {
+            type: 'codex', model: 'gpt-5.6-terra', reasoningEffort: 'medium',
+            fastMode: false, readOnly: false, cwd: repo,
+          },
+          evaluator: {
+            type: 'codex', model: 'gpt-5.6-terra', reasoningEffort: 'high',
+            fastMode: false, readOnly: true,
+          },
+          strictEvaluator: {
+            type: 'claude-cli', model: 'claude-sonnet-4-6',
+            reasoningEffort: 'high', fastMode: false, readOnly: true,
+          },
         },
         qa: { defaultTier: 'targeted', maxIterations: 3 },
         human: {
